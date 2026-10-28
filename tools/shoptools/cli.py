@@ -7,6 +7,7 @@ Commands not built yet exit with code 1 and name the task that will implement th
 from __future__ import annotations
 
 import argparse
+import subprocess
 import sys
 from collections.abc import Callable, Sequence
 
@@ -58,11 +59,21 @@ def _run_doctor(namespace: argparse.Namespace) -> int:
     return run_doctor(namespace.section, as_json=namespace.json, verbose=namespace.verbose, fix=namespace.fix)
 
 
+def _add_no_arguments(parser: argparse.ArgumentParser) -> None:
+    pass
+
+
+def _run_lint(namespace: argparse.Namespace) -> int:
+    # Same command as the CI `lint` job, run with this environment's pre-commit (pinned in uv.lock).
+    return subprocess.run([sys.executable, "-m", "pre_commit", "run", "--all-files"], check=False).returncode
+
+
 # command -> (function adding its arguments, function running it)
 IMPLEMENTED_COMMANDS: dict[
     str, tuple[Callable[[argparse.ArgumentParser], None], Callable[[argparse.Namespace], int]]
 ] = {
     "doctor": (_add_doctor_arguments, _run_doctor),
+    "lint": (_add_no_arguments, _run_lint),
 }
 
 
