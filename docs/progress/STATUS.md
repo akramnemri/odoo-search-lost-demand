@@ -4,8 +4,8 @@ Updated: 2026-10-28 by agent session 1 (Tasks 0.1–0.2)
 
 ## Current position
 - Milestone: M0 — Environment bootstrap & repository foundation
-- Task: 0.4 — Repository scaffold — state: awaiting manual test
-- Branch / PR: `chore/repo-scaffold` — https://github.com/akramnemri/odoo-search-lost-demand/pull/3
+- Task: 0.5 — `shop doctor` and bootstrap scripts — state: planned (plan posted, waiting for "go")
+- Branch / PR: none open
 - Repository: https://github.com/akramnemri/odoo-search-lost-demand (public), created 2026-10-28
 
 ## Environment
@@ -34,6 +34,7 @@ Updated: 2026-10-28 by agent session 1 (Tasks 0.1–0.2)
 - 0.1 — Machine inventory (read-only) — confirmed by the supervisor 2026-10-28 (no PR: done before the repository existed)
 - 0.2 — Version matrix, ADR-001…018, STATUS, glossary — approved and merged 2026-10-28 (PR #1, squash, merged by the agent on the supervisor's instruction)
 - 0.3 — Install and configure prerequisites (uv, Python 3.12, ENVIRONMENT.md) — manual test passed, merged 2026-10-28 (PR #2, merged by the agent on the supervisor's instruction)
+- 0.4 — Repository scaffold, uv project, `shop` CLI skeleton, pre-commit, LGPL-3.0, spec PDF — manual test passed, merged 2026-10-28 (PR #3, merged by the agent on the supervisor's instruction)
 
 ## Latest results
 - none
@@ -59,11 +60,10 @@ Updated: 2026-10-28 by agent session 1 (Tasks 0.1–0.2)
 - Docker memory 7.76 GiB is at the low edge of `standard` and shared with another project's containers
 - Python 3.12 inside the Odoo image is inferred from `ubuntu:noble`; confirm at the first image pull (Task 1.1)
 - XML-RPC/JSON-RPC deprecation timeline not re-verified (before Task 1.2)
-- Spec PDF not yet in `docs/sources/`
+- The specification lists two authors (@khalil, Akram): team composition (solo or pair) not yet recorded (`01` §16 Q1)
 
 ## Waiting on human / supervisor
-- Manual test of Task 0.4 (PR #3): fresh clone → `uv sync` → `uv run shop --help` → `uv run pre-commit run --all-files`
-- Spec PDF for `docs/sources/` (check it contains nothing private: the repository is public)
+- "go" for the Task 0.5 plan
 
 ## Next step (exact)
-- After PR #3 is merged: Task 0.5 — `shop doctor` (sections machine, tools, docker, ports, repo) and bootstrap scripts
+- Task 0.5 on `chore/doctor` — `shop doctor` (sections machine, tools, docker, ports, repo) and bootstrap scripts
