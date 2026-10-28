@@ -27,8 +27,22 @@ def test_version_matches_package_metadata(capsys: pytest.CaptureFixture[str]) ->
 
 
 def test_placeholder_command_fails_and_names_its_task(capsys: pytest.CaptureFixture[str]) -> None:
-    assert main(["doctor", "--section", "machine"]) == 1
-    assert "planned in Task 0.5" in capsys.readouterr().err
+    assert main(["replay", "--from", "2019-10-01"]) == 1
+    assert "planned in Task 7.3" in capsys.readouterr().err
+
+
+def test_doctor_rejects_unknown_options() -> None:
+    with pytest.raises(SystemExit) as exit_info:
+        main(["doctor", "--sectoin", "machine"])
+
+    assert exit_info.value.code == 2
+
+
+def test_doctor_rejects_unknown_sections() -> None:
+    with pytest.raises(SystemExit) as exit_info:
+        main(["doctor", "--section", "network"])
+
+    assert exit_info.value.code == 2
 
 
 def test_unknown_command_is_a_usage_error() -> None:

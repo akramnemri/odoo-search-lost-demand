@@ -1,16 +1,17 @@
 # STATUS
 
-Updated: 2026-10-28 by agent session 1 (Tasks 0.1–0.2)
+Updated: 2026-10-28 by agent session 1 (Tasks 0.1–0.5)
 
 ## Current position
 - Milestone: M0 — Environment bootstrap & repository foundation
-- Task: 0.5 — `shop doctor` and bootstrap scripts — state: planned (plan posted, waiting for "go")
+- Task: 0.6 — CI and GitHub hygiene [HUMAN] — state: planned (plan posted, waiting for "go")
 - Branch / PR: none open
 - Repository: https://github.com/akramnemri/odoo-search-lost-demand (public), created 2026-10-28
 
 ## Environment
-- Doctor: not built yet (Task 0.5). Inventory: `local/machine-report.md` (git-ignored), 2026-10-28
-- RAM profile: `standard` (15.7 GB RAM). Docker gets 7.76 GiB / 4 CPUs (`.wslconfig` memory=8GB), shared with another
+- Doctor: OK — 30 OK, 5 WARN (4 stack images not pulled yet, `.odoo-src/` missing: both expected before M1), 0 FAIL,
+  6 SKIP — run on 2026-10-28. Inventory: `local/machine-report.md` (git-ignored)
+- RAM profile: `standard` (16.9 GB RAM; Docker 8.3 GB, decimal GB as in the docs). Docker has 4 CPUs (`.wslconfig` memory=8GB), shared with another
   project's running stack (~0.4 GB used, ~2.4 GB of limits). Measure real usage in Task 1.1 before changing anything
 - Stack versions: `docs/setup/VERSIONS.md` (approved 2026-10-28)
 - Tools: Git 2.51, Git LFS 3.7, gh 2.102 (logged in), uv 0.13.6, Docker Desktop 4.60.1 (Compose v5.0.2), WSL 2.6.3,
@@ -35,6 +36,7 @@ Updated: 2026-10-28 by agent session 1 (Tasks 0.1–0.2)
 - 0.2 — Version matrix, ADR-001…018, STATUS, glossary — approved and merged 2026-10-28 (PR #1, squash, merged by the agent on the supervisor's instruction)
 - 0.3 — Install and configure prerequisites (uv, Python 3.12, ENVIRONMENT.md) — manual test passed, merged 2026-10-28 (PR #2, merged by the agent on the supervisor's instruction)
 - 0.4 — Repository scaffold, uv project, `shop` CLI skeleton, pre-commit, LGPL-3.0, spec PDF — manual test passed, merged 2026-10-28 (PR #3, merged by the agent on the supervisor's instruction)
+- 0.5 — `shop doctor` (machine, tools, docker, ports, repo), bootstrap scripts, TROUBLESHOOTING.md — manual test passed, merged 2026-10-28 (PR #4, merged by the agent on the supervisor's instruction)
 
 ## Latest results
 - none
@@ -63,7 +65,7 @@ Updated: 2026-10-28 by agent session 1 (Tasks 0.1–0.2)
 - The specification lists two authors (@khalil, Akram): team composition (solo or pair) not yet recorded (`01` §16 Q1)
 
 ## Waiting on human / supervisor
-- "go" for the Task 0.5 plan
+- "go" for the Task 0.6 plan, and its repository-settings decisions
 
 ## Next step (exact)
-- Task 0.5 on `chore/doctor` — `shop doctor` (sections machine, tools, docker, ports, repo) and bootstrap scripts
+- Task 0.6 on `chore/ci` — CI (`lint` and `tools` jobs), `shop lint`, repository settings

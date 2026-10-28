@@ -8,9 +8,10 @@ from __future__ import annotations
 
 import argparse
 import sys
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 
 from shoptools import __version__
+from shoptools.doctor.report import SECTIONS, run_doctor
 
 # command -> (help text, roadmap task that implements it; see docs/ai/05_ROADMAP.md)
 PLANNED_COMMANDS: dict[str, tuple[str, str]] = {
@@ -37,6 +38,34 @@ PLANNED_COMMANDS: dict[str, tuple[str, str]] = {
 }
 
 
+def _add_doctor_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--section",
+        action="append",
+        choices=SECTIONS,
+        help="check only this section (repeatable); default: all",
+    )
+    parser.add_argument("--json", action="store_true", help="print the report as JSON")
+    parser.add_argument(
+        "--verbose", "-v", action="store_true", help="show expected values and hints for every line"
+    )
+    parser.add_argument(
+        "--fix", action="store_true", help="offer safe repository-level fixes, asking before each one"
+    )
+
+
+def _run_doctor(namespace: argparse.Namespace) -> int:
+    return run_doctor(namespace.section, as_json=namespace.json, verbose=namespace.verbose, fix=namespace.fix)
+
+
+# command -> (function adding its arguments, function running it)
+IMPLEMENTED_COMMANDS: dict[
+    str, tuple[Callable[[argparse.ArgumentParser], None], Callable[[argparse.Namespace], int]]
+] = {
+    "doctor": (_add_doctor_arguments, _run_doctor),
+}
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="shop",
@@ -45,7 +74,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     subparsers = parser.add_subparsers(dest="command", metavar="<command>")
     for name, (help_text, task) in PLANNED_COMMANDS.items():
-        subparsers.add_parser(name, help=f"{help_text} [Task {task}]")
+        command = subparsers.add_parser(name, help=f"{help_text} [Task {task}]")
+        if name in IMPLEMENTED_COMMANDS:
+            add_arguments, _ = IMPLEMENTED_COMMANDS[name]
+            add_arguments(command)
     return parser
 
 
@@ -53,11 +85,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     # Placeholders accept any arguments, so the message names the missing task instead of a usage error.
     namespace, extra_args = parser.parse_known_args(argv)
+    implemented = IMPLEMENTED_COMMANDS.get(namespace.command)
+    if extra_args and (namespace.command is None or implemented is not None):
+        parser.error(f"unrecognized arguments: {' '.join(extra_args)}")
     if namespace.command is None:
-        if extra_args:
-            parser.error(f"unrecognized arguments: {' '.join(extra_args)}")
         parser.print_help()
         return 0
+    if implemented is not None:
+        _, run = implemented
+        return run(namespace)
 
     _, task = PLANNED_COMMANDS[namespace.command]
     print(
