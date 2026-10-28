@@ -4,8 +4,8 @@ Updated: 2026-10-28 by agent session 1 (Tasks 0.1–0.5)
 
 ## Current position
 - Milestone: M0 — Environment bootstrap & repository foundation
-- Task: 0.5 — `shop doctor` and bootstrap scripts — state: awaiting manual test
-- Branch / PR: `chore/doctor` — https://github.com/akramnemri/odoo-search-lost-demand/pull/4
+- Task: 0.6 — CI and GitHub hygiene [HUMAN] — state: planned (plan posted, waiting for "go")
+- Branch / PR: none open
 - Repository: https://github.com/akramnemri/odoo-search-lost-demand (public), created 2026-10-28
 
 ## Environment
@@ -36,6 +36,7 @@ Updated: 2026-10-28 by agent session 1 (Tasks 0.1–0.5)
 - 0.2 — Version matrix, ADR-001…018, STATUS, glossary — approved and merged 2026-10-28 (PR #1, squash, merged by the agent on the supervisor's instruction)
 - 0.3 — Install and configure prerequisites (uv, Python 3.12, ENVIRONMENT.md) — manual test passed, merged 2026-10-28 (PR #2, merged by the agent on the supervisor's instruction)
 - 0.4 — Repository scaffold, uv project, `shop` CLI skeleton, pre-commit, LGPL-3.0, spec PDF — manual test passed, merged 2026-10-28 (PR #3, merged by the agent on the supervisor's instruction)
+- 0.5 — `shop doctor` (machine, tools, docker, ports, repo), bootstrap scripts, TROUBLESHOOTING.md — manual test passed, merged 2026-10-28 (PR #4, merged by the agent on the supervisor's instruction)
 
 ## Latest results
 - none
@@ -64,7 +65,7 @@ Updated: 2026-10-28 by agent session 1 (Tasks 0.1–0.5)
 - The specification lists two authors (@khalil, Akram): team composition (solo or pair) not yet recorded (`01` §16 Q1)
 
 ## Waiting on human / supervisor
-- Manual test of Task 0.5 (PR #4)
+- "go" for the Task 0.6 plan, and its repository-settings decisions
 
 ## Next step (exact)
-- After PR #4 is merged: Task 0.6 — CI (`lint` and `tools` jobs) and GitHub hygiene [HUMAN: repository settings]
+- Task 0.6 on `chore/ci` — CI (`lint` and `tools` jobs), `shop lint`, repository settings
