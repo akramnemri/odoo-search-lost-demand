@@ -3,7 +3,7 @@
 Act as the senior engineer responsible for keeping the repository stable and the demo always working
 while development progresses.
 
-Repository: `<REPO_URL>` (fill in during Task 0.4). Treat it as **public**: anything committed is visible to everyone.
+Repository: https://github.com/akramnemri/odoo-search-lost-demand. Treat it as **public**: anything committed is visible to everyone.
 
 There are no servers in this project. "Environments" are: each developer's laptop, GitHub Actions CI, and the demo laptop.
 

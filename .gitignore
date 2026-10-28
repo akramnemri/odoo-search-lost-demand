@@ -1,2 +1,42 @@
-# Machine report and scratch files (never committed)
+# Machine report, scratch files and local snapshots (never committed)
 local/
+
+# Odoo source copy for reading (docs/ai/06_ENVIRONMENT_SETUP.md §5)
+.odoo-src/
+
+# Secrets: only the template is committed
+.env
+.env.*
+!.env.example
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+
+# Datasets: never committed, except the instructions and the manifest (ADR-012)
+data/*
+!data/README.md
+!data/manifest.toml
+
+# Run outputs: raw runs stay local, small summaries are committed
+results/*
+!results/summary/
+*.parquet
+
+# Database dumps and snapshots
+*.dump
+*.sql
+*.sql.gz
+*.backup
+
+# IDE and OS
+.idea/
+.vscode/
+Thumbs.db
+.DS_Store

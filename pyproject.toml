@@ -1,0 +1,41 @@
+[project]
+name = "shoptools"
+version = "0.1.0"
+description = "Command-line tools for the Odoo search and lost-demand project: doctor, data, import, replay, evaluation"
+readme = "README.md"
+license = "LGPL-3.0-only"
+license-files = ["LICENSE", "COPYING"]
+# Same Python minor as the pinned Odoo image (ADR-011, docs/setup/VERSIONS.md).
+requires-python = ">=3.12,<3.13"
+dependencies = []
+
+[project.scripts]
+shop = "shoptools.cli:main"
+
+# Other groups (data, load, eval, semantic) are added by the task that first needs them.
+[dependency-groups]
+dev = [
+  "pre-commit==4.7.0",
+  "pytest==9.2.0",
+  "ruff==0.17.3",
+]
+
+[build-system]
+requires = ["uv_build>=0.13.6,<0.14"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-root = "tools"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 110
+src = ["tools"]
+extend-exclude = [".odoo-src", "data", "results", "local"]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "UP", "SIM"]
+
+[tool.pytest.ini_options]
+testpaths = ["tools/tests"]
+addopts = "-ra"

@@ -4,8 +4,8 @@ Updated: 2026-10-28 by agent session 1 (Tasks 0.1–0.2)
 
 ## Current position
 - Milestone: M0 — Environment bootstrap & repository foundation
-- Task: 0.4 — Repository scaffold — state: planned (needs the code license decision)
-- Branch / PR: none open
+- Task: 0.4 — Repository scaffold — state: awaiting manual test
+- Branch / PR: `chore/repo-scaffold` — https://github.com/akramnemri/odoo-search-lost-demand/pull/3
 - Repository: https://github.com/akramnemri/odoo-search-lost-demand (public), created 2026-10-28
 
 ## Environment
@@ -43,6 +43,9 @@ Updated: 2026-10-28 by agent session 1 (Tasks 0.1–0.2)
 - 2026-10-28 — Repository stays on the Windows drive, not the WSL file system (supervisor; consequence in ADR-014)
 - 2026-10-28 — Native Odoo 17 service stopped and set to Manual to free port 8069 (supervisor)
 - 2026-10-28 — No global git changes and no `.wslconfig` change (protect other repositories and the other Docker stack)
+- 2026-10-28 — Code license LGPL-3.0-only (supervisor); `LICENSE` (LGPL-3.0) + `COPYING` (GPL-3.0) from gnu.org
+- 2026-10-28 — Tooling: uv project `shoptools` (uv_build backend, `module-root = "tools"`), argparse CLI (no dependency),
+  pre-commit with ruff + pre-commit-hooks + detect-secrets (pure Python; gitleaks would need Go or Docker)
 - 2026-10-28 — Version table approved (ADR-018): Odoo 19.0-20261015, PostgreSQL 16.15, Elastic 9.5.5, client 9.5.1, Python 3.12
 - 2026-10-28 — PostgreSQL 16 kept (supervisor)
 - 2026-10-28 — Docker Desktop stays at 4.60.1, no update (supervisor: protect the other project's stack)
@@ -59,8 +62,8 @@ Updated: 2026-10-28 by agent session 1 (Tasks 0.1–0.2)
 - Spec PDF not yet in `docs/sources/`
 
 ## Waiting on human / supervisor
-- Code license for the repository (Task 0.4); spec PDF for `docs/sources/`
-- "go" for the Task 0.4 plan
+- Manual test of Task 0.4 (PR #3): fresh clone → `uv sync` → `uv run shop --help` → `uv run pre-commit run --all-files`
+- Spec PDF for `docs/sources/` (check it contains nothing private: the repository is public)
 
 ## Next step (exact)
-- Task 0.4 — repository scaffold on `chore/repo-scaffold`, once the code license is chosen
+- After PR #3 is merged: Task 0.5 — `shop doctor` (sections machine, tools, docker, ports, repo) and bootstrap scripts
