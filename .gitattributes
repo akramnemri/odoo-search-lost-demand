@@ -1,0 +1,13 @@
+# LF everywhere, including on Windows: containers fail on CRLF shell scripts and Dockerfiles.
+* text=auto eol=lf
+
+# Binary files: never converted or diffed as text
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.gz binary
+*.parquet binary
