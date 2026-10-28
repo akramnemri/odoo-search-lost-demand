@@ -1,6 +1,6 @@
 # Machine-readable pinned versions, read by `uv run shop doctor`.
 # Keep in sync with docs/setup/VERSIONS.md (the human-readable source of truth, with sources and dates).
-# Status: PROPOSED (Task 0.2), verified 2026-10-28.
+# Status: APPROVED 2026-10-28 (Task 0.2), verified 2026-10-28.
 
 [stack]
 odoo_image = "odoo:19.0-20261015"
