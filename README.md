@@ -1,5 +1,7 @@
 # Search and lost-demand analysis for an Odoo online shop
 
+[![CI](https://github.com/akramnemri/odoo-search-lost-demand/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/akramnemri/odoo-search-lost-demand/actions/workflows/ci.yml)
+
 Final-year project (ERP + Big Data). An Odoo 19 Community shop whose search runs on Elasticsearch, and which turns
 every search, click, add-to-cart and purchase into restocking decisions inside Odoo.
 
@@ -19,7 +21,8 @@ uv sync
 uv run shop --help
 uv run pytest
 uv run pre-commit install
-uv run pre-commit run --all-files
+uv run shop lint
+uv run shop doctor
 ```
 
 Prerequisites and pinned versions: [`docs/setup/VERSIONS.md`](docs/setup/VERSIONS.md);

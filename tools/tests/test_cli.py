@@ -1,3 +1,6 @@
+import subprocess
+import sys
+
 import pytest
 
 from shoptools import __version__
@@ -57,3 +60,16 @@ def test_unknown_option_without_command_is_a_usage_error() -> None:
         main(["--no-such-option"])
 
     assert exit_info.value.code == 2
+
+
+def test_lint_runs_pre_commit_on_all_files_and_returns_its_exit_code(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[list[str]] = []
+
+    def fake_run(command: list[str], check: bool) -> subprocess.CompletedProcess[str]:
+        calls.append(command)
+        return subprocess.CompletedProcess(command, returncode=1)
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    assert main(["lint"]) == 1
+    assert calls == [[sys.executable, "-m", "pre_commit", "run", "--all-files"]]
