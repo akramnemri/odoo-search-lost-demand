@@ -1,11 +1,11 @@
 # STATUS
 
-Updated: 2026-10-28 by agent session 1 (Tasks 0.1–0.5)
+Updated: 2026-10-28 by agent session 1 (Tasks 0.1–0.6)
 
 ## Current position
 - Milestone: M0 — Environment bootstrap & repository foundation
-- Task: 0.6 — CI and GitHub hygiene [HUMAN] — state: planned (plan posted, waiting for "go")
-- Branch / PR: none open
+- Task: 0.6 — CI and GitHub hygiene — state: awaiting manual test
+- Branch / PR: `chore/ci` — https://github.com/akramnemri/odoo-search-lost-demand/pull/5 (demo PR #6 `test/ci-lint-failure`: draft, closed without merging after the test)
 - Repository: https://github.com/akramnemri/odoo-search-lost-demand (public), created 2026-10-28
 
 ## Environment
@@ -47,6 +47,10 @@ Updated: 2026-10-28 by agent session 1 (Tasks 0.1–0.5)
 - 2026-10-28 — Native Odoo 17 service stopped and set to Manual to free port 8069 (supervisor)
 - 2026-10-28 — No global git changes and no `.wslconfig` change (protect other repositories and the other Docker stack)
 - 2026-10-28 — Code license LGPL-3.0-only (supervisor); `LICENSE` (LGPL-3.0) + `COPYING` (GPL-3.0) from gnu.org
+- 2026-10-28 — GitHub settings applied by the agent with `gh` (supervisor-approved): default branch `develop`;
+  ruleset "protect main and develop" (PR required, 0 approvals, required checks `lint`, `tools (ubuntu-24.04)`,
+  `tools (windows-2025)`, no force-push, no deletion); squash + merge commits, no rebase; head branches auto-deleted.
+  Solo developer for now (supervisor)
 - 2026-10-28 — Tooling: uv project `shoptools` (uv_build backend, `module-root = "tools"`), argparse CLI (no dependency),
   pre-commit with ruff + pre-commit-hooks + detect-secrets (pure Python; gitleaks would need Go or Docker)
 - 2026-10-28 — Version table approved (ADR-018): Odoo 19.0-20261015, PostgreSQL 16.15, Elastic 9.5.5, client 9.5.1, Python 3.12
@@ -65,7 +69,8 @@ Updated: 2026-10-28 by agent session 1 (Tasks 0.1–0.5)
 - The specification lists two authors (@khalil, Akram): team composition (solo or pair) not yet recorded (`01` §16 Q1)
 
 ## Waiting on human / supervisor
-- "go" for the Task 0.6 plan, and its repository-settings decisions
+- Manual test of Task 0.6: check PR #6 (failing then passing CI) and PR #5 on GitHub
 
 ## Next step (exact)
-- Task 0.6 on `chore/ci` — CI (`lint` and `tools` jobs), `shop lint`, repository settings
+- After PR #5 is merged: M0 exit check (doctor no FAIL, VERSIONS approved, scaffold merged, CI green), then
+  start Milestone 1 in a fresh session (prompt F in `docs/ai/00_HOW_TO_USE.md`)
