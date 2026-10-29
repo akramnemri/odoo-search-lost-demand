@@ -73,12 +73,12 @@ def test_failed_fix_is_reported() -> None:
 
 def test_later_sections_are_skipped_with_their_task() -> None:
     out = io.StringIO()
-    code = run_doctor(["stack", "data"], as_json=True, system=FakeSystem(), start=REPO_ROOT, out=out)
+    code = run_doctor(["odoo", "data"], as_json=True, system=FakeSystem(), start=REPO_ROOT, out=out)
     report = json.loads(out.getvalue())
 
     assert code == 0
     assert [(result["section"], result["status"], result["found"]) for result in report["results"]] == [
-        ("stack", "SKIP", "available from Task 1.1b"),
+        ("odoo", "SKIP", "available from Task 1.3"),
         ("data", "SKIP", "available from Task 2.1"),
     ]
 

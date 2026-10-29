@@ -16,6 +16,8 @@ services:
       - pg-data:/var/lib/postgresql/data
     # Not published: avoids clashes with a local PostgreSQL; the host tools never need it.
     mem_limit: ${DB_MEM_LIMIT:-1g}
+    # Time for a clean shutdown before Docker kills the process (default 10 s).
+    stop_grace_period: 30s
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U odoo -d postgres"]
       interval: 5s
@@ -43,6 +45,9 @@ services:
     ports:
       - "127.0.0.1:9200:9200"
     mem_limit: ${ES_MEM_LIMIT:-3g}
+    # Elasticsearch needs more than Docker's default 10 s to stop cleanly; a kill (exit 137)
+    # forces a translog recovery at the next start.
+    stop_grace_period: 60s
     ulimits:
       nofile: { soft: 65536, hard: 65536 }
     healthcheck:

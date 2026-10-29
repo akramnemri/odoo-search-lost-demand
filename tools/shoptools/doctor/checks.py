@@ -13,6 +13,7 @@ from pathlib import Path, PurePosixPath
 from shoptools.doctor.expected import Expected, ToolRequirement, parse_version, version_at_least
 from shoptools.doctor.model import CheckResult, Fix, Status
 from shoptools.doctor.system import CommandResult, System
+from shoptools.stack import project_name
 
 GB = 1_000_000_000  # thresholds in the docs are decimal gigabytes
 TROUBLESHOOTING = "docs/setup/TROUBLESHOOTING.md"
@@ -336,7 +337,7 @@ def _image_results(system: System, images: tuple[str, ...]) -> list[CheckResult]
                     Status.WARN,
                     "not pulled yet",
                     "present",
-                    "pulled by `uv run shop up` (Task 1.1b)",
+                    "docker compose pull (about 2.3 GB for the four images, docs/setup/VERSIONS.md)",
                 )
             )
     return results
@@ -345,15 +346,9 @@ def _image_results(system: System, images: tuple[str, ...]) -> list[CheckResult]
 # --- ports ---
 
 
-def compose_project_name(repo_root: Path) -> str:
-    # Docker Compose's default project name is the folder name, lower-cased, keeping [a-z0-9_-].
-    # compose.yaml sets the same `name:`; Task 1.1b reads it from there.
-    return re.sub(r"[^a-z0-9_-]", "", repo_root.name.lower())
-
-
 def check_ports(context: DoctorContext) -> list[CheckResult]:
     system = context.system
-    project = compose_project_name(context.repo_root)
+    project = project_name(context.repo_root)
     ours = _ports_published_by(system, project)
     results = []
     for port in context.expected.ports:

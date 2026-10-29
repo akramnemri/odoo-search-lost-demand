@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -8,7 +8,7 @@ import pytest
 
 from shoptools.doctor.checks import GB, DoctorContext
 from shoptools.doctor.expected import VERSIONS_FILE, Expected, load_expected
-from shoptools.doctor.system import CommandResult
+from shoptools.doctor.system import CommandResult, HttpResponse
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -24,7 +24,10 @@ class FakeSystem:
     disk_free: int = 68 * GB
     files: dict[str, str] = field(default_factory=dict)
     busy_ports: set[int] = field(default_factory=set)
+    # url -> response; a URL without an entry behaves as "nothing listens there"
+    http: dict[str, HttpResponse] = field(default_factory=dict)
     calls: list[tuple[str, ...]] = field(default_factory=list)
+    http_auth: dict[str, tuple[str, str] | None] = field(default_factory=dict)
 
     def respond(self, *args: str, stdout: str = "", returncode: int = 0, stderr: str = "") -> None:
         self.commands[args] = CommandResult(returncode, stdout, stderr)
@@ -52,6 +55,16 @@ class FakeSystem:
 
     def port_in_use(self, port: int) -> bool:
         return port in self.busy_ports
+
+    def http_get(
+        self,
+        url: str,
+        auth: tuple[str, str] | None = None,
+        headers: Mapping[str, str] | None = None,
+        timeout: float = 5.0,
+    ) -> HttpResponse | None:
+        self.http_auth[url] = auth
+        return self.http.get(url)
 
 
 @pytest.fixture

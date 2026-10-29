@@ -14,16 +14,19 @@ every search, click, add-to-cart and purchase into restocking decisions inside O
 
 ## Quick start
 
-The one-command stack arrives in Milestone 1. Today:
-
 ```bash
 uv sync
-uv run shop --help
-uv run pytest
-uv run pre-commit install
-uv run shop lint
-uv run shop doctor
+uv run shop env init          # .env with generated passwords (git-ignored)
+docker compose pull           # first time only: about 2.3 GB
+uv run shop up                # Odoo, Elasticsearch, Kibana; waits until healthy
+uv run shop doctor            # everything OK?
 ```
+
+Then: Odoo http://127.0.0.1:8069, Kibana http://127.0.0.1:5601 (login in `.env`), Elasticsearch http://127.0.0.1:9200.
+`uv run shop status`, `uv run shop logs <service>`, `uv run shop down` (keeps the data). On an 8 GB laptop:
+`uv run shop env init --profile lowmem` and `uv run shop up --no-kibana` when Kibana is not needed.
+
+Development: `uv run pytest`, `uv run pre-commit install`, `uv run shop lint`.
 
 Prerequisites and pinned versions: [`docs/setup/VERSIONS.md`](docs/setup/VERSIONS.md);
 machine setup: [`docs/setup/ENVIRONMENT.md`](docs/setup/ENVIRONMENT.md).

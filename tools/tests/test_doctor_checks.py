@@ -13,10 +13,10 @@ from shoptools.doctor.checks import (
     check_ports,
     check_repo,
     check_tools,
-    compose_project_name,
     is_forbidden_tracked_file,
 )
 from shoptools.doctor.model import CheckResult, Status
+from shoptools.stack import project_name
 
 
 def by_name(results: list[CheckResult]) -> dict[str, CheckResult]:
@@ -233,7 +233,7 @@ def test_free_and_busy_ports(context: DoctorContext, fake_system: FakeSystem) ->
 
 def test_port_used_by_our_own_stack_is_ok(context: DoctorContext, fake_system: FakeSystem) -> None:
     fake_system.busy_ports = {9200}
-    project = compose_project_name(context.repo_root)
+    project = project_name(context.repo_root)
     fake_system.respond(
         "docker",
         "ps",
@@ -247,8 +247,16 @@ def test_port_used_by_our_own_stack_is_ok(context: DoctorContext, fake_system: F
     assert by_name(check_ports(context))["port 9200"].status is Status.OK
 
 
-def test_compose_project_name_follows_compose_rules() -> None:
-    assert compose_project_name(Path("C:/work/Odoo-Search Lost.Demand")) == "odoo-searchlostdemand"
+def test_project_name_comes_from_compose_yaml(tmp_path: Path) -> None:
+    (tmp_path / "compose.yaml").write_text(
+        "# comment\nname: odoo-search-lost-demand\n\nservices: {}\n", encoding="utf-8"
+    )
+
+    assert project_name(tmp_path) == "odoo-search-lost-demand"
+
+
+def test_project_name_without_compose_name_follows_compose_rules() -> None:
+    assert project_name(Path("C:/work/Odoo-Search Lost.Demand")) == "odoo-searchlostdemand"
 
 
 # --- repo ---

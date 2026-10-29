@@ -50,6 +50,8 @@ class Expected:
     tools: dict[str, ToolRequirement]
     host_python: str
     stack_images: tuple[str, ...]
+    elasticsearch_version: str
+    elastic_license: str
     ram_gb_recommended: float
     ram_gb_min: float
     disk_free_gb_warn: float
@@ -73,6 +75,8 @@ def load_expected(path: Path) -> Expected:
         tools=tools,
         host_python=data["python"]["host"],
         stack_images=tuple(value for key, value in data["stack"].items() if key.endswith("_image")),
+        elasticsearch_version=data["stack"]["elasticsearch_version"],
+        elastic_license=data["stack"]["elastic_license"],
         ram_gb_recommended=float(machine["ram_gb_recommended"]),
         ram_gb_min=float(machine["ram_gb_min"]),
         disk_free_gb_warn=float(machine["disk_free_gb_warn"]),
