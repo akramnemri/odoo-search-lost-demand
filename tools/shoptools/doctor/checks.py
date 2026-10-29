@@ -7,9 +7,11 @@ so tests run them with recorded outputs for Windows, macOS and Linux.
 from __future__ import annotations
 
 import re
+import tomllib
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 
+from shoptools import odoosrc
 from shoptools.doctor.expected import Expected, ToolRequirement, parse_version, version_at_least
 from shoptools.doctor.model import CheckResult, Fix, Status
 from shoptools.doctor.system import CommandResult, System
@@ -417,7 +419,7 @@ def check_repo(context: DoctorContext) -> list[CheckResult]:
     results.append(_lfs_result(system, git))
     results.append(tracked_files_result(system, git))
     results.append(env_file_result(root))
-    results.append(_odoo_source_result(root))
+    results.append(odoo_source_result(root, context.expected.odoo_image))
     return results
 
 
@@ -475,7 +477,7 @@ def is_forbidden_tracked_file(path: str) -> bool:
     if name.endswith(_FORBIDDEN_SUFFIXES):
         return True
     top = parts[0]
-    if top in ("local", ".odoo-src", ".venv"):
+    if top in ("local", ".odoo-src", ".odoo-src.partial", ".odoo-src.old", ".venv"):
         return True
     if top == "data" and path not in ("data/README.md", "data/manifest.toml"):
         return True
@@ -535,9 +537,25 @@ def env_file_result(root: Path) -> CheckResult:
     return CheckResult("repo", ".env", Status.OK, "all keys present", wanted)
 
 
-def _odoo_source_result(root: Path) -> CheckResult:
-    if (root / ".odoo-src").is_dir():
-        return CheckResult("repo", ".odoo-src/", Status.OK, "present", "present")
+def odoo_source_result(root: Path, odoo_image: str) -> CheckResult:
+    """The copy must come from the pinned image, or the agent reads code that does not run."""
+    wanted = f"copy of {odoo_image}"
+    target = root / odoosrc.TARGET_DIR
+    if not target.is_dir():
+        return CheckResult(
+            "repo", ".odoo-src/", Status.WARN, "missing", wanted, "uv run shop odoo-src (Task 1.4a)"
+        )
+    replace = "uv run shop odoo-src --force"
+    try:
+        stamp = tomllib.loads((target / odoosrc.STAMP_FILE).read_text(encoding="utf-8"))
+    except (OSError, tomllib.TOMLDecodeError):
+        return CheckResult(
+            "repo", ".odoo-src/", Status.WARN, f"no readable {odoosrc.STAMP_FILE}", wanted, replace
+        )
+    if stamp.get("image") != odoo_image:
+        return CheckResult(
+            "repo", ".odoo-src/", Status.WARN, f"copy of {stamp.get('image')}", wanted, replace
+        )
     return CheckResult(
-        "repo", ".odoo-src/", Status.WARN, "missing", "present", "uv run shop odoo-src (Task 1.4a)"
+        "repo", ".odoo-src/", Status.OK, f"Odoo {stamp.get('odoo_version')} from {odoo_image}", wanted
     )

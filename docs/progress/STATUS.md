@@ -1,12 +1,12 @@
 # STATUS
 
-Updated: 2026-10-29 by agent session 2 (Tasks 1.1a and 1.1b merged — handoff for a fresh session)
+Updated: 2026-10-29 by agent session 3 (Task 1.4a implemented, waiting for the supervisor's manual test)
 
 ## Current position
 - Milestone: M1 — Docker stack, module skeleton, debugging, first interview — in progress
 - M1 order (supervisor, 2026-10-29): 1.1a → 1.1b → 1.4a → 1.2 → 1.3 → 1.4b → 1.5 → 1.7; 1.6 in parallel, not blocking the tag
-- Task: 1.4a — Odoo source copy (`uv run shop odoo-src`) — state: not planned yet
-- Branch / PR: none open (after this handoff PR)
+- Task: 1.4a — Odoo source copy (`uv run shop odoo-src`) — state: implemented, PR open, waiting for the manual test
+- Branch / PR: `chore/odoo-src-copy` — PR to `develop` (see the task report)
 - Repository: https://github.com/akramnemri/odoo-search-lost-demand (public, default branch `develop`)
 
 ## Milestone 0 exit check (2026-10-28)
@@ -18,7 +18,7 @@ Updated: 2026-10-29 by agent session 2 (Tasks 1.1a and 1.1b merged — handoff f
 - `main` still holds only the prompt pack: the first promotion `develop` → `main` is Task 1.7 (tag `m1-stack`)
 
 ## Environment
-- Doctor: 46 OK, 1 WARN (`.odoo-src/` missing, Task 1.4a), 0 FAIL, 5 SKIP — run on 2026-10-29 with the stack up
+- Doctor: 47 OK, 0 WARN, 0 FAIL, 5 SKIP — run on 2026-10-29 with the stack up, after `uv run shop odoo-src`
 - Stack: `uv run shop up|down|status|logs`; `compose.yaml` (project `odoo-search-lost-demand`); clean start from empty
   volumes healthy in 94 s; `shop up` from stopped 66–82 s; images pulled 2026-10-29 (2.34 GB compressed)
 - Memory measured 2026-10-29 (no data yet), table in `01_ARCHITECTURE.md` §5.3: standard stack ≈ 3.9 GiB peak
@@ -39,6 +39,8 @@ Updated: 2026-10-29 by agent session 2 (Tasks 1.1a and 1.1b merged — handoff f
 ## Data state
 - ESCI: not yet (≈ 1.1 GB via Git LFS, Apache-2.0)
 - REES46: not yet (13.67 GB; usage rules in ADR-012)
+- Odoo source copy: `.odoo-src/odoo/` from `odoo:19.0-20261015` (Odoo `19.0.post20261015`), 38,948 files, 409 MB,
+  translations (`*.po`) excluded, 19 font symlinks skipped; copied in 320 s; provenance in `.odoo-src/SOURCE.toml`
 - Odoo database: none (`ODOO_DB_NAME=shop`, created in Task 1.2)
 - Elasticsearch: users `odoo_app`, `shop_tools`, personal Kibana user `supervisor` (built-in `editor` role); no indices
 - Product index: none
@@ -56,6 +58,7 @@ Updated: 2026-10-29 by agent session 2 (Tasks 1.1a and 1.1b merged — handoff f
   instruction, after CI and SonarCloud were green)
 - 1.1b — `shop up/down/status/logs`, doctor `stack`/`elastic`/`kibana`, memory measurement, Kibana limits raised —
   merged 2026-10-29 (PR #9, agent on the supervisor's instruction, after CI and SonarCloud were green)
+- 1.4a — `shop odoo-src` (tar stream from the pinned image, stamp, doctor check) — implemented 2026-10-29, not merged yet
 
 ## Latest results
 - none (no evaluation yet)
@@ -76,6 +79,9 @@ Updated: 2026-10-29 by agent session 2 (Tasks 1.1a and 1.1b merged — handoff f
 - ADR-008, ADR-013, ADR-014 still Proposed (final after Tasks 4.2, 2.2, 1.4b)
 - Personal Kibana user gets the built-in `editor` role (not read-only) because dashboards are built in the UI in
   Task 4.5; `01_ARCHITECTURE.md` §5.2 updated — approved by the supervisor 2026-10-29
+- `.odoo-src/` layout `.odoo-src/odoo/...` and translations (`*.po`) excluded by default, `--with-translations` to
+  include them (supervisor, 2026-10-29). Copy method: `tar` stream from `docker run --rm --network none`, not
+  `docker create` + `docker cp` (no leftover container, exclusion at the source, symlinks skipped on Windows)
 - Odoo image: client set pinned and hash-locked (`--require-hashes`, wheels only, `--no-deps`) after two SonarCloud
   findings on PR #8 (docker:S8541, docker:S8544); `typing-extensions` 4.16.0 shadows Ubuntu's 4.10.0 in `/usr/local`
 - SonarCloud runs on PRs (added outside the agent, first seen on PR #8); not a required check
@@ -98,11 +104,8 @@ Updated: 2026-10-29 by agent session 2 (Tasks 1.1a and 1.1b merged — handoff f
 - A local shop owner for interview #1 (Task 1.6) — start looking early
 
 ## Next step (exact)
-- Start a **fresh session** with prompt A of `docs/ai/00_HOW_TO_USE.md` (read CLAUDE.md, this file, the M1 section of
-  the roadmap), then post the plan for **Task 1.4a** and wait for "go"
-- 1.4a facts already known: in the image the Odoo package is `/usr/lib/python3/dist-packages/odoo` (addons inside it);
-  method of `06_ENVIRONMENT_SETUP.md` §5 (`docker create` + `docker cp`, no download: the image is local); target
-  `.odoo-src/` (git-ignored, the doctor's `repo` check turns OK); measure its size before copying
+- Supervisor: manual test of Task 1.4a (task report of session 3), then merge the PR into `develop`
+- Agent after the merge: sync `develop`, delete the branch (`03` §4b), then post the plan for **Task 1.2**
 - After 1.4a: Task 1.2 (re-verify the XML-RPC/JSON-RPC deprecation first; 19.0 has `--with-demo`, demo data is off by
   default: confirm in `.odoo-src/odoo/tools/config.py`)
 - Agent notes: detect-secrets flags `*_PASSWORD = "..."` and multi-key strings in tests — build test `.env` text from a

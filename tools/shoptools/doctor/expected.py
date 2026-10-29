@@ -49,6 +49,7 @@ class ToolRequirement:
 class Expected:
     tools: dict[str, ToolRequirement]
     host_python: str
+    odoo_image: str
     stack_images: tuple[str, ...]
     elasticsearch_version: str
     elastic_license: str
@@ -74,6 +75,7 @@ def load_expected(path: Path) -> Expected:
     return Expected(
         tools=tools,
         host_python=data["python"]["host"],
+        odoo_image=data["stack"]["odoo_image"],
         stack_images=tuple(value for key, value in data["stack"].items() if key.endswith("_image")),
         elasticsearch_version=data["stack"]["elasticsearch_version"],
         elastic_license=data["stack"]["elastic_license"],
