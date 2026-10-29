@@ -1,0 +1,17 @@
+# Python packages added to the Odoo image: only what the module needs at runtime (02_CODING_STANDARDS.md §16).
+# The full set is pinned and hash-locked (the SHA-256 of each wheel on PyPI), installed with --no-deps
+# and --require-hashes, so a rebuild can only ever install these exact files.
+# urllib3, certifi, idna and python-dateutil come from the image's Ubuntu packages.
+# To change a version: update it here with the wheel's SHA-256 from https://pypi.org/pypi/<name>/<version>/json.
+elasticsearch==9.5.1 \
+    --hash=sha256:a980d8888ae70c03f0a1db6b2c5e3e39bf4e235abea737f522d2fd1d2d20bb99
+elastic-transport==9.4.2 \
+    --hash=sha256:33dc89bb1855faa8b98ae8b036405a39c562778dbcdbe4a00a2eaf753148556c
+anyio==4.15.1 \
+    --hash=sha256:6152fdbbf9a77fdec97731721bebf7c4c44f7c29b424b0065826173efc7ed101
+sniffio==1.3.1 \
+    --hash=sha256:2f6da418d1f1e0fddd844478f41680e794e6051915791a034ff65e5f100525a2
+# Newer than Ubuntu's 4.10.0 (required by the client). Installed in /usr/local, which comes first on
+# sys.path, so it shadows the Debian copy for Odoo too; typing_extensions keeps backward compatibility.
+typing-extensions==4.16.0 \
+    --hash=sha256:481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8

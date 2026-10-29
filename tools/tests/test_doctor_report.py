@@ -78,7 +78,7 @@ def test_later_sections_are_skipped_with_their_task() -> None:
 
     assert code == 0
     assert [(result["section"], result["status"], result["found"]) for result in report["results"]] == [
-        ("stack", "SKIP", "available from Task 1.1"),
+        ("stack", "SKIP", "available from Task 1.1b"),
         ("data", "SKIP", "available from Task 2.1"),
     ]
 

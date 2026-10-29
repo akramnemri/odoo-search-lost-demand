@@ -138,16 +138,24 @@ interview is prepared.
 database; module installs and its tests run locally and in CI; a breakpoint is hit in PyCharm.
 **Read:** `01` §4–6, §12; `06` §5–6.
 
-### Task 1.1 — Compose stack
+**Order (supervisor decision, 2026-10-29):** 1.1a → 1.1b → 1.4a → 1.2 → 1.3 → 1.4b → 1.5 → 1.7; 1.6 runs in parallel and does not
+block the tag. Reasons: Tasks 1.1 and 1.4 were split to stay testable; the Odoo source copy (1.4a) comes before 1.2 and 1.3 because
+both must read the 19.0 source; PyCharm debugging (1.4b) comes right after 1.3 because the PyCharm Pro trial ends on 2026-11-14.
+
+### Task 1.1a — Compose stack, images, es-setup, `.env`
 - `compose.yaml` with `db`, `elasticsearch`, `es-setup`, `kibana`, `odoo` per `01` §5 (healthchecks, startup order, named volumes,
   ports bound to `127.0.0.1`, memory settings from `.env`, RAM profiles); `docker/odoo/Dockerfile` (pinned base + pinned client);
   `docker/es-setup/` (passwords, roles/users of `01` §5.2, license assertion, templates placeholder).
-- `uv run shop env init` (generate `.env` secrets), `shop up [--no-kibana]`, `shop down` (never removes volumes), `shop status`, `shop logs`.
-- Doctor sections `stack`, `elastic`, `kibana` (basic checks).
-- Measure memory per container (`docker stats`) in both profiles if possible; correct `01` §5.3.
+- `uv run shop env init [--profile]` (generate `.env` secrets); `.env.example`.
 - Acceptance: clean start healthy in < 5 min (after images are pulled); `GET _license` = basic; Kibana login with the personal user;
   Odoo database manager disabled.
-- Manual: `docker compose up -d`, open Kibana and Odoo, run `uv run shop doctor`, then `docker compose restart` and check nothing is lost.
+- Manual: `docker compose up -d`, open Kibana and Odoo, then `docker compose restart` and check nothing is lost.
+
+### Task 1.1b — Stack commands, doctor sections, memory measurement
+- `shop up [--no-kibana]`, `shop down` (never removes volumes), `shop status`, `shop logs`.
+- Doctor sections `stack`, `elastic`, `kibana` (basic checks); the `ports` check uses the project name set in `compose.yaml`.
+- Measure memory per container (`docker stats`) in both profiles if possible; correct `01` §5.3.
+- Manual: `uv run shop up`, `uv run shop doctor`, `uv run shop down`, then `uv run shop up --no-kibana`.
 
 ### Task 1.2 — Database bootstrap and snapshots
 - `uv run shop db create`: fresh database without demo data (verify the 19.0 flag), apps (verify names in 19.0):
@@ -168,8 +176,11 @@ database; module installs and its tests run locally and in CI; a breakpoint is h
 - Tests: config validation, breaker transitions, settings page renders for admin and is forbidden for others.
 - Manual: install the module from Apps; open its settings page with Elasticsearch up, then stopped (status changes, page still works).
 
-### Task 1.4 — Odoo source copy and PyCharm debugging [HUMAN]
+### Task 1.4a — Odoo source copy (done before Task 1.2)
 - `uv run shop odoo-src` copies the exact Odoo package from the image into `.odoo-src/` (`06` §5).
+- Manual: run it; open `.odoo-src/` and find `addons/website_sale/controllers/main.py`; the doctor's `.odoo-src/` check is OK.
+
+### Task 1.4b — PyCharm debugging [HUMAN] (done right after Task 1.3, before 2026-11-14)
 - PyCharm Docker Compose interpreter + run/debug and test configurations (`06` §6); `docs/setup/PYCHARM.md` with screenshots
   listed for the human to capture.
 - Time box: 2 hours. If breakpoints do not work, switch to the host-run fallback and record ADR-014's final decision.
