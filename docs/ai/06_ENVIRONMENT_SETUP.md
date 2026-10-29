@@ -202,9 +202,21 @@ Apply changes, restart Docker if needed, re-run the inventory.
 
 The agent must read the real 19.0 code before overriding it. Keep an exact copy of the code that runs:
 
-1. Preferred: copy the Odoo package out of the pinned image, so it matches the running version exactly
-   (find its path with `docker run --rm <image> python3 -c "import odoo, os; print(os.path.dirname(odoo.__file__))"`,
-   then `docker create` + `docker cp` into `.odoo-src/`).
+1. Preferred: `uv run shop odoo-src` (Task 1.4a) copies the Odoo package out of the pinned image (`odoo_image` in
+   `docs/setup/versions.toml`), so it matches the running version exactly. Options: `--dry-run` (measure only),
+   `--force` (replace an existing copy), `--with-translations`.
+   - Package path in the image: `/usr/lib/python3/dist-packages/odoo`. In 19.0 `odoo` is a namespace package
+     (`odoo.__file__` is `None`), so `os.path.dirname(odoo.__file__)` does not find it; use `odoo.__path__`.
+   - Method: `tar` in a throw-away container (`docker run --rm --network none`) streams the package to the tool,
+     which unpacks it with Python's `tarfile` `data` filter into `.odoo-src.partial/`, checks the file count, then
+     swaps it into place. No container is left behind (unlike `docker create` + `docker cp`), and the 19 symbolic
+     links (fonts pointing to `/usr/share/fonts` outside the package) are skipped and listed instead of failing on Windows.
+   - Translations (`*/i18n/*.po`, about 870 MB of the 1.5 GB package) are excluded by default because the shop is
+     English-only; templates (`*.pot`) are kept. Result for `odoo:19.0-20261015`: 38,948 files, 409 MB.
+   - Layout: `.odoo-src/odoo/...` (mark `.odoo-src/` as a source root in the IDE so `import odoo` resolves), plus
+     `.odoo-src/SOURCE.toml` (image, image ID, Odoo version, date, exclusions, skipped links). The doctor's `repo`
+     section warns when the copy is missing, unstamped, or from another image than the pinned one.
+   - The deepest file path is about 170 characters below `.odoo-src/odoo/`; on Windows, long paths must be enabled.
 2. Alternative: `git clone --depth 1 --branch 19.0 https://github.com/odoo/odoo.git .odoo-src` (may differ slightly from the image's build date).
 
 `.odoo-src/` is git-ignored. Search it with `rg`/`grep` or the IDE; never edit it.
@@ -247,7 +259,7 @@ extended in later milestones.
 | `tools` | Git, Git LFS, gh (WARN only), uv, pinned Python available, Docker, Compose v2 — each against the minimum version |
 | `docker` | Daemon reachable; memory and CPUs available to Docker vs profile; `vm.max_map_count ≥ 262144`; required images present (sizes if missing); WSL2 backend (Windows) |
 | `ports` | 8069, 8072, 9200, 5601, 8089 free, or used by our own containers |
-| `repo` | Inside the repository; `.env` present with every key of `.env.example`; no tracked file matches secret/data patterns; line-ending settings; `.odoo-src/` present (WARN) |
+| `repo` | Inside the repository; `.env` present with every key of `.env.example`; no tracked file matches secret/data patterns; line-ending settings; `.odoo-src/` present and copied from the pinned Odoo image (WARN) |
 | `stack` | Containers up and healthy; `es-setup` exited 0 |
 | `elastic` | Authenticated access with the tools user; cluster health; **license type = basic (FAIL otherwise)**; templates, pipeline, ILM, synonyms set present; product alias exists; doc count vs Odoo product count |
 | `odoo` | HTTP health endpoint (verify path in 19.0); database exists; module installed and its version; outbox backlog; last flush and last lost-demand run |

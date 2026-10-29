@@ -278,6 +278,9 @@ def respond_healthy_repo(context: DoctorContext, system: FakeSystem) -> None:
     )
     (context.repo_root / ".gitattributes").write_text("* text=auto eol=lf\n", encoding="utf-8")
     (context.repo_root / ".odoo-src").mkdir()
+    (context.repo_root / ".odoo-src" / "SOURCE.toml").write_text(
+        f'image = "{context.expected.odoo_image}"\nodoo_version = "19.0.post20261015"\n', encoding="utf-8"
+    )
 
 
 def test_healthy_repository(context: DoctorContext, fake_system: FakeSystem) -> None:

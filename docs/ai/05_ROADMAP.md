@@ -178,7 +178,8 @@ both must read the 19.0 source; PyCharm debugging (1.4b) comes right after 1.3 b
 
 ### Task 1.4a — Odoo source copy (done before Task 1.2)
 - `uv run shop odoo-src` copies the exact Odoo package from the image into `.odoo-src/` (`06` §5).
-- Manual: run it; open `.odoo-src/` and find `addons/website_sale/controllers/main.py`; the doctor's `.odoo-src/` check is OK.
+- Manual: run it; open `.odoo-src/` and find `odoo/addons/website_sale/controllers/main.py` (layout `.odoo-src/odoo/`,
+  supervisor decision 2026-10-29: translations excluded by default); the doctor's `.odoo-src/` check is OK.
 
 ### Task 1.4b — PyCharm debugging [HUMAN] (done right after Task 1.3, before 2026-11-14)
 - PyCharm Docker Compose interpreter + run/debug and test configurations (`06` §6); `docs/setup/PYCHARM.md` with screenshots

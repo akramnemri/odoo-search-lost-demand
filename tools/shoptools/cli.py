@@ -12,7 +12,7 @@ import sys
 from collections.abc import Callable, Sequence
 from pathlib import Path
 
-from shoptools import __version__, stack
+from shoptools import __version__, odoosrc, stack
 from shoptools.doctor.expected import VERSIONS_FILE, find_repo_root, load_expected
 from shoptools.doctor.report import SECTIONS, run_doctor
 from shoptools.envfile import PROFILES, init_env
@@ -150,6 +150,30 @@ def _run_logs(namespace: argparse.Namespace) -> int:
     return stack.run_logs(repo_root, namespace.service, follow=namespace.follow, tail=namespace.tail)
 
 
+def _add_odoo_src_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--force", action="store_true", help="replace an existing .odoo-src/")
+    parser.add_argument(
+        "--with-translations",
+        action="store_true",
+        help="also copy the *.po translations (about 870 MB more; the shop is English-only)",
+    )
+    parser.add_argument("--dry-run", action="store_true", help="measure what would be copied, copy nothing")
+
+
+def _run_odoo_src(namespace: argparse.Namespace) -> int:
+    repo_root = _repo_root("odoo-src")
+    if repo_root is None:
+        return 1
+    image = load_expected(repo_root / VERSIONS_FILE).odoo_image
+    return odoosrc.run_copy(
+        repo_root,
+        image,
+        force=namespace.force,
+        with_translations=namespace.with_translations,
+        dry_run=namespace.dry_run,
+    )
+
+
 # command -> (function adding its arguments, function running it)
 IMPLEMENTED_COMMANDS: dict[
     str, tuple[Callable[[argparse.ArgumentParser], None], Callable[[argparse.Namespace], int]]
@@ -161,6 +185,7 @@ IMPLEMENTED_COMMANDS: dict[
     "down": (_add_no_arguments, _run_down),
     "status": (_add_no_arguments, _run_status),
     "logs": (_add_logs_arguments, _run_logs),
+    "odoo-src": (_add_odoo_src_arguments, _run_odoo_src),
 }
 
 

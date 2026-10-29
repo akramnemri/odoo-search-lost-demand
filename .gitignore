@@ -3,6 +3,8 @@ local/
 
 # Odoo source copy for reading (docs/ai/06_ENVIRONMENT_SETUP.md §5)
 .odoo-src/
+.odoo-src.partial/
+.odoo-src.old/
 
 # Secrets: only the template is committed
 .env
