@@ -32,7 +32,7 @@ SECTION_CHECKS: dict[str, Callable[[DoctorContext], list[CheckResult]]] = {
     "repo": check_repo,
 }
 # Sections built in later milestones: section -> task that adds it.
-LATER_SECTIONS = {"stack": "1.1", "elastic": "1.1", "kibana": "1.1", "odoo": "1.3", "data": "2.1"}
+LATER_SECTIONS = {"stack": "1.1b", "elastic": "1.1b", "kibana": "1.1b", "odoo": "1.3", "data": "2.1"}
 SECTIONS = (*SECTION_CHECKS, *LATER_SECTIONS)
 
 Ask = Callable[[str], bool]

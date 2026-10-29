@@ -1,0 +1,145 @@
+# The whole stack on one laptop (docs/ai/01_ARCHITECTURE.md §5, ADR-003).
+# Start: `docker compose up -d` (needs .env: `uv run shop env init`). Never `docker compose down -v`.
+# Pinned versions: docs/setup/VERSIONS.md.
+
+# Fixed project name: container, volume and label names do not depend on the checkout folder.
+name: odoo-search-lost-demand
+
+services:
+  db:
+    image: postgres:16.15-trixie
+    environment:
+      POSTGRES_USER: odoo
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?missing in .env - run uv run shop env init}
+      POSTGRES_DB: postgres
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    # Not published: avoids clashes with a local PostgreSQL; the host tools never need it.
+    mem_limit: ${DB_MEM_LIMIT:-1g}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U odoo -d postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.5.5
+    environment:
+      discovery.type: single-node
+      cluster.name: shop
+      xpack.security.enabled: "true"
+      # Plain HTTP inside the Docker network; the port is published on 127.0.0.1 only (ADR-004).
+      xpack.security.http.ssl.enabled: "false"
+      xpack.security.transport.ssl.enabled: "false"
+      # Free Basic license only: never a trial (ADR-004).
+      xpack.license.self_generated.type: basic
+      # No outbound download of GeoIP databases at startup: the project never uses them.
+      ingest.geoip.downloader.enabled: "false"
+      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:?missing in .env - run uv run shop env init}
+      ES_JAVA_OPTS: -Xms${ES_HEAP:-2g} -Xmx${ES_HEAP:-2g}
+    volumes:
+      - es-data:/usr/share/elasticsearch/data
+    ports:
+      - "127.0.0.1:9200:9200"
+    mem_limit: ${ES_MEM_LIMIT:-3g}
+    ulimits:
+      nofile: { soft: 65536, hard: 65536 }
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          curl --silent --fail --user "elastic:$${ELASTIC_PASSWORD}"
+          "http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s" > /dev/null
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 30s
+    restart: unless-stopped
+
+  # One-shot: passwords, roles and users, license assertion, templates (docker/es-setup/setup.sh).
+  es-setup:
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.5.5
+    entrypoint: ["bash", "/setup/setup.sh"]
+    environment:
+      ES_URL: http://elasticsearch:9200
+      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:?missing in .env - run uv run shop env init}
+      KIBANA_SYSTEM_PASSWORD: ${KIBANA_SYSTEM_PASSWORD:?missing in .env - run uv run shop env init}
+      ODOO_APP_ES_PASSWORD: ${ODOO_APP_ES_PASSWORD:?missing in .env - run uv run shop env init}
+      SHOP_TOOLS_ES_PASSWORD: ${SHOP_TOOLS_ES_PASSWORD:?missing in .env - run uv run shop env init}
+      KIBANA_PERSONAL_USER: ${KIBANA_PERSONAL_USER:?missing in .env - run uv run shop env init}
+      KIBANA_PERSONAL_PASSWORD: ${KIBANA_PERSONAL_PASSWORD:?missing in .env - run uv run shop env init}
+    volumes:
+      - ./docker/es-setup:/setup:ro
+      - ./elastic:/elastic:ro
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    restart: "no"
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:9.5.5
+    environment:
+      ELASTICSEARCH_HOSTS: '["http://elasticsearch:9200"]'
+      ELASTICSEARCH_USERNAME: kibana_system
+      ELASTICSEARCH_PASSWORD: ${KIBANA_SYSTEM_PASSWORD:?missing in .env - run uv run shop env init}
+      SERVER_PUBLICBASEURL: http://127.0.0.1:5601
+      XPACK_SECURITY_ENCRYPTIONKEY: ${KIBANA_SECURITY_KEY:?missing in .env - run uv run shop env init}
+      XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY: ${KIBANA_SAVED_OBJECTS_KEY:?missing in .env - run uv run shop env init}
+      XPACK_REPORTING_ENCRYPTIONKEY: ${KIBANA_REPORTING_KEY:?missing in .env - run uv run shop env init}
+      TELEMETRY_OPTIN: "false"
+    ports:
+      - "127.0.0.1:5601:5601"
+    mem_limit: ${KIBANA_MEM_LIMIT:-1536m}
+    healthcheck:
+      # The login page answers 302 once Kibana is ready; the status API needs a login.
+      test: ["CMD-SHELL", "curl --silent --head http://localhost:5601 | grep -q 'HTTP/1.1 302 Found'"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 30s
+    depends_on:
+      es-setup:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  odoo:
+    build: ./docker/odoo
+    image: odoo-search-lost-demand/odoo:19.0-20261015
+    environment:
+      # libpq variables, read by Odoo directly. With them set, the official entrypoint passes no --db_*
+      # arguments, so the password never appears in the process list.
+      PGHOST: db
+      PGPORT: "5432"
+      PGUSER: odoo
+      PGPASSWORD: ${POSTGRES_PASSWORD:?missing in .env - run uv run shop env init}
+      # Read by our entrypoint (docker/odoo/entrypoint.sh) to write odoo.conf at start.
+      ODOO_DB_NAME: ${ODOO_DB_NAME:?missing in .env - run uv run shop env init}
+      ODOO_ADMIN_PASSWD: ${ODOO_ADMIN_PASSWD:?missing in .env - run uv run shop env init}
+      # Read by the module (services/config.py, Task 1.3). The module never uses `elastic`.
+      LOST_DEMAND_ES_URL: http://elasticsearch:9200
+      LOST_DEMAND_ES_USERNAME: odoo_app
+      LOST_DEMAND_ES_PASSWORD: ${ODOO_APP_ES_PASSWORD:?missing in .env - run uv run shop env init}
+    volumes:
+      - odoo-data:/var/lib/odoo
+      - ./addons:/mnt/extra-addons:ro
+    ports:
+      - "127.0.0.1:8069:8069"
+    mem_limit: ${ODOO_MEM_LIMIT:-1536m}
+    healthcheck:
+      test: ["CMD-SHELL", "curl --silent --fail http://localhost:8069/web/health > /dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+    depends_on:
+      db:
+        condition: service_healthy
+      es-setup:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+volumes:
+  pg-data:
+  es-data:
+  odoo-data:

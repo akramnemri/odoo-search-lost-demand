@@ -10,23 +10,26 @@ import argparse
 import subprocess
 import sys
 from collections.abc import Callable, Sequence
+from pathlib import Path
 
 from shoptools import __version__
+from shoptools.doctor.expected import find_repo_root
 from shoptools.doctor.report import SECTIONS, run_doctor
+from shoptools.envfile import PROFILES, init_env
 
 # command -> (help text, roadmap task that implements it; see docs/ai/05_ROADMAP.md)
 PLANNED_COMMANDS: dict[str, tuple[str, str]] = {
     "doctor": ("check the machine, tools, stack and data", "0.5"),
     "lint": ("run the pre-commit quality gate", "0.6"),
-    "env": ("generate .env secrets from .env.example", "1.1"),
-    "up": ("start the Docker Compose stack", "1.1"),
-    "down": ("stop the stack (never removes volumes)", "1.1"),
-    "status": ("show the state of the stack", "1.1"),
-    "logs": ("show logs of a stack service", "1.1"),
+    "env": ("generate .env secrets from .env.example", "1.1a"),
+    "up": ("start the Docker Compose stack", "1.1b"),
+    "down": ("stop the stack (never removes volumes)", "1.1b"),
+    "status": ("show the state of the stack", "1.1b"),
+    "logs": ("show logs of a stack service", "1.1b"),
     "db": ("create or reset the Odoo database", "1.2"),
     "snapshot": ("save, restore or list database snapshots", "1.2"),
     "test": ("run the tools or module test suites", "1.3"),
-    "odoo-src": ("copy the Odoo source from the pinned image into .odoo-src/", "1.4"),
+    "odoo-src": ("copy the Odoo source from the pinned image into .odoo-src/", "1.4a"),
     "data": ("fetch datasets and build the catalog slice", "2.1"),
     "import": ("import the catalog into Odoo", "2.4"),
     "index": ("rebuild or check the product index", "3.1"),
@@ -68,12 +71,43 @@ def _run_lint(namespace: argparse.Namespace) -> int:
     return subprocess.run([sys.executable, "-m", "pre_commit", "run", "--all-files"], check=False).returncode
 
 
+def _add_env_arguments(parser: argparse.ArgumentParser) -> None:
+    actions = parser.add_subparsers(dest="env_action", metavar="<action>", required=True)
+    init = actions.add_parser("init", help="create .env, or add missing keys; existing values are kept")
+    init.add_argument(
+        "--profile",
+        choices=sorted(PROFILES),
+        help="(re)apply the memory settings of a RAM profile (default for a new .env: standard)",
+    )
+
+
+def _run_env(namespace: argparse.Namespace) -> int:
+    repo_root = find_repo_root(Path.cwd())
+    if repo_root is None:
+        print("shop env: run this command inside the repository.", file=sys.stderr)
+        return 1
+    result = init_env(repo_root / ".env.example", repo_root / ".env", namespace.profile)
+
+    print(f"{'Created' if result.created else 'Updated'} {repo_root / '.env'}")
+    if result.generated:
+        print(f"  generated secrets: {', '.join(result.generated)}")
+    if result.added:
+        print(f"  added keys: {', '.join(result.added)}")
+    if result.kept:
+        print(f"  kept {len(result.kept)} existing values")
+    if result.profile_applied:
+        print(f"  applied RAM profile: {result.profile_applied}")
+    print("Values are not shown. Read them in .env (git-ignored, never commit it).")
+    return 0
+
+
 # command -> (function adding its arguments, function running it)
 IMPLEMENTED_COMMANDS: dict[
     str, tuple[Callable[[argparse.ArgumentParser], None], Callable[[argparse.Namespace], int]]
 ] = {
     "doctor": (_add_doctor_arguments, _run_doctor),
     "lint": (_add_no_arguments, _run_lint),
+    "env": (_add_env_arguments, _run_env),
 }
 
 

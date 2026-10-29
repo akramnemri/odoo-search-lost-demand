@@ -336,7 +336,7 @@ def _image_results(system: System, images: tuple[str, ...]) -> list[CheckResult]
                     Status.WARN,
                     "not pulled yet",
                     "present",
-                    "pulled by `uv run shop up` (Task 1.1)",
+                    "pulled by `uv run shop up` (Task 1.1b)",
                 )
             )
     return results
@@ -347,7 +347,7 @@ def _image_results(system: System, images: tuple[str, ...]) -> list[CheckResult]
 
 def compose_project_name(repo_root: Path) -> str:
     # Docker Compose's default project name is the folder name, lower-cased, keeping [a-z0-9_-].
-    # Revisit if compose.yaml sets `name:` (Task 1.1).
+    # compose.yaml sets the same `name:`; Task 1.1b reads it from there.
     return re.sub(r"[^a-z0-9_-]", "", repo_root.name.lower())
 
 
@@ -544,5 +544,5 @@ def _odoo_source_result(root: Path) -> CheckResult:
     if (root / ".odoo-src").is_dir():
         return CheckResult("repo", ".odoo-src/", Status.OK, "present", "present")
     return CheckResult(
-        "repo", ".odoo-src/", Status.WARN, "missing", "present", "uv run shop odoo-src (Task 1.4)"
+        "repo", ".odoo-src/", Status.WARN, "missing", "present", "uv run shop odoo-src (Task 1.4a)"
     )

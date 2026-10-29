@@ -174,7 +174,7 @@ the Odoo filestore and Elasticsearch data.
 | `kibana_system` | Kibana | Built-in |
 | `odoo_app` | The Odoo module | Read/write on `shop-products*` and `shop-events*`, alias management for products, synonyms management if the API is used (verify required privileges) |
 | `shop_tools` | Host tools (replay, evaluation) | Write on `shop-events*`, read on `shop-*` |
-| Your own login | Kibana in the browser | A personal user created by `es-setup` with read access to dashboards (not `elastic`) |
+| Your own login | Kibana in the browser | A personal user created by `es-setup` (name in `.env`) with the built-in `editor` role: all Kibana features, read-only on data, so dashboards can be built in the UI (Task 4.5). Never `elastic` |
 
 Spec rule: only the Odoo server talks to Elasticsearch on behalf of shoppers. The browser never calls Elasticsearch.
 

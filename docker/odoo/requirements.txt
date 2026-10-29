@@ -1,0 +1,10 @@
+# Python packages added to the Odoo image: only what the module needs at runtime (02_CODING_STANDARDS.md §16).
+# The full set is pinned and installed with --no-deps, so a rebuild never picks up a different version.
+# urllib3, certifi, idna and python-dateutil come from the image's Ubuntu packages (`pip check` verifies them).
+elasticsearch==9.5.1
+elastic-transport==9.4.2
+anyio==4.15.1
+sniffio==1.3.1
+# Newer than Ubuntu's 4.10.0 (required by the client). Installed in /usr/local, which comes first on
+# sys.path, so it shadows the Debian copy for Odoo too; typing_extensions keeps backward compatibility.
+typing-extensions==4.16.0
