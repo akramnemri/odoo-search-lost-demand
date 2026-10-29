@@ -100,6 +100,26 @@ def init_env(
     return result
 
 
+def set_env_value(env_path: Path, key: str, value: str) -> None:
+    """Set one key in `.env` (e.g. the API key written by `shop db create`), keeping every other line.
+
+    Written to a temporary file and renamed, so an interruption never leaves a truncated `.env`.
+    """
+    lines = env_path.read_text(encoding="utf-8").splitlines()
+    for index, line in enumerate(lines):
+        if line.strip().removeprefix("export ").split("=", 1)[0].strip() == key and "=" in line:
+            lines[index] = f"{key}={value}"
+            break
+    else:
+        lines.append(f"{key}={value}")
+    temporary = env_path.with_name(env_path.name + ".tmp")
+    with temporary.open("w", encoding="utf-8", newline="\n") as file:
+        file.write("\n".join(lines) + "\n")
+    if os.name != "nt":
+        temporary.chmod(0o600)
+    temporary.replace(env_path)
+
+
 def _choose_value(
     key: str,
     example_value: str,

@@ -114,7 +114,15 @@ def describe(state: ServiceState) -> str:
 def _run(command: list[str], capture: bool = False) -> subprocess.CompletedProcess[str] | None:
     """None when the docker executable is not installed."""
     try:
-        return subprocess.run(command, check=False, text=True, capture_output=capture, encoding="utf-8")
+        # stdin closed: `docker compose exec` forwards stdin and would swallow what the person types next.
+        return subprocess.run(
+            command,
+            check=False,
+            text=True,
+            capture_output=capture,
+            encoding="utf-8",
+            stdin=subprocess.DEVNULL,
+        )
     except FileNotFoundError:
         return None
 
