@@ -5,7 +5,7 @@ Updated: 2026-10-29 by agent session 3 (Task 1.4a implemented, waiting for the s
 ## Current position
 - Milestone: M1 — Docker stack, module skeleton, debugging, first interview — in progress
 - M1 order (supervisor, 2026-10-29): 1.1a → 1.1b → 1.4a → 1.2 → 1.3 → 1.4b → 1.5 → 1.7; 1.6 in parallel, not blocking the tag
-- Task: 1.4a — Odoo source copy (`uv run shop odoo-src`) — state: implemented, PR open, waiting for the manual test
+- Task: 1.4a — Odoo source copy (`uv run shop odoo-src`) — state: manual test passed (supervisor, 2026-10-29), PR waiting for merge
 - Branch / PR: `chore/odoo-src-copy` — PR to `develop` (see the task report)
 - Repository: https://github.com/akramnemri/odoo-search-lost-demand (public, default branch `develop`)
 
@@ -58,7 +58,7 @@ Updated: 2026-10-29 by agent session 3 (Task 1.4a implemented, waiting for the s
   instruction, after CI and SonarCloud were green)
 - 1.1b — `shop up/down/status/logs`, doctor `stack`/`elastic`/`kibana`, memory measurement, Kibana limits raised —
   merged 2026-10-29 (PR #9, agent on the supervisor's instruction, after CI and SonarCloud were green)
-- 1.4a — `shop odoo-src` (tar stream from the pinned image, stamp, doctor check) — implemented 2026-10-29, not merged yet
+- 1.4a — `shop odoo-src` (tar stream from the pinned image, stamp, doctor check) — manual test passed 2026-10-29 (PR #11), not merged yet
 
 ## Latest results
 - none (no evaluation yet)
@@ -104,9 +104,11 @@ Updated: 2026-10-29 by agent session 3 (Task 1.4a implemented, waiting for the s
 - A local shop owner for interview #1 (Task 1.6) — start looking early
 
 ## Next step (exact)
-- Supervisor: manual test of Task 1.4a (task report of session 3), then merge the PR into `develop`
+- Supervisor: merge PR #11 into `develop` once CI is green (manual test passed 2026-10-29)
 - Agent after the merge: sync `develop`, delete the branch (`03` §4b), then post the plan for **Task 1.2**
 - After 1.4a: Task 1.2 (re-verify the XML-RPC/JSON-RPC deprecation first; 19.0 has `--with-demo`, demo data is off by
   default: confirm in `.odoo-src/odoo/tools/config.py`)
 - Agent notes: detect-secrets flags `*_PASSWORD = "..."` and multi-key strings in tests — build test `.env` text from a
   dict, mark fake values with `# pragma: allowlist secret`; never print container command lines or `.env` values
+- Agent note: `shop lint` (`pre-commit run --all-files`) skips untracked files and no git hook is installed:
+  `git add` new files before running lint (PR #11 failed CI `lint` on two new files that passed locally)

@@ -1,12 +1,14 @@
-"""`uv run shop odoo-src`: copy the Odoo package of the pinned image into .odoo-src/ (docs/ai/06_ENVIRONMENT_SETUP.md §5).
+"""`uv run shop odoo-src`: copy the Odoo package of the pinned image into .odoo-src/.
 
-The agent reads the real 19.0 code there before overriding or calling it (CLAUDE.md), so the copy comes from the pinned
-image: it is exactly the code that runs. Layout `.odoo-src/odoo/...`: an IDE that marks `.odoo-src/` as a source root
+See docs/ai/06_ENVIRONMENT_SETUP.md §5. The agent reads the real 19.0 code there before
+overriding or calling it (CLAUDE.md), so the copy comes from the pinned image: it is exactly the
+code that runs. Layout `.odoo-src/odoo/...`: an IDE that marks `.odoo-src/` as a source root
 resolves `import odoo`. The copy is reference material, git-ignored; never edit it.
 
-`tar` in a throw-away container streams the package to this process, which unpacks it with tarfile's `data` filter.
-Compared with `docker create` + `docker cp`: no container is left behind, translations are excluded at the source, and
-symbolic links (fonts that point outside the package) are skipped instead of failing on Windows.
+`tar` in a throw-away container streams the package to this process, which unpacks it with
+tarfile's `data` filter. Compared with `docker create` + `docker cp`: no container is left behind,
+translations are excluded at the source, and symbolic links (fonts that point outside the package)
+are skipped instead of failing on Windows.
 """
 
 from __future__ import annotations
@@ -27,7 +29,7 @@ from typing import IO
 
 from shoptools import stack
 
-# In 19.0 `odoo` is a namespace package (`odoo.__file__` is None), so the path is fixed here, checked in the image.
+# In 19.0 `odoo` is a namespace package (`odoo.__file__` is None): the path is fixed, checked in the image.
 PACKAGE_PARENT = "/usr/lib/python3/dist-packages"
 PACKAGE = "odoo"
 TARGET_DIR = ".odoo-src"
@@ -68,7 +70,7 @@ def _docker_run(image: str, entrypoint: str) -> list[str]:
 
 
 def measure_command(image: str, excluded: Sequence[str]) -> list[str]:
-    """Count the files and bytes that will be copied (symbolic links excluded), and read the package version."""
+    """Count the files and bytes to copy (symbolic links excluded), and read the package version."""
     filters = " ".join(f"! -path '{pattern}'" for pattern in excluded)
     script = (
         f"cd {PACKAGE_PARENT}"
@@ -130,7 +132,7 @@ def stamp_text(image: str, image_id: str, version: str, excluded: Sequence[str],
     copied_at = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     return "\n".join(
         [
-            "# Written by `uv run shop odoo-src` (Task 1.4a). Reference copy of the Odoo package: never edit it.",
+            "# Written by `uv run shop odoo-src` (Task 1.4a). Reference copy of Odoo: never edit it.",
             f"image = {_toml_string(image)}",
             f"image_id = {_toml_string(image_id)}",
             f"odoo_version = {_toml_string(version)}",
@@ -244,7 +246,9 @@ def run_copy(
     image_id = _image_id(image)
     if image_id is None:
         # No surprise downloads (CLAUDE.md): pulling is a separate, explicit step.
-        return _fail(f"image {image} is not pulled yet. Pull it with `docker pull {image}` (docs/setup/VERSIONS.md).")
+        return _fail(
+            f"image {image} is not pulled yet. Pull it with `docker pull {image}` (see VERSIONS.md)."
+        )
 
     excluded = excluded_patterns(with_translations)
     size = _measure(image, excluded)
