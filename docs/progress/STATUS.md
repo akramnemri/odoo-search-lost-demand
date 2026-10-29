@@ -1,11 +1,11 @@
 # STATUS
 
-Updated: 2026-10-29 by agent session 2 (Task 1.1b implemented, waiting for the supervisor's manual test)
+Updated: 2026-10-29 by agent session 2 (Task 1.1b manual test passed; Kibana limits raised; waiting for merge)
 
 ## Current position
 - Milestone: M1 — Docker stack, module skeleton, debugging, first interview — in progress
 - M1 order (supervisor, 2026-10-29): 1.1a → 1.1b → 1.4a → 1.2 → 1.3 → 1.4b → 1.5 → 1.7; 1.6 in parallel, not blocking the tag
-- Task: 1.1b — Stack commands, doctor sections, memory measurement — state: implemented, **waiting for manual test**
+- Task: 1.1b — Stack commands, doctor sections, memory measurement — state: manual test **passed** 2026-10-29, waiting for merge
 - Branch / PR: `chore/stack-commands` → `develop`
 - Repository: https://github.com/akramnemri/odoo-search-lost-demand (public, default branch `develop`)
 
@@ -54,7 +54,8 @@ Updated: 2026-10-29 by agent session 2 (Task 1.1b implemented, waiting for the s
 - PRs #1–#5 were merged by the agent on the supervisor's explicit instruction
 - 1.1a — Compose stack, Odoo image, es-setup, `shop env init` — merged 2026-10-29 (PR #8, agent on the supervisor's
   instruction, after CI and SonarCloud were green)
-- 1.1b — `shop up/down/status/logs`, doctor `stack`/`elastic`/`kibana`, memory measurement — PR open, waiting for manual test
+- 1.1b — `shop up/down/status/logs`, doctor `stack`/`elastic`/`kibana`, memory measurement — manual test passed
+  2026-10-29 (PR #9, not merged yet)
 
 ## Latest results
 - none (no evaluation yet)
@@ -80,14 +81,15 @@ Updated: 2026-10-29 by agent session 2 (Task 1.1b implemented, waiting for the s
 - SonarCloud runs on PRs (added outside the agent, first seen on PR #8); not a required check
 - `shop up` never pulls images: missing images stop it with the `docker compose pull` command (no surprise downloads)
 - `stop_grace_period`: Elasticsearch 60 s, PostgreSQL 30 s (Elasticsearch was killed with exit 137 at Docker's default 10 s)
+- Kibana memory limit raised (supervisor, 2026-10-29): standard 1536m → 2g, lowmem 1g → 1280m; it idled at 75–88 %
+  of the old limits. After the change: 1.34 of 2 GiB at startup (standard)
 
 ## Open issues / risks
 - PyCharm Pro trial ends 2026-11-14. Plan: finish the Docker debugging task before then; otherwise apply for the
   JetBrains student license only if it is free with no bank card, else switch to a free alternative (decide in Task 1.4)
 - Docker memory 8.3 GB is at the low edge of `standard` and shared with another project's containers
 - XML-RPC/JSON-RPC deprecation timeline not re-verified (before Task 1.2)
-- Kibana idles at 75–88 % of its memory limit in both profiles; proposal for the supervisor: standard 1536m → 2g,
-  lowmem 1g → 1280m (not applied). Real dashboard load is measured in M4/M8
+- Kibana and Elasticsearch memory under real dashboard and indexing load is not measured yet (M4, M7, M8)
 - The PostgreSQL password was shown once in the agent chat (process list check, before the fix); it never reached
   the repository. Rotate it if the transcript is shared (needs `ALTER USER` on the existing volume)
 
@@ -96,5 +98,5 @@ Updated: 2026-10-29 by agent session 2 (Task 1.1b implemented, waiting for the s
 - A local shop owner for interview #1 (Task 1.6) — start looking early
 
 ## Next step (exact)
-- Supervisor: manual test of Task 1.1b (PR `chore/stack-commands`) and the decision on the Kibana memory limits
+- Supervisor: merge PR #9 (`chore/stack-commands`) once CI is green
 - Then Task 1.4a: `uv run shop odoo-src` (copy of the Odoo 19.0 source from the image, before Task 1.2)

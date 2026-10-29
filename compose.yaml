@@ -95,7 +95,7 @@ services:
       TELEMETRY_OPTIN: "false"
     ports:
       - "127.0.0.1:5601:5601"
-    mem_limit: ${KIBANA_MEM_LIMIT:-1536m}
+    mem_limit: ${KIBANA_MEM_LIMIT:-2g}
     healthcheck:
       # The login page answers 302 once Kibana is ready; the status API needs a login.
       test: ["CMD-SHELL", "curl --silent --head http://localhost:5601 | grep -q 'HTTP/1.1 302 Found'"]
