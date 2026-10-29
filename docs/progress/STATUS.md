@@ -1,12 +1,12 @@
 # STATUS
 
-Updated: 2026-10-29 by agent session 2 (Task 1.1b manual test passed; Kibana limits raised; waiting for merge)
+Updated: 2026-10-29 by agent session 2 (Tasks 1.1a and 1.1b merged — handoff for a fresh session)
 
 ## Current position
 - Milestone: M1 — Docker stack, module skeleton, debugging, first interview — in progress
 - M1 order (supervisor, 2026-10-29): 1.1a → 1.1b → 1.4a → 1.2 → 1.3 → 1.4b → 1.5 → 1.7; 1.6 in parallel, not blocking the tag
-- Task: 1.1b — Stack commands, doctor sections, memory measurement — state: manual test **passed** 2026-10-29, waiting for merge
-- Branch / PR: `chore/stack-commands` → `develop`
+- Task: 1.4a — Odoo source copy (`uv run shop odoo-src`) — state: not planned yet
+- Branch / PR: none open (after this handoff PR)
 - Repository: https://github.com/akramnemri/odoo-search-lost-demand (public, default branch `develop`)
 
 ## Milestone 0 exit check (2026-10-28)
@@ -54,8 +54,8 @@ Updated: 2026-10-29 by agent session 2 (Task 1.1b manual test passed; Kibana lim
 - PRs #1–#5 were merged by the agent on the supervisor's explicit instruction
 - 1.1a — Compose stack, Odoo image, es-setup, `shop env init` — merged 2026-10-29 (PR #8, agent on the supervisor's
   instruction, after CI and SonarCloud were green)
-- 1.1b — `shop up/down/status/logs`, doctor `stack`/`elastic`/`kibana`, memory measurement — manual test passed
-  2026-10-29 (PR #9, not merged yet)
+- 1.1b — `shop up/down/status/logs`, doctor `stack`/`elastic`/`kibana`, memory measurement, Kibana limits raised —
+  merged 2026-10-29 (PR #9, agent on the supervisor's instruction, after CI and SonarCloud were green)
 
 ## Latest results
 - none (no evaluation yet)
@@ -86,7 +86,7 @@ Updated: 2026-10-29 by agent session 2 (Task 1.1b manual test passed; Kibana lim
 
 ## Open issues / risks
 - PyCharm Pro trial ends 2026-11-14. Plan: finish the Docker debugging task before then; otherwise apply for the
-  JetBrains student license only if it is free with no bank card, else switch to a free alternative (decide in Task 1.4)
+  JetBrains student license only if it is free with no bank card, else switch to a free alternative (decide in Task 1.4b)
 - Docker memory 8.3 GB is at the low edge of `standard` and shared with another project's containers
 - XML-RPC/JSON-RPC deprecation timeline not re-verified (before Task 1.2)
 - Kibana and Elasticsearch memory under real dashboard and indexing load is not measured yet (M4, M7, M8)
@@ -98,5 +98,12 @@ Updated: 2026-10-29 by agent session 2 (Task 1.1b manual test passed; Kibana lim
 - A local shop owner for interview #1 (Task 1.6) — start looking early
 
 ## Next step (exact)
-- Supervisor: merge PR #9 (`chore/stack-commands`) once CI is green
-- Then Task 1.4a: `uv run shop odoo-src` (copy of the Odoo 19.0 source from the image, before Task 1.2)
+- Start a **fresh session** with prompt A of `docs/ai/00_HOW_TO_USE.md` (read CLAUDE.md, this file, the M1 section of
+  the roadmap), then post the plan for **Task 1.4a** and wait for "go"
+- 1.4a facts already known: in the image the Odoo package is `/usr/lib/python3/dist-packages/odoo` (addons inside it);
+  method of `06_ENVIRONMENT_SETUP.md` §5 (`docker create` + `docker cp`, no download: the image is local); target
+  `.odoo-src/` (git-ignored, the doctor's `repo` check turns OK); measure its size before copying
+- After 1.4a: Task 1.2 (re-verify the XML-RPC/JSON-RPC deprecation first; 19.0 has `--with-demo`, demo data is off by
+  default: confirm in `.odoo-src/odoo/tools/config.py`)
+- Agent notes: detect-secrets flags `*_PASSWORD = "..."` and multi-key strings in tests — build test `.env` text from a
+  dict, mark fake values with `# pragma: allowlist secret`; never print container command lines or `.env` values
