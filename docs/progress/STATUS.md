@@ -1,11 +1,11 @@
 # STATUS
 
-Updated: 2026-10-29 by agent session 2 (Task 1.1a implemented, waiting for the supervisor's manual test)
+Updated: 2026-10-29 by agent session 2 (Task 1.1a manual test passed; SonarCloud findings fixed before merge)
 
 ## Current position
 - Milestone: M1 — Docker stack, module skeleton, debugging, first interview — in progress
 - M1 order (supervisor, 2026-10-29): 1.1a → 1.1b → 1.4a → 1.2 → 1.3 → 1.4b → 1.5 → 1.7; 1.6 in parallel, not blocking the tag
-- Task: 1.1a — Compose stack, images, es-setup, `.env` — state: implemented, **waiting for manual test**
+- Task: 1.1a — Compose stack, images, es-setup, `.env` — state: manual test **passed** 2026-10-29, waiting for merge
 - Branch / PR: `chore/compose-stack` → `develop`
 - Repository: https://github.com/akramnemri/odoo-search-lost-demand (public, default branch `develop`)
 
@@ -52,7 +52,7 @@ Updated: 2026-10-29 by agent session 2 (Task 1.1a implemented, waiting for the s
 - 0.5 — `shop doctor`, bootstrap scripts, TROUBLESHOOTING.md — merged 2026-10-28 (PR #4)
 - 0.6 — CI (`lint`, `tools` on Ubuntu + Windows), `shop lint`, repository settings — merged 2026-10-28 (PR #5)
 - PRs #1–#5 were merged by the agent on the supervisor's explicit instruction
-- 1.1a — Compose stack, Odoo image, es-setup, `shop env init` — PR open, waiting for manual test
+- 1.1a — Compose stack, Odoo image, es-setup, `shop env init` — manual test passed 2026-10-29 (PR #8, not merged yet)
 
 ## Latest results
 - none (no evaluation yet)
@@ -72,8 +72,10 @@ Updated: 2026-10-29 by agent session 2 (Task 1.1a implemented, waiting for the s
 - No GitHub issues or project board for now
 - ADR-008, ADR-013, ADR-014 still Proposed (final after Tasks 4.2, 2.2, 1.4b)
 - Personal Kibana user gets the built-in `editor` role (not read-only) because dashboards are built in the UI in
-  Task 4.5; `01_ARCHITECTURE.md` §5.2 updated — **to confirm by the supervisor**
-- Odoo image: client set pinned with `--no-deps`; `typing-extensions` 4.16.0 shadows Ubuntu's 4.10.0 in `/usr/local`
+  Task 4.5; `01_ARCHITECTURE.md` §5.2 updated — approved by the supervisor 2026-10-29
+- Odoo image: client set pinned and hash-locked (`--require-hashes`, wheels only, `--no-deps`) after two SonarCloud
+  findings on PR #8 (docker:S8541, docker:S8544); `typing-extensions` 4.16.0 shadows Ubuntu's 4.10.0 in `/usr/local`
+- SonarCloud runs on PRs (added outside the agent, first seen on PR #8); not a required check
 
 ## Open issues / risks
 - PyCharm Pro trial ends 2026-11-14. Plan: finish the Docker debugging task before then; otherwise apply for the
@@ -92,5 +94,5 @@ Updated: 2026-10-29 by agent session 2 (Task 1.1a implemented, waiting for the s
 - A local shop owner for interview #1 (Task 1.6) — start looking early
 
 ## Next step (exact)
-- Supervisor: manual test of Task 1.1a (PR `chore/compose-stack`), then merge
+- Supervisor: merge PR #8 (`chore/compose-stack`) once CI and SonarCloud are green
 - Then Task 1.1b: `shop up/down/status/logs`, doctor sections `stack`, `elastic`, `kibana`, memory measurement
