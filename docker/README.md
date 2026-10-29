@@ -16,7 +16,16 @@ uv run shop env init
 docker compose pull      # first time only, about 2.3 GB
 uv run shop up           # = docker compose up -d --wait; `--no-kibana` to save memory
 uv run shop status
+uv run shop db create    # first time only, about 2 min: the shop database (Task 1.2a)
 ```
+
+Odoo never creates its database by itself: `odoo.conf` has no `db_name` (with it, the 19.0 server creates a blank
+database with the login admin/admin at every start). `uv run shop db create` creates it without demo data, installs
+the shop apps (eCommerce, stock on the shop, purchase with stock, the Demo payment provider in test mode), names the
+company and website "Lost Demand Demo Shop" (USD, generic chart of accounts), sets the `admin` password from
+`ODOO_ADMIN_LOGIN_PASSWORD`, creates the integration user `ODOO_INTEGRATION_LOGIN` and writes its JSON-2 API key to
+`ODOO_API_KEY`. Odoo's output goes to `local/logs/db-create.log`. `uv run shop db reset` deletes the database and its
+filestore and creates it again; it asks you to type the database name first.
 
 `uv run shop env init` writes `.env` (git-ignored) with generated passwords; your Kibana login is
 `KIBANA_PERSONAL_USER` / `KIBANA_PERSONAL_PASSWORD` in that file. Odoo: http://127.0.0.1:8069,

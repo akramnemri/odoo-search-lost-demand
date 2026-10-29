@@ -138,9 +138,9 @@ interview is prepared.
 database; module installs and its tests run locally and in CI; a breakpoint is hit in PyCharm.
 **Read:** `01` §4–6, §12; `06` §5–6.
 
-**Order (supervisor decision, 2026-10-29):** 1.1a → 1.1b → 1.4a → 1.2 → 1.3 → 1.4b → 1.5 → 1.7; 1.6 runs in parallel and does not
-block the tag. Reasons: Tasks 1.1 and 1.4 were split to stay testable; the Odoo source copy (1.4a) comes before 1.2 and 1.3 because
-both must read the 19.0 source; PyCharm debugging (1.4b) comes right after 1.3 because the PyCharm Pro trial ends on 2026-11-14.
+**Order (supervisor decision, 2026-10-29):** 1.1a → 1.1b → 1.4a → 1.2a → 1.2b → 1.3 → 1.4b → 1.5 → 1.7; 1.6 runs in parallel and does
+not block the tag. Reasons: Tasks 1.1, 1.2 and 1.4 were split to stay testable; the Odoo source copy (1.4a) comes before 1.2 and 1.3
+because both must read the 19.0 source; PyCharm debugging (1.4b) comes right after 1.3 because the PyCharm Pro trial ends on 2026-11-14.
 
 ### Task 1.1a — Compose stack, images, es-setup, `.env`
 - `compose.yaml` with `db`, `elasticsearch`, `es-setup`, `kibana`, `odoo` per `01` §5 (healthchecks, startup order, named volumes,
@@ -157,15 +157,23 @@ both must read the 19.0 source; PyCharm debugging (1.4b) comes right after 1.3 b
 - Measure memory per container (`docker stats`) in both profiles if possible; correct `01` §5.3.
 - Manual: `uv run shop up`, `uv run shop doctor`, `uv run shop down`, then `uv run shop up --no-kibana`.
 
-### Task 1.2 — Database bootstrap and snapshots
+Task 1.2 was split (supervisor decision, 2026-10-29) into 1.2a (database) and 1.2b (snapshots).
+
+### Task 1.2a — Database bootstrap
 - `uv run shop db create`: fresh database without demo data (verify the 19.0 flag), apps (verify names in 19.0):
   website, eCommerce, website stock, purchase with stock, a test payment provider (demo provider if it exists in 19.0 Community);
   English, USD, company and website configured; guest checkout enabled; integration user with a JSON-2 API key written to `.env`.
-- `uv run shop db reset` (destructive: asks for confirmation), `uv run shop snapshot save|restore|list <name>`
-  (database dump + filestore, stored under `local/snapshots/`, git-ignored).
-- Acceptance: create a product by hand, buy it as a guest with the test provider, order confirmed; snapshot restore brings back
-  the previous state in under a minute.
-- Manual: the full guest checkout; save a snapshot, change something, restore.
+- `uv run shop db reset` (destructive: asks for confirmation).
+- Decisions (2026-10-29): company and website "Lost Demand Demo Shop", no country (generic chart of accounts); integration user
+  with Sales, Inventory and Purchase Administrator rights, no Settings rights; `db_name` removed from `odoo.conf` so the server
+  never creates a blank database by itself (`dbfilter` still fixes the database).
+- Acceptance: create a product by hand, buy it as a guest with the test provider, order confirmed.
+- Manual: the full guest checkout.
+
+### Task 1.2b — Database snapshots
+- `uv run shop snapshot save|restore|list <name>` (database dump + filestore, stored under `local/snapshots/`, git-ignored).
+- Acceptance: snapshot restore brings back the previous state in under a minute.
+- Manual: save a snapshot, change something, restore.
 
 ### Task 1.3 — Module skeleton
 - `addons/website_sale_lost_demand/`: manifest, security groups and access file, settings page with read-only Elasticsearch
