@@ -189,6 +189,24 @@ Starting values, to be measured and corrected in Task 1.1. The doctor recommends
 | Kibana | Started only when needed | Always on |
 | Odoo workers | 0 (threaded) for development, 2 for load tests | 0 for development, 4 for load tests |
 | Work on | Data slices, one week of REES46 | Full slice, one month of REES46 |
+| Container limits (`.env`) | Elasticsearch 2g, Kibana 1280m, Odoo 1g, PostgreSQL 512m | Elasticsearch 3g, Kibana 2g, Odoo 1536m, PostgreSQL 1g |
+
+Measured on 2026-10-29 (Task 1.1b), Windows laptop, Docker VM 8.3 GB / 4 CPUs, `docker stats`, peak MiB.
+The stack had no data yet (no Odoo database, no index); "light use" = 85 s of Kibana pages and APIs,
+Elasticsearch stats queries and Odoo pages over HTTP, not a browser session. Real loads are measured in M5 and M8.
+
+| Profile, situation | Elasticsearch | Kibana | Odoo | PostgreSQL | Stack total |
+|---|---|---|---|---|---|
+| standard, start | 2,676 / 3,072 | 1,163 / 1,536 | 81 | 29 | 3,948 |
+| standard, idle | 2,680 | 1,160 | 81 | 29 | 3,950 |
+| standard, light use | 2,696 | 1,089 | 89 | 33 | 3,907 |
+| lowmem, start | 1,638 / 2,048 | 900 / 1,024 | 83 | 30 | 2,653 |
+| lowmem, idle | 1,645 | 827 | 85 | 31 | 2,588 |
+| lowmem, light use | 1,668 | 883 | 91 | 34 | 2,676 |
+| lowmem, `--no-kibana`, idle | 1,475 | — | 80 | 28 | 1,583 |
+
+Elasticsearch uses its heap plus about 0.6–0.7 GiB off-heap. Kibana idled at 75–88 % of its limit (1536m / 1g, the
+limits measured above), so its limit was raised to 2g / 1280m (supervisor decision, 2026-10-29). Odoo and PostgreSQL grow with the database (Task 1.2) and with workers (load tests).
 
 ---
 

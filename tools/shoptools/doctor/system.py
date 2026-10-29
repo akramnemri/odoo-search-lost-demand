@@ -5,16 +5,20 @@ The checks only talk to a `System`; tests replace it with a fake that returns re
 
 from __future__ import annotations
 
+import base64
 import ctypes
+import json
 import os
 import platform
 import shutil
 import socket
 import subprocess
-from collections.abc import Sequence
+import urllib.error
+import urllib.request
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Protocol
+from typing import Any, Protocol
 
 
 @dataclass(frozen=True)
@@ -26,6 +30,15 @@ class CommandResult:
     @property
     def ok(self) -> bool:
         return self.returncode == 0
+
+
+@dataclass(frozen=True)
+class HttpResponse:
+    status: int
+    body: str
+
+    def json(self) -> Any:
+        return json.loads(self.body)
 
 
 class System(Protocol):
@@ -48,6 +61,16 @@ class System(Protocol):
     def read_text(self, path: Path) -> str | None: ...
 
     def port_in_use(self, port: int) -> bool: ...
+
+    def http_get(
+        self,
+        url: str,
+        auth: tuple[str, str] | None = None,
+        headers: Mapping[str, str] | None = None,
+        timeout: float = 5.0,
+    ) -> HttpResponse | None:
+        """GET a URL; None when nothing answers (connection refused, timeout). HTTP errors are responses."""
+        ...
 
 
 def decode_output(raw: bytes, encoding: str) -> str:
@@ -139,3 +162,22 @@ class RealSystem:
                 return True
         except OSError:
             return False
+
+    def http_get(
+        self,
+        url: str,
+        auth: tuple[str, str] | None = None,
+        headers: Mapping[str, str] | None = None,
+        timeout: float = 5.0,
+    ) -> HttpResponse | None:
+        request = urllib.request.Request(url, headers=dict(headers or {}))
+        if auth is not None:
+            token = base64.b64encode(f"{auth[0]}:{auth[1]}".encode()).decode("ascii")
+            request.add_header("Authorization", f"Basic {token}")
+        try:
+            with urllib.request.urlopen(request, timeout=timeout) as response:
+                return HttpResponse(response.status, response.read().decode("utf-8", errors="replace"))
+        except urllib.error.HTTPError as error:
+            return HttpResponse(error.code, error.read().decode("utf-8", errors="replace"))
+        except (urllib.error.URLError, TimeoutError, ConnectionError):
+            return None

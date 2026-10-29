@@ -13,12 +13,14 @@ The stack is defined in `../compose.yaml` (project name `odoo-search-lost-demand
 
 ```bash
 uv run shop env init
-docker compose up -d
-docker compose ps
+docker compose pull      # first time only, about 2.3 GB
+uv run shop up           # = docker compose up -d --wait; `--no-kibana` to save memory
+uv run shop status
 ```
 
 `uv run shop env init` writes `.env` (git-ignored) with generated passwords; your Kibana login is
 `KIBANA_PERSONAL_USER` / `KIBANA_PERSONAL_PASSWORD` in that file. Odoo: http://127.0.0.1:8069,
 Kibana: http://127.0.0.1:5601, Elasticsearch: http://127.0.0.1:9200.
 
-Never run `docker compose down -v` or remove the volumes: they hold the database and the indices.
+`uv run shop down` stops the stack and keeps the volumes. Never run `docker compose down -v` or remove the
+volumes: they hold the database and the indices.

@@ -1,12 +1,12 @@
 # STATUS
 
-Updated: 2026-10-29 by agent session 2 (Task 1.1a manual test passed; SonarCloud findings fixed before merge)
+Updated: 2026-10-29 by agent session 2 (Task 1.1b manual test passed; Kibana limits raised; waiting for merge)
 
 ## Current position
 - Milestone: M1 — Docker stack, module skeleton, debugging, first interview — in progress
 - M1 order (supervisor, 2026-10-29): 1.1a → 1.1b → 1.4a → 1.2 → 1.3 → 1.4b → 1.5 → 1.7; 1.6 in parallel, not blocking the tag
-- Task: 1.1a — Compose stack, images, es-setup, `.env` — state: manual test **passed** 2026-10-29, waiting for merge
-- Branch / PR: `chore/compose-stack` → `develop`
+- Task: 1.1b — Stack commands, doctor sections, memory measurement — state: manual test **passed** 2026-10-29, waiting for merge
+- Branch / PR: `chore/stack-commands` → `develop`
 - Repository: https://github.com/akramnemri/odoo-search-lost-demand (public, default branch `develop`)
 
 ## Milestone 0 exit check (2026-10-28)
@@ -18,13 +18,13 @@ Updated: 2026-10-29 by agent session 2 (Task 1.1a manual test passed; SonarCloud
 - `main` still holds only the prompt pack: the first promotion `develop` → `main` is Task 1.7 (tag `m1-stack`)
 
 ## Environment
-- Doctor: 35 OK, 1 WARN (`.odoo-src/` missing, Task 1.4a), 0 FAIL — run on 2026-10-29 with the stack up
-- Stack: `compose.yaml` (project `odoo-search-lost-demand`), clean start from empty volumes healthy in 94 s,
-  restart in 37 s; images pulled 2026-10-29 (2.34 GB compressed)
-- First memory reading (standard profile, idle, no data): Elasticsearch 2.63/3 GiB, Kibana 1.19/1.5 GiB,
-  Odoo 0.10/1.5 GiB, PostgreSQL 0.08/1 GiB — Kibana and Elasticsearch near their limits; measure properly in 1.1b
+- Doctor: 46 OK, 1 WARN (`.odoo-src/` missing, Task 1.4a), 0 FAIL, 5 SKIP — run on 2026-10-29 with the stack up
+- Stack: `uv run shop up|down|status|logs`; `compose.yaml` (project `odoo-search-lost-demand`); clean start from empty
+  volumes healthy in 94 s; `shop up` from stopped 66–82 s; images pulled 2026-10-29 (2.34 GB compressed)
+- Memory measured 2026-10-29 (no data yet), table in `01_ARCHITECTURE.md` §5.3: standard stack ≈ 3.9 GiB peak
+  (Elasticsearch 2.7/3 GiB, Kibana 1.16/1.5 GiB); lowmem ≈ 2.7 GiB (Kibana 0.9/1 GiB); lowmem without Kibana ≈ 1.6 GiB
 - RAM profile: `standard` — 16.9 GB RAM; Docker 8.3 GB / 4 CPUs (`.wslconfig` memory=8GB, decimal GB as in the docs),
-  shared with another project's running stack (~0.4 GB used, ~2.4 GB of limits). Measure real usage in Task 1.1
+  shared with another project's running stack (≈ 0.45 GiB used)
 - Stack versions (approved): Odoo `19.0-20261015` (Python 3.12.3, confirmed 2026-10-29), PostgreSQL `16.15-trixie`, Elasticsearch/Kibana `9.5.5`,
   client `elasticsearch==9.5.1`, host Python 3.12 — `docs/setup/VERSIONS.md`
 - Tools: Git 2.51, Git LFS 3.7, gh 2.102 (logged in), uv 0.13.6, Docker Desktop 4.60.1 (kept, no update), Compose v5.0.2,
@@ -52,7 +52,10 @@ Updated: 2026-10-29 by agent session 2 (Task 1.1a manual test passed; SonarCloud
 - 0.5 — `shop doctor`, bootstrap scripts, TROUBLESHOOTING.md — merged 2026-10-28 (PR #4)
 - 0.6 — CI (`lint`, `tools` on Ubuntu + Windows), `shop lint`, repository settings — merged 2026-10-28 (PR #5)
 - PRs #1–#5 were merged by the agent on the supervisor's explicit instruction
-- 1.1a — Compose stack, Odoo image, es-setup, `shop env init` — manual test passed 2026-10-29 (PR #8, not merged yet)
+- 1.1a — Compose stack, Odoo image, es-setup, `shop env init` — merged 2026-10-29 (PR #8, agent on the supervisor's
+  instruction, after CI and SonarCloud were green)
+- 1.1b — `shop up/down/status/logs`, doctor `stack`/`elastic`/`kibana`, memory measurement — manual test passed
+  2026-10-29 (PR #9, not merged yet)
 
 ## Latest results
 - none (no evaluation yet)
@@ -76,16 +79,17 @@ Updated: 2026-10-29 by agent session 2 (Task 1.1a manual test passed; SonarCloud
 - Odoo image: client set pinned and hash-locked (`--require-hashes`, wheels only, `--no-deps`) after two SonarCloud
   findings on PR #8 (docker:S8541, docker:S8544); `typing-extensions` 4.16.0 shadows Ubuntu's 4.10.0 in `/usr/local`
 - SonarCloud runs on PRs (added outside the agent, first seen on PR #8); not a required check
+- `shop up` never pulls images: missing images stop it with the `docker compose pull` command (no surprise downloads)
+- `stop_grace_period`: Elasticsearch 60 s, PostgreSQL 30 s (Elasticsearch was killed with exit 137 at Docker's default 10 s)
+- Kibana memory limit raised (supervisor, 2026-10-29): standard 1536m → 2g, lowmem 1g → 1280m; it idled at 75–88 %
+  of the old limits. After the change: 1.34 of 2 GiB at startup (standard)
 
 ## Open issues / risks
 - PyCharm Pro trial ends 2026-11-14. Plan: finish the Docker debugging task before then; otherwise apply for the
   JetBrains student license only if it is free with no bank card, else switch to a free alternative (decide in Task 1.4)
 - Docker memory 8.3 GB is at the low edge of `standard` and shared with another project's containers
 - XML-RPC/JSON-RPC deprecation timeline not re-verified (before Task 1.2)
-- The doctor's "port used by our stack" check assumes Compose's default project name; `compose.yaml` sets the same
-  name, read it from there in Task 1.1b
-- Kibana (1.19 of 1.5 GiB) may hit its memory limit under dashboards load; decide the limit in Task 1.1b
-- Three empty volumes `lost-demand-cleanstart_*` remain from the clean-start test (no data); the supervisor may remove them
+- Kibana and Elasticsearch memory under real dashboard and indexing load is not measured yet (M4, M7, M8)
 - The PostgreSQL password was shown once in the agent chat (process list check, before the fix); it never reached
   the repository. Rotate it if the transcript is shared (needs `ALTER USER` on the existing volume)
 
@@ -94,5 +98,5 @@ Updated: 2026-10-29 by agent session 2 (Task 1.1a manual test passed; SonarCloud
 - A local shop owner for interview #1 (Task 1.6) — start looking early
 
 ## Next step (exact)
-- Supervisor: merge PR #8 (`chore/compose-stack`) once CI and SonarCloud are green
-- Then Task 1.1b: `shop up/down/status/logs`, doctor sections `stack`, `elastic`, `kibana`, memory measurement
+- Supervisor: merge PR #9 (`chore/stack-commands`) once CI is green
+- Then Task 1.4a: `uv run shop odoo-src` (copy of the Odoo 19.0 source from the image, before Task 1.2)

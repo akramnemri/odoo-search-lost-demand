@@ -12,8 +12,8 @@ import sys
 from collections.abc import Callable, Sequence
 from pathlib import Path
 
-from shoptools import __version__
-from shoptools.doctor.expected import find_repo_root
+from shoptools import __version__, stack
+from shoptools.doctor.expected import VERSIONS_FILE, find_repo_root, load_expected
 from shoptools.doctor.report import SECTIONS, run_doctor
 from shoptools.envfile import PROFILES, init_env
 
@@ -81,10 +81,16 @@ def _add_env_arguments(parser: argparse.ArgumentParser) -> None:
     )
 
 
-def _run_env(namespace: argparse.Namespace) -> int:
+def _repo_root(command: str) -> Path | None:
     repo_root = find_repo_root(Path.cwd())
     if repo_root is None:
-        print("shop env: run this command inside the repository.", file=sys.stderr)
+        print(f"shop {command}: run this command inside the repository.", file=sys.stderr)
+    return repo_root
+
+
+def _run_env(namespace: argparse.Namespace) -> int:
+    repo_root = _repo_root("env")
+    if repo_root is None:
         return 1
     result = init_env(repo_root / ".env.example", repo_root / ".env", namespace.profile)
 
@@ -101,6 +107,49 @@ def _run_env(namespace: argparse.Namespace) -> int:
     return 0
 
 
+def _add_up_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--no-kibana",
+        action="store_true",
+        help="start everything except Kibana (saves memory on 8 GB machines)",
+    )
+
+
+def _run_up(namespace: argparse.Namespace) -> int:
+    repo_root = _repo_root("up")
+    if repo_root is None:
+        return 1
+    images = load_expected(repo_root / VERSIONS_FILE).stack_images
+    return stack.run_up(repo_root, images, no_kibana=namespace.no_kibana)
+
+
+def _run_down(namespace: argparse.Namespace) -> int:
+    repo_root = _repo_root("down")
+    return 1 if repo_root is None else stack.run_down(repo_root)
+
+
+def _run_status(namespace: argparse.Namespace) -> int:
+    repo_root = _repo_root("status")
+    return 1 if repo_root is None else stack.run_status(repo_root)
+
+
+def _add_logs_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("service", nargs="?", choices=stack.SERVICES, help="one service; default: all")
+    parser.add_argument(
+        "--follow", "-f", action="store_true", help="keep printing new lines (Ctrl+C to stop)"
+    )
+    parser.add_argument(
+        "--tail", type=int, default=200, help="lines per service to show first (default: 200)"
+    )
+
+
+def _run_logs(namespace: argparse.Namespace) -> int:
+    repo_root = _repo_root("logs")
+    if repo_root is None:
+        return 1
+    return stack.run_logs(repo_root, namespace.service, follow=namespace.follow, tail=namespace.tail)
+
+
 # command -> (function adding its arguments, function running it)
 IMPLEMENTED_COMMANDS: dict[
     str, tuple[Callable[[argparse.ArgumentParser], None], Callable[[argparse.Namespace], int]]
@@ -108,6 +157,10 @@ IMPLEMENTED_COMMANDS: dict[
     "doctor": (_add_doctor_arguments, _run_doctor),
     "lint": (_add_no_arguments, _run_lint),
     "env": (_add_env_arguments, _run_env),
+    "up": (_add_up_arguments, _run_up),
+    "down": (_add_no_arguments, _run_down),
+    "status": (_add_no_arguments, _run_status),
+    "logs": (_add_logs_arguments, _run_logs),
 }
 
 
