@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Adds one read-only block at the end of the Website app of Settings
+         (website.res_config_settings_view_form, odoo/addons/website/views/res_config_settings_views.xml). -->
+    <record id="res_config_settings_view_form" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.inherit.website_sale_lost_demand</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="website.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//app[@name='website']" position="inside">
+                <block title="Lost-demand search (Elasticsearch)" id="lost_demand_es_settings" groups="base.group_system">
+                    <setting id="lost_demand_es_status" string="Elasticsearch status"
+                             help="Read-only. Connection settings come from the server environment (.env), never from this page.">
+                        <div class="content-group">
+                            <div class="row mt8">
+                                <label class="col-lg-4 o_light_label" string="Reachable" for="lost_demand_es_reachable"/>
+                                <field name="lost_demand_es_reachable" class="col-lg-8"/>
+                            </div>
+                            <div class="mt8">
+                                <field name="lost_demand_es_message"/>
+                            </div>
+                            <div class="row mt8">
+                                <label class="col-lg-4 o_light_label" string="Checked at" for="lost_demand_es_checked_at"/>
+                                <field name="lost_demand_es_checked_at" class="col-lg-8"/>
+                            </div>
+                        </div>
+                    </setting>
+                    <setting id="lost_demand_es_cluster" string="Cluster"
+                             help="Version, license (must be basic) and health of the cluster; the status is reused for 10 seconds.">
+                        <div class="content-group">
+                            <div class="row mt8">
+                                <label class="col-lg-4 o_light_label" string="Version" for="lost_demand_es_version"/>
+                                <field name="lost_demand_es_version" class="col-lg-8"/>
+                            </div>
+                            <div class="row">
+                                <label class="col-lg-4 o_light_label" string="License" for="lost_demand_es_license"/>
+                                <field name="lost_demand_es_license" class="col-lg-8"/>
+                            </div>
+                            <div class="row">
+                                <label class="col-lg-4 o_light_label" string="Health" for="lost_demand_es_health"/>
+                                <field name="lost_demand_es_health" class="col-lg-8"/>
+                            </div>
+                            <div class="row">
+                                <label class="col-lg-4 o_light_label" string="Search circuit" for="lost_demand_es_circuit"/>
+                                <field name="lost_demand_es_circuit" class="col-lg-8"/>
+                            </div>
+                        </div>
+                    </setting>
+                </block>
+            </xpath>
+        </field>
+    </record>
+</odoo>

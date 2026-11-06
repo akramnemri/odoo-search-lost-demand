@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+Groups of the module (docs/ai/01_ARCHITECTURE.md §6.4). Buyers reuse purchase.group_purchase_user and
+administrators reuse base.group_system; only the shop manager (read access to signals and runs, from M6)
+is new. In 19.0 a group hangs on a res.groups.privilege (odoo/addons/base/models/res_groups.py, privilege_id).
+-->
+<odoo>
+    <record id="res_groups_privilege_lost_demand" model="res.groups.privilege">
+        <field name="name">Lost Demand</field>
+        <field name="sequence">60</field>
+        <field name="category_id" ref="base.module_category_website"/>
+    </record>
+
+    <record id="group_lost_demand_manager" model="res.groups">
+        <field name="name">Shop manager</field>
+        <field name="sequence">10</field>
+        <field name="privilege_id" ref="res_groups_privilege_lost_demand"/>
+        <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
+        <field name="user_ids" eval="[(4, ref('base.user_root')), (4, ref('base.user_admin'))]"/>
+    </record>
+</odoo>

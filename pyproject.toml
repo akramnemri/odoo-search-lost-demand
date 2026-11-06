@@ -30,12 +30,20 @@ module-root = "tools"
 [tool.ruff]
 target-version = "py312"
 line-length = 110
-src = ["tools"]
+src = ["tools", "addons/website_sale_lost_demand"]
 extend-exclude = [".odoo-src", "data", "results", "local"]
 
 [tool.ruff.lint]
 select = ["E", "W", "F", "I", "B", "UP", "SIM"]
 
+[tool.ruff.lint.per-file-ignores]
+# Odoo conventions: package __init__ files import submodules for their side effect (registering models,
+# tests), and a manifest is a bare dict literal.
+"addons/**/__init__.py" = ["F401"]
+"addons/**/__manifest__.py" = ["B018"]
+
 [tool.pytest.ini_options]
 testpaths = ["tools/tests"]
+# The module's pure services/ are imported as `services` (they never import odoo): docs/ai/01 §6.1.
+pythonpath = ["addons/website_sale_lost_demand"]
 addopts = "-ra"
