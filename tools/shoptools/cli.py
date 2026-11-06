@@ -12,7 +12,7 @@ import sys
 from collections.abc import Callable, Sequence
 from pathlib import Path
 
-from shoptools import __version__, odoodb, odoosrc, snapshot, stack
+from shoptools import __version__, moduletest, odoodb, odoosrc, snapshot, stack
 from shoptools.doctor.expected import VERSIONS_FILE, find_repo_root, load_expected
 from shoptools.doctor.report import SECTIONS, run_doctor
 from shoptools.envfile import PROFILES, init_env
@@ -193,6 +193,31 @@ def _run_snapshot(namespace: argparse.Namespace) -> int:
     return 0
 
 
+def _add_test_arguments(parser: argparse.ArgumentParser) -> None:
+    suites = parser.add_subparsers(dest="test_suite", metavar="<suite>", required=True)
+    # Any further arguments of `shop test tools` go to pytest (see main()).
+    suites.add_parser(
+        "tools", help="pytest on the host: tools/ and the module's pure services/ (+ pytest args)"
+    )
+    module = suites.add_parser(
+        "module",
+        help=f"Odoo tests of the module in the container, on a throwaway {moduletest.TEST_DB!r} database",
+    )
+    module.add_argument("--es", action="store_true", help="also run the tests that need Elasticsearch")
+    module.add_argument(
+        "--keep-db", action="store_true", help=f"keep {moduletest.TEST_DB!r} after the run, to inspect it"
+    )
+
+
+def _run_test(namespace: argparse.Namespace) -> int:
+    repo_root = _repo_root("test")
+    if repo_root is None:
+        return 1
+    if namespace.test_suite == "tools":
+        return moduletest.run_tool_tests(repo_root, namespace.extra_args)
+    return moduletest.run_module_tests(repo_root, with_es=namespace.es, keep_db=namespace.keep_db)
+
+
 def _add_odoo_src_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--force", action="store_true", help="replace an existing .odoo-src/")
     parser.add_argument(
@@ -230,6 +255,7 @@ IMPLEMENTED_COMMANDS: dict[
     "logs": (_add_logs_arguments, _run_logs),
     "db": (_add_db_arguments, _run_db),
     "snapshot": (_add_snapshot_arguments, _run_snapshot),
+    "test": (_add_test_arguments, _run_test),
     "odoo-src": (_add_odoo_src_arguments, _run_odoo_src),
 }
 
@@ -254,7 +280,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     # Placeholders accept any arguments, so the message names the missing task instead of a usage error.
     namespace, extra_args = parser.parse_known_args(argv)
     implemented = IMPLEMENTED_COMMANDS.get(namespace.command)
-    if extra_args and (namespace.command is None or implemented is not None):
+    passes_args = namespace.command == "test" and getattr(namespace, "test_suite", None) == "tools"
+    namespace.extra_args = extra_args
+    if extra_args and not passes_args and (namespace.command is None or implemented is not None):
         parser.error(f"unrecognized arguments: {' '.join(extra_args)}")
     if namespace.command is None:
         parser.print_help()
