@@ -6,7 +6,8 @@ Updated: 2026-11-06 by agent session 4 (Task 1.3 implemented, waiting for the su
 - Milestone: M1 — Docker stack, module skeleton, debugging, first interview — in progress
 - M1 order (supervisor, 2026-10-29): 1.1a → 1.1b → 1.4a → 1.2a → 1.2b → 1.3 → 1.4b → 1.5 → 1.7; 1.6 in parallel, not blocking the tag
 - Task: 1.3 — module skeleton (`website_sale_lost_demand` 19.0.0.1.0, `shop test tools|module`, doctor `odoo`) —
-  state: manual test passed (supervisor, 2026-11-06), CI and SonarCloud green, waiting for the merge
+  state: manual test passed (supervisor, 2026-11-06) and browser re-test passed (agent with the supervisor,
+  2026-11-06, see below), CI and SonarCloud green, waiting for the merge
 - Branch / PR: `feat/module-skeleton` — PR to `develop` (see the task report)
 - Repository: https://github.com/akramnemri/odoo-search-lost-demand (public, default branch `develop`)
 
@@ -50,8 +51,9 @@ Updated: 2026-11-06 by agent session 4 (Task 1.3 implemented, waiting for the su
   `shop_integration` with a JSON-2 API key in `.env`; 1 product ("Standard delivery"), 0 sale orders
 - Snapshots (`local/snapshots/`): `baseline-empty` (2026-11-06, 6.9 MB: the state above, use this one);
   `after-1-2a-manual-test` (2026-11-06, older: its integration user cannot create products)
-- Module `website_sale_lost_demand` 19.0.0.1.0: installed in `shop` from Apps by the 1.3 manual test (2026-11-06);
-  snapshot `baseline-empty` is the state without it. `shop test module` uses a throwaway `shop_test`, dropped after
+- Module `website_sale_lost_demand` 19.0.0.1.0: installed in `shop` from Apps on 2026-11-06 (browser re-test of 1.3);
+  snapshot `baseline-empty` is the state without it. `shop` also holds an archived throwaway user `ld_tester`
+  (internal, Website designer) from that test. `shop test module` uses a throwaway `shop_test`, dropped after
   each run
 - Elasticsearch: users `odoo_app`, `shop_tools`, personal Kibana user `supervisor` (built-in `editor` role); no indices
 - Product index: none
@@ -81,7 +83,10 @@ Updated: 2026-11-06 by agent session 4 (Task 1.3 implemented, waiting for the su
   `product.template` and `product.supplierinfo` over JSON-2 (`has_access`) — merged 2026-11-06 (PR #14, 85ec82a)
 - 1.3 — module skeleton: `services/` (config, ES client with status cache, circuit breaker), read-only Elasticsearch
   status in Website settings, group "Lost Demand / Shop manager", `shop test tools|module [--es]`, doctor `odoo` —
-  manual test passed 2026-11-06 (module installed in `shop` from Apps), PR #15 not merged yet
+  manual test passed 2026-11-06, PR #15 not merged yet. Browser re-test (2026-11-06, built-in browser): the module was
+  not yet in `shop`'s Apps list (the running server had cached "manifest not found"); after `docker compose restart odoo`
+  it installed from Apps; status block correct with Elasticsearch up, stopped (Unreachable, page still opens) and
+  started again; a non-admin user (throwaway `ld_tester`, archived afterwards) gets Access Error on Settings
 
 ## Latest results
 - none (no evaluation yet)
@@ -136,6 +141,10 @@ Updated: 2026-11-06 by agent session 4 (Task 1.3 implemented, waiting for the su
 - Free disk 37.5 GB (2026-11-06 evening, 45.8 GB that morning; cause not found: `docker system df` shows 14.7 GB of
   images, 13.1 GB reclaimable, and 4.3 GB build cache, shared with the other project), below the 50 GB the doctor
   recommends; datasets (ESCI 1.1 GB, REES46 13.7 GB) come in M2/M7. Never prune without the supervisor
+- **Elasticsearch timeout gap**: with the `elasticsearch` container stopped, resolving its name takes 8 s in the `odoo`
+  container (Docker DNS 127.0.0.11 times out) and the client's `request_timeout` does not cover DNS. The settings
+  page then needs ~7.7 s per fresh check (cached 10 s). Instant when Elasticsearch is down but its container runs.
+  Must be fixed before shopper search uses `guarded()` (Task 3.3), or as a 1.3 follow-up (supervisor decides)
 - `shop test module` takes about 85–90 s (fresh `shop_test` with `website_sale` and its dependencies) and runs a second
   Odoo process in the `odoo` container next to the development server
 - Kibana and Elasticsearch memory under real dashboard and indexing load is not measured yet (M4, M7, M8)
@@ -153,6 +162,10 @@ Updated: 2026-11-06 by agent session 4 (Task 1.3 implemented, waiting for the su
 - Agent note: Odoo `call_kw` takes the record ids as the first argument of non-`@api.model` methods
   (`odoo/service/model.py`): `onchange` over `/web/dataset/call_kw` needs `args = [[], values, names, spec]`
 - Agent note: on Windows, `python3` in Git Bash is the Store stub and hangs; use `uv run python`
+- Agent note: a new module needs `docker compose restart odoo` before Apps > Update Apps List: 19.0 caches manifest
+  lookups per process, including "not found" (`odoo/modules/module.py`, `Manifest._get_manifest_from_addons`)
+- Agent note: in the built-in browser, navigating to the same Odoo URL (only `#...` differs) does not reload the page;
+  go to another URL first. `Update Apps List` needs `?debug=1`
 - Agent notes: detect-secrets flags `*_PASSWORD = "..."` and multi-key strings in tests — build test `.env` text from a
   dict, mark fake values with `# pragma: allowlist secret`; never print container command lines or `.env` values
 - Agent note: `shop lint` (`pre-commit run --all-files`) skips untracked files and no git hook is installed:
