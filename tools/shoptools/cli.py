@@ -12,10 +12,12 @@ import sys
 from collections.abc import Callable, Sequence
 from pathlib import Path
 
-from shoptools import __version__, odoodb, odoosrc, stack
+from shoptools import __version__, odoodb, odoosrc, snapshot, stack
 from shoptools.doctor.expected import VERSIONS_FILE, find_repo_root, load_expected
 from shoptools.doctor.report import SECTIONS, run_doctor
 from shoptools.envfile import PROFILES, init_env
+
+ACTION_METAVAR = "<action>"
 
 # command -> (help text, roadmap task that implements it; see docs/ai/05_ROADMAP.md)
 PLANNED_COMMANDS: dict[str, tuple[str, str]] = {
@@ -72,7 +74,7 @@ def _run_lint(namespace: argparse.Namespace) -> int:
 
 
 def _add_env_arguments(parser: argparse.ArgumentParser) -> None:
-    actions = parser.add_subparsers(dest="env_action", metavar="<action>", required=True)
+    actions = parser.add_subparsers(dest="env_action", metavar=ACTION_METAVAR, required=True)
     init = actions.add_parser("init", help="create .env, or add missing keys; existing values are kept")
     init.add_argument(
         "--profile",
@@ -151,7 +153,7 @@ def _run_logs(namespace: argparse.Namespace) -> int:
 
 
 def _add_db_arguments(parser: argparse.ArgumentParser) -> None:
-    actions = parser.add_subparsers(dest="db_action", metavar="<action>", required=True)
+    actions = parser.add_subparsers(dest="db_action", metavar=ACTION_METAVAR, required=True)
     actions.add_parser("create", help="create the shop database (refuses if it exists)")
     actions.add_parser(
         "reset", help="DESTRUCTIVE: drop the database and its filestore, then create it (asks first)"
@@ -165,6 +167,30 @@ def _run_db(namespace: argparse.Namespace) -> int:
     if namespace.db_action == "reset":
         return odoodb.run_reset(repo_root)
     return odoodb.run_create(repo_root)
+
+
+def _add_snapshot_arguments(parser: argparse.ArgumentParser) -> None:
+    actions = parser.add_subparsers(dest="snapshot_action", metavar=ACTION_METAVAR, required=True)
+    save = actions.add_parser("save", help="dump the database and its filestore to local/snapshots/<name>/")
+    save.add_argument("name", help="snapshot name: lowercase letters, digits, '.', '_' and '-'")
+    save.add_argument("--force", action="store_true", help="replace an existing snapshot of that name")
+    restore = actions.add_parser(
+        "restore", help="DESTRUCTIVE: replace the database and its filestore with a snapshot (asks first)"
+    )
+    restore.add_argument("name", help="snapshot name (see `shop snapshot list`)")
+    actions.add_parser("list", help="list the saved snapshots")
+
+
+def _run_snapshot(namespace: argparse.Namespace) -> int:
+    repo_root = _repo_root("snapshot")
+    if repo_root is None:
+        return 1
+    if namespace.snapshot_action == "save":
+        return snapshot.run_save(repo_root, namespace.name, force=namespace.force)
+    if namespace.snapshot_action == "restore":
+        return snapshot.run_restore(repo_root, namespace.name)
+    snapshot.run_list(repo_root)
+    return 0
 
 
 def _add_odoo_src_arguments(parser: argparse.ArgumentParser) -> None:
@@ -203,6 +229,7 @@ IMPLEMENTED_COMMANDS: dict[
     "status": (_add_no_arguments, _run_status),
     "logs": (_add_logs_arguments, _run_logs),
     "db": (_add_db_arguments, _run_db),
+    "snapshot": (_add_snapshot_arguments, _run_snapshot),
     "odoo-src": (_add_odoo_src_arguments, _run_odoo_src),
 }
 
