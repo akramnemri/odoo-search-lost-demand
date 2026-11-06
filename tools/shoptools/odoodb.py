@@ -119,11 +119,22 @@ def parse_result(stdout: str) -> dict[str, object]:
     raise SetupError("the configuration script printed no result: see the log")
 
 
-def check_json2(db_name: str, api_key: str, base_url: str = stack.ODOO_URL) -> dict[str, object]:
-    """One authenticated JSON-2 call; returns the integration user's context."""
+# Models the host tools create records in (catalog import, Task 2.4), checked once the database exists.
+WRITE_MODELS = ("product.template", "product.supplierinfo")
+
+
+def json2_call(
+    db_name: str,
+    api_key: str,
+    model: str,
+    method: str,
+    body: dict[str, object],
+    base_url: str = stack.ODOO_URL,
+) -> object:
+    """One authenticated JSON-2 call (`POST /json/2/<model>/<method>`); returns the decoded result."""
     request = urllib.request.Request(
-        f"{base_url}/json/2/res.users/context_get",
-        data=b"{}",
+        f"{base_url}/json/2/{model}/{method}",
+        data=json.dumps(body).encode("utf-8"),
         headers={
             "Authorization": f"bearer {api_key}",
             "Content-Type": "application/json",
@@ -138,6 +149,29 @@ def check_json2(db_name: str, api_key: str, base_url: str = stack.ODOO_URL) -> d
         raise SetupError(f"JSON-2 call refused: HTTP {error.code} {error.reason}") from error
     except (urllib.error.URLError, TimeoutError, ValueError) as error:
         raise SetupError(f"JSON-2 call failed at {base_url}: {error}") from error
+
+
+def check_json2(db_name: str, api_key: str, base_url: str = stack.ODOO_URL) -> dict[str, object]:
+    """The API key works: returns the integration user's context."""
+    context = json2_call(db_name, api_key, "res.users", "context_get", {}, base_url)
+    if not isinstance(context, dict):
+        raise SetupError(f"unexpected JSON-2 answer: {context!r}")
+    return context
+
+
+def check_write_access(db_name: str, api_key: str, base_url: str = stack.ODOO_URL) -> None:
+    """The integration user may create the records of the catalog import. Creates nothing.
+
+    `has_access` is public in 19.0; `check_access` is `@api.private` and cannot be called over JSON-2
+    (.odoo-src/odoo/orm/models.py).
+    """
+    denied = [
+        model
+        for model in WRITE_MODELS
+        if json2_call(db_name, api_key, model, "has_access", {"operation": "create"}, base_url) is not True
+    ]
+    if denied:
+        raise SetupError(f"the integration user cannot create records in: {', '.join(denied)}")
 
 
 # --- running the steps ---
@@ -202,8 +236,9 @@ def create_database(repo_root: Path, settings: Settings, log: IO[str], started: 
     result = parse_result(stdout)
     api_key = str(result.pop("api_key"))
     set_env_value(repo_root / ".env", API_KEY_ENV, api_key)
-    step(4, "Checking the API key with one JSON-2 call")
+    step(4, "Checking the API key and the integration user's rights over JSON-2")
     result["json2_lang"] = check_json2(db, api_key).get("lang")
+    check_write_access(db, api_key)
     return result
 
 
@@ -217,6 +252,7 @@ def _report(settings: Settings, result: dict[str, object], seconds: float) -> No
     print(f"  language  {result.get('lang')}")
     print(f"  modules   {len(modules) if isinstance(modules, list) else '?'} installed")
     print(f"  API key   written to .env ({API_KEY_ENV}); JSON-2 check OK (lang {result.get('json2_lang')})")
+    print(f"  rights    integration user may create {', '.join(WRITE_MODELS)}")
     print(f"Shop {stack.ODOO_URL}/shop  Backend {stack.ODOO_URL}/odoo")
     print("Login: admin, password ODOO_ADMIN_LOGIN_PASSWORD in .env (values are not shown).")
 

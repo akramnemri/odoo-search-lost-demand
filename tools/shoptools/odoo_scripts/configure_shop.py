@@ -22,11 +22,14 @@ RESULT_PREFIX = "SHOP_RESULT "
 
 # Rights for the host tools (catalog import in Task 2.4: products, vendors, vendor prices, stock);
 # deliberately no Administration/Settings group (supervisor decision, 2026-10-29).
+# In 19.0 only "Products / Create" may create products, variants, categories and vendor prices
+# (product/security/ir.model.access.csv); it is implied by Settings alone, so it is listed explicitly.
 INTEGRATION_GROUPS = (
     "base.group_user",
     "sales_team.group_sale_manager",
     "stock.group_stock_manager",
     "purchase.group_purchase_manager",
+    "product.group_product_manager",
 )
 
 

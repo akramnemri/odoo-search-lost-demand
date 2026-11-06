@@ -165,7 +165,8 @@ Task 1.2 was split (supervisor decision, 2026-10-29) into 1.2a (database) and 1.
   English, USD, company and website configured; guest checkout enabled; integration user with a JSON-2 API key written to `.env`.
 - `uv run shop db reset` (destructive: asks for confirmation).
 - Decisions (2026-10-29): company and website "Lost Demand Demo Shop", no country (generic chart of accounts); integration user
-  with Sales, Inventory and Purchase Administrator rights, no Settings rights; `db_name` removed from `odoo.conf` so the server
+  with Sales, Inventory and Purchase Administrator rights plus "Products / Create" (added 2026-11-06: in 19.0 only that group
+  creates products), no Settings rights; `db_name` removed from `odoo.conf` so the server
   never creates a blank database by itself (`dbfilter` still fixes the database).
 - Acceptance: create a product by hand, buy it as a guest with the test provider, order confirmed.
 - Manual: the full guest checkout.

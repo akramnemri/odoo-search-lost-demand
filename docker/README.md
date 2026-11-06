@@ -23,8 +23,9 @@ Odoo never creates its database by itself: `odoo.conf` has no `db_name` (with it
 database with the login admin/admin at every start). `uv run shop db create` creates it without demo data, installs
 the shop apps (eCommerce, stock on the shop, purchase with stock, the Demo payment provider in test mode), names the
 company and website "Lost Demand Demo Shop" (USD, generic chart of accounts), sets the `admin` password from
-`ODOO_ADMIN_LOGIN_PASSWORD`, creates the integration user `ODOO_INTEGRATION_LOGIN` and writes its JSON-2 API key to
-`ODOO_API_KEY`. Odoo's output goes to `local/logs/db-create.log`. `uv run shop db reset` deletes the database and its
+`ODOO_ADMIN_LOGIN_PASSWORD`, creates the integration user `ODOO_INTEGRATION_LOGIN` (Sales, Inventory and Purchase
+Administrator, Products / Create; no Settings rights) and writes its JSON-2 API key to `ODOO_API_KEY`, then checks
+over JSON-2 that the key works and that the user may create products and vendor prices. Odoo's output goes to `local/logs/db-create.log`. `uv run shop db reset` deletes the database and its
 filestore and creates it again; it asks you to type the database name first.
 
 ## Snapshots
