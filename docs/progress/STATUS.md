@@ -6,7 +6,7 @@ Updated: 2026-11-06 by agent session 4 (Task 1.3 implemented, waiting for the su
 - Milestone: M1 — Docker stack, module skeleton, debugging, first interview — in progress
 - M1 order (supervisor, 2026-10-29): 1.1a → 1.1b → 1.4a → 1.2a → 1.2b → 1.3 → 1.4b → 1.5 → 1.7; 1.6 in parallel, not blocking the tag
 - Task: 1.3 — module skeleton (`website_sale_lost_demand` 19.0.0.1.0, `shop test tools|module`, doctor `odoo`) —
-  state: implemented, PR open, waiting for the supervisor's manual test
+  state: manual test passed (supervisor, 2026-11-06), CI and SonarCloud green, waiting for the merge
 - Branch / PR: `feat/module-skeleton` — PR to `develop` (see the task report)
 - Repository: https://github.com/akramnemri/odoo-search-lost-demand (public, default branch `develop`)
 
@@ -50,8 +50,8 @@ Updated: 2026-11-06 by agent session 4 (Task 1.3 implemented, waiting for the su
   `shop_integration` with a JSON-2 API key in `.env`; 1 product ("Standard delivery"), 0 sale orders
 - Snapshots (`local/snapshots/`): `baseline-empty` (2026-11-06, 6.9 MB: the state above, use this one);
   `after-1-2a-manual-test` (2026-11-06, older: its integration user cannot create products)
-- Module `website_sale_lost_demand` 19.0.0.1.0: not installed in `shop` yet (manual test of Task 1.3 installs it from
-  Apps; `baseline-empty` stays the state without it). `shop test module` uses a throwaway `shop_test`, dropped after
+- Module `website_sale_lost_demand` 19.0.0.1.0: installed in `shop` from Apps by the 1.3 manual test (2026-11-06);
+  snapshot `baseline-empty` is the state without it. `shop test module` uses a throwaway `shop_test`, dropped after
   each run
 - Elasticsearch: users `odoo_app`, `shop_tools`, personal Kibana user `supervisor` (built-in `editor` role); no indices
 - Product index: none
@@ -81,7 +81,7 @@ Updated: 2026-11-06 by agent session 4 (Task 1.3 implemented, waiting for the su
   `product.template` and `product.supplierinfo` over JSON-2 (`has_access`) — merged 2026-11-06 (PR #14, 85ec82a)
 - 1.3 — module skeleton: `services/` (config, ES client with status cache, circuit breaker), read-only Elasticsearch
   status in Website settings, group "Lost Demand / Shop manager", `shop test tools|module [--es]`, doctor `odoo` —
-  implemented 2026-11-06, not merged yet
+  manual test passed 2026-11-06 (module installed in `shop` from Apps), PR #15 not merged yet
 
 ## Latest results
 - none (no evaluation yet)
@@ -147,7 +147,7 @@ Updated: 2026-11-06 by agent session 4 (Task 1.3 implemented, waiting for the su
 - A local shop owner for interview #1 (Task 1.6) — start looking early
 
 ## Next step (exact)
-- Supervisor: manual test of Task 1.3 (task report), then review and merge the PR into `develop`
+- Supervisor: merge PR #15 (Task 1.3) into `develop` (manual test passed, CI and SonarCloud green)
 - Then **Task 1.4b** (PyCharm debugging) before 2026-11-14, when the Pro trial ends: breakpoint in
   `models/res_config_settings.py::_compute_lost_demand_es_status` (runs when Settings opens)
 - Agent note: Odoo `call_kw` takes the record ids as the first argument of non-`@api.model` methods
