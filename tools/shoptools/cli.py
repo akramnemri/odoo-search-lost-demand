@@ -12,7 +12,7 @@ import sys
 from collections.abc import Callable, Sequence
 from pathlib import Path
 
-from shoptools import __version__, odoodb, odoosrc, stack
+from shoptools import __version__, odoodb, odoosrc, snapshot, stack
 from shoptools.doctor.expected import VERSIONS_FILE, find_repo_root, load_expected
 from shoptools.doctor.report import SECTIONS, run_doctor
 from shoptools.envfile import PROFILES, init_env
@@ -167,6 +167,29 @@ def _run_db(namespace: argparse.Namespace) -> int:
     return odoodb.run_create(repo_root)
 
 
+def _add_snapshot_arguments(parser: argparse.ArgumentParser) -> None:
+    actions = parser.add_subparsers(dest="snapshot_action", metavar="<action>", required=True)
+    save = actions.add_parser("save", help="dump the database and its filestore to local/snapshots/<name>/")
+    save.add_argument("name", help="snapshot name: lowercase letters, digits, '.', '_' and '-'")
+    save.add_argument("--force", action="store_true", help="replace an existing snapshot of that name")
+    restore = actions.add_parser(
+        "restore", help="DESTRUCTIVE: replace the database and its filestore with a snapshot (asks first)"
+    )
+    restore.add_argument("name", help="snapshot name (see `shop snapshot list`)")
+    actions.add_parser("list", help="list the saved snapshots")
+
+
+def _run_snapshot(namespace: argparse.Namespace) -> int:
+    repo_root = _repo_root("snapshot")
+    if repo_root is None:
+        return 1
+    if namespace.snapshot_action == "save":
+        return snapshot.run_save(repo_root, namespace.name, force=namespace.force)
+    if namespace.snapshot_action == "restore":
+        return snapshot.run_restore(repo_root, namespace.name)
+    return snapshot.run_list(repo_root)
+
+
 def _add_odoo_src_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--force", action="store_true", help="replace an existing .odoo-src/")
     parser.add_argument(
@@ -203,6 +226,7 @@ IMPLEMENTED_COMMANDS: dict[
     "status": (_add_no_arguments, _run_status),
     "logs": (_add_logs_arguments, _run_logs),
     "db": (_add_db_arguments, _run_db),
+    "snapshot": (_add_snapshot_arguments, _run_snapshot),
     "odoo-src": (_add_odoo_src_arguments, _run_odoo_src),
 }
 

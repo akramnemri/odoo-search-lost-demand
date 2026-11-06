@@ -1,12 +1,13 @@
 # STATUS
 
-Updated: 2026-10-29 by agent session 3 (Task 1.2a implemented, waiting for the supervisor's manual test)
+Updated: 2026-11-06 by agent session 3 (Task 1.2b implemented, waiting for the supervisor's manual test)
 
 ## Current position
 - Milestone: M1 — Docker stack, module skeleton, debugging, first interview — in progress
 - M1 order (supervisor, 2026-10-29): 1.1a → 1.1b → 1.4a → 1.2a → 1.2b → 1.3 → 1.4b → 1.5 → 1.7; 1.6 in parallel, not blocking the tag
-- Task: 1.2a — Database bootstrap (`uv run shop db create|reset`) — state: implemented, PR open, waiting for the manual test
-- Branch / PR: `chore/db-bootstrap` — PR to `develop` (see the task report)
+- Task: 1.2b — Database snapshots (`uv run shop snapshot save|restore|list`) — state: implemented, PR open, waiting for the
+  manual test
+- Branch / PR: `chore/db-snapshots` — PR to `develop` (see the task report)
 - Repository: https://github.com/akramnemri/odoo-search-lost-demand (public, default branch `develop`)
 
 ## Milestone 0 exit check (2026-10-28)
@@ -18,7 +19,8 @@ Updated: 2026-10-29 by agent session 3 (Task 1.2a implemented, waiting for the s
 - `main` still holds only the prompt pack: the first promotion `develop` → `main` is Task 1.7 (tag `m1-stack`)
 
 ## Environment
-- Doctor: 47 OK, 0 WARN, 0 FAIL, 5 SKIP — run on 2026-10-29 with the stack up, after `uv run shop db create`
+- Doctor: 46 OK, 1 WARN, 0 FAIL, 5 SKIP — run on 2026-11-06 with the stack up; WARN = free disk 45.8 GB (< 50 GB
+  recommended; snapshots use only 7 MB)
 - Stack: `uv run shop up|down|status|logs`; `compose.yaml` (project `odoo-search-lost-demand`); clean start from empty
   volumes healthy in 94 s; `shop up` from stopped 66–82 s; images pulled 2026-10-29 (2.34 GB compressed)
 - Memory measured 2026-10-29 (no data yet), table in `01_ARCHITECTURE.md` §5.3: standard stack ≈ 3.9 GiB peak
@@ -44,7 +46,9 @@ Updated: 2026-10-29 by agent session 3 (Task 1.2a implemented, waiting for the s
 - Odoo database: `shop`, created 2026-10-29 by `shop db reset` in 90 s (dropped first: the blank database the server had
   auto-created at the first start, base only, no data); 86 modules, no demo data, company and website "Lost Demand
   Demo Shop", USD, generic chart of accounts, en_US, Demo payment provider (test), guest checkout on; integration user
-  `shop_integration` with a JSON-2 API key in `.env`; no products yet
+  `shop_integration` with a JSON-2 API key in `.env`; on 2026-11-06 it held 1 product ("Standard delivery") and
+  0 sale orders
+- Snapshots: `local/snapshots/after-1-2a-manual-test` (2026-11-06, 6.9 MB: the state above)
 - Elasticsearch: users `odoo_app`, `shop_tools`, personal Kibana user `supervisor` (built-in `editor` role); no indices
 - Product index: none
 - Events stored: 0
@@ -64,7 +68,10 @@ Updated: 2026-10-29 by agent session 3 (Task 1.2a implemented, waiting for the s
 - 1.4a — `shop odoo-src` (tar stream from the pinned image, stamp, doctor check) — merged 2026-10-29 (PR #11, agent on
   the supervisor's instruction, after CI and SonarCloud were green)
 - 1.2a — `shop db create|reset` (Odoo `db init`, `module install`, configure script in `odoo shell`, JSON-2 check),
-  `db_name` removed from `odoo.conf` — implemented 2026-10-29, not merged yet
+  `db_name` removed from `odoo.conf` — merged 2026-11-06 (PR #12, agent on the supervisor's instruction after the
+  manual test passed and CI and SonarCloud were green)
+- 1.2b — `shop snapshot save|restore|list` (pg_dump/pg_restore 16 in the `db` container, filestore tar, checksums,
+  restore into a temporary database then swap) — implemented 2026-11-06, not merged yet
 
 ## Latest results
 - none (no evaluation yet)
@@ -108,6 +115,10 @@ Updated: 2026-10-29 by agent session 3 (Task 1.2a implemented, waiting for the s
 - Docker memory 8.3 GB is at the low edge of `standard` and shared with another project's containers
 - XML-RPC/JSON-RPC: deprecated in Odoo 19, removal planned in Odoo 22 (`.odoo-src/odoo/addons/rpc/controllers/__init__.py`);
   the tools use JSON-2 only (`POST /json/2/<model>/<method>`, bearer API key)
+- The integration user cannot create products: 19.0 has a separate group `product.group_product_manager`
+  ("Products / Create", `.odoo-src/odoo/addons/product/security/product_security.xml`), implied only by Settings.
+  Task 2.4 (catalog import) needs it: fix `configure_shop.py` and the existing user before then (found in Task 1.2b)
+- Free disk 45.8 GB (2026-11-06), below the 50 GB the doctor recommends; datasets (ESCI 1.1 GB, REES46 13.7 GB) come in M2/M7
 - Kibana and Elasticsearch memory under real dashboard and indexing load is not measured yet (M4, M7, M8)
 - The PostgreSQL password was shown once in the agent chat (process list check, before the fix); it never reached
   the repository. Rotate it if the transcript is shared (needs `ALTER USER` on the existing volume)
@@ -117,11 +128,9 @@ Updated: 2026-10-29 by agent session 3 (Task 1.2a implemented, waiting for the s
 - A local shop owner for interview #1 (Task 1.6) — start looking early
 
 ## Next step (exact)
-- Supervisor: manual test of Task 1.2a (guest checkout with the Demo provider), then merge the PR into `develop`
-- Agent after the merge: sync `develop`, delete the branch, then post the plan for **Task 1.2b** (snapshots). Facts for
-  1.2b: `odoo db dump|load` exist in 19.0 (`.odoo-src/odoo/cli/db.py`, zip = SQL + filestore); the image's `pg_dump`/`psql`
-  are 18.6 against server 16, and Odoo's restore runs `psql` without `ON_ERROR_STOP` (`service/db.py::restore_db`):
-  verify the restored state, fall back to `pg_dump` 16 in the `db` container if needed
+- Supervisor: manual test of Task 1.2b (save, change, restore), then merge the PR into `develop`
+- Agent after the merge: sync `develop`, delete the branch, then post the plan for **Task 1.3** (module skeleton).
+  Decide first whether the integration user's missing "Products / Create" group is fixed as a small task now or in 2.4
 - Agent notes: detect-secrets flags `*_PASSWORD = "..."` and multi-key strings in tests — build test `.env` text from a
   dict, mark fake values with `# pragma: allowlist secret`; never print container command lines or `.env` values
 - Agent note: `shop lint` (`pre-commit run --all-files`) skips untracked files and no git hook is installed:
@@ -129,3 +138,5 @@ Updated: 2026-10-29 by agent session 3 (Task 1.2a implemented, waiting for the s
 - Agent note: `docker compose exec` forwards stdin; every Docker call without input now uses `stdin=DEVNULL` (it
   swallowed the `shop db reset` confirmation). The agent's background commands get no stdin: feed a prompt from a file
   in a foreground command
+- Agent note: in Git Bash, `/etc/...` arguments to `docker compose exec` are rewritten to Windows paths; prefix
+  one-off commands with `MSYS_NO_PATHCONV=1` (the `shop` tools call Docker from Python and are not affected)

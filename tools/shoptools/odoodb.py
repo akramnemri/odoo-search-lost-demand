@@ -168,7 +168,7 @@ def _run(
     return result.stdout if capture else ""
 
 
-def _require_running_stack(repo_root: Path) -> None:
+def require_running_stack(repo_root: Path) -> None:
     result = stack._run(stack.ps_command(repo_root), capture=True)
     if result is None or result.returncode != 0:
         raise SetupError("Docker is not reachable. Start Docker Desktop, then `uv run shop up`.")
@@ -224,7 +224,7 @@ def _report(settings: Settings, result: dict[str, object], seconds: float) -> No
 def _prepare(repo_root: Path, command: str) -> tuple[Settings, bool] | None:
     try:
         settings = read_settings(repo_root / ".env")
-        _require_running_stack(repo_root)
+        require_running_stack(repo_root)
         return settings, database_exists(repo_root, settings.db_name)
     except SetupError as error:
         print(f"shop db {command}: {error}", file=sys.stderr)
