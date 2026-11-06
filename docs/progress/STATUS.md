@@ -86,7 +86,11 @@ Updated: 2026-11-06 by agent session 4 (Task 1.3 implemented, waiting for the su
   manual test passed 2026-11-06, PR #15 not merged yet. Browser re-test (2026-11-06, built-in browser): the module was
   not yet in `shop`'s Apps list (the running server had cached "manifest not found"); after `docker compose restart odoo`
   it installed from Apps; status block correct with Elasticsearch up, stopped (Unreachable, page still opens) and
-  started again; a non-admin user (throwaway `ld_tester`, archived afterwards) gets Access Error on Settings
+  started again; a non-admin user (throwaway `ld_tester`, archived afterwards) gets Access Error on Settings.
+  It found a timeout gap, fixed in PR #15 (supervisor, 2026-11-07): with the `elasticsearch` container stopped,
+  resolving its name takes 8 s in the `odoo` container (Docker DNS times out) and the client's `request_timeout`
+  does not cover DNS, so a status check took 7.7 s. Every call now runs in a 4-thread pool with a hard deadline
+  (`EsClient._within`): the stopped-container check takes 2.09 s (status timeout 2 s), recovery 0.31 s
 
 ## Latest results
 - none (no evaluation yet)
@@ -141,10 +145,6 @@ Updated: 2026-11-06 by agent session 4 (Task 1.3 implemented, waiting for the su
 - Free disk 37.5 GB (2026-11-06 evening, 45.8 GB that morning; cause not found: `docker system df` shows 14.7 GB of
   images, 13.1 GB reclaimable, and 4.3 GB build cache, shared with the other project), below the 50 GB the doctor
   recommends; datasets (ESCI 1.1 GB, REES46 13.7 GB) come in M2/M7. Never prune without the supervisor
-- **Elasticsearch timeout gap**: with the `elasticsearch` container stopped, resolving its name takes 8 s in the `odoo`
-  container (Docker DNS 127.0.0.11 times out) and the client's `request_timeout` does not cover DNS. The settings
-  page then needs ~7.7 s per fresh check (cached 10 s). Instant when Elasticsearch is down but its container runs.
-  Must be fixed before shopper search uses `guarded()` (Task 3.3), or as a 1.3 follow-up (supervisor decides)
 - `shop test module` takes about 85–90 s (fresh `shop_test` with `website_sale` and its dependencies) and runs a second
   Odoo process in the `odoo` container next to the development server
 - Kibana and Elasticsearch memory under real dashboard and indexing load is not measured yet (M4, M7, M8)
