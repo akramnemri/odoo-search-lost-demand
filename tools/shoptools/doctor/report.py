@@ -22,6 +22,7 @@ from shoptools.doctor.checks import (
 )
 from shoptools.doctor.expected import VERSIONS_FILE, find_repo_root, load_expected
 from shoptools.doctor.model import CheckResult, Status
+from shoptools.doctor.odoo_checks import check_odoo
 from shoptools.doctor.stack_checks import check_elastic, check_kibana, check_stack
 from shoptools.doctor.system import RealSystem, System
 
@@ -34,9 +35,10 @@ SECTION_CHECKS: dict[str, Callable[[DoctorContext], list[CheckResult]]] = {
     "stack": check_stack,
     "elastic": check_elastic,
     "kibana": check_kibana,
+    "odoo": check_odoo,
 }
 # Sections built in later milestones: section -> task that adds it.
-LATER_SECTIONS = {"odoo": "1.3", "data": "2.1"}
+LATER_SECTIONS = {"data": "2.1"}
 SECTIONS = (*SECTION_CHECKS, *LATER_SECTIONS)
 
 Ask = Callable[[str], bool]

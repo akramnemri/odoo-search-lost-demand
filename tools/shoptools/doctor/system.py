@@ -108,7 +108,12 @@ class RealSystem:
             return None
         try:
             completed = subprocess.run(
-                [executable, *args[1:]], capture_output=True, timeout=timeout, check=False
+                # stdin closed: `docker compose exec` would otherwise read the terminal.
+                [executable, *args[1:]],
+                capture_output=True,
+                stdin=subprocess.DEVNULL,
+                timeout=timeout,
+                check=False,
             )
         except subprocess.TimeoutExpired:
             return CommandResult(-1, "", f"timed out after {timeout:.0f} s")
