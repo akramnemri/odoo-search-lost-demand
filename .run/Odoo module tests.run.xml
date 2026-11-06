@@ -1,0 +1,29 @@
+<component name="ProjectRunConfigurationManager">
+  <!-- Task 1.4b, docs/setup/PYCHARM.md. The same Odoo command as `uv run shop test module`
+       (tools/shoptools/moduletest.py, without the `es` tests) in a container started by PyCharm, so a breakpoint
+       in a module test stops. It does not drop `shop_test` before or after: run `uv run shop test module`
+       afterwards, which drops it first. Never point it at the shop database. -->
+  <configuration default="false" name="Odoo module tests" type="PythonConfigurationType" factoryName="Python">
+    <module name="odoo-search-lost-demand" />
+    <option name="ENV_FILES" value="" />
+    <option name="INTERPRETER_OPTIONS" value="" />
+    <option name="PARENT_ENVS" value="true" />
+    <envs>
+      <env name="PYTHONUNBUFFERED" value="1" />
+    </envs>
+    <option name="SDK_HOME" value="" />
+    <option name="SDK_NAME" value="Odoo 19 (Docker Compose: odoo)" />
+    <option name="WORKING_DIRECTORY" value="" />
+    <option name="IS_MODULE_SDK" value="false" />
+    <option name="ADD_CONTENT_ROOTS" value="false" />
+    <option name="ADD_SOURCE_ROOTS" value="false" />
+    <option name="SCRIPT_NAME" value="odoo" />
+    <option name="PARAMETERS" value="-d shop_test --db-filter=^shop_test$ --http-port=8079 --max-cron-threads=0 -i website_sale_lost_demand --test-tags=/website_sale_lost_demand,-es --stop-after-init" />
+    <option name="SHOW_COMMAND_LINE" value="false" />
+    <option name="EMULATE_TERMINAL" value="false" />
+    <option name="MODULE_MODE" value="true" />
+    <option name="REDIRECT_INPUT" value="false" />
+    <option name="INPUT_FILE" value="" />
+    <method v="2" />
+  </configuration>
+</component>

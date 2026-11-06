@@ -1,0 +1,21 @@
+<component name="ProjectRunConfigurationManager">
+  <!-- Task 1.4b, docs/setup/PYCHARM.md. pytest on the host with the uv environment (.venv), like
+       `uv run shop test tools`: tools/tests plus the module's pure services/ (pythonpath in pyproject.toml). -->
+  <configuration default="false" name="tools tests" type="tests" factoryName="py.test">
+    <module name="odoo-search-lost-demand" />
+    <option name="ENV_FILES" value="" />
+    <option name="INTERPRETER_OPTIONS" value="" />
+    <option name="PARENT_ENVS" value="true" />
+    <option name="SDK_HOME" value="$PROJECT_DIR$/.venv/Scripts/python.exe" />
+    <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+    <option name="IS_MODULE_SDK" value="false" />
+    <option name="ADD_CONTENT_ROOTS" value="false" />
+    <option name="ADD_SOURCE_ROOTS" value="false" />
+    <option name="_new_keywords" value="&quot;&quot;" />
+    <option name="_new_parameters" value="&quot;&quot;" />
+    <option name="_new_additionalArguments" value="&quot;&quot;" />
+    <option name="_new_target" value="&quot;$PROJECT_DIR$/tools/tests&quot;" />
+    <option name="_new_targetType" value="&quot;PATH&quot;" />
+    <method v="2" />
+  </configuration>
+</component>
