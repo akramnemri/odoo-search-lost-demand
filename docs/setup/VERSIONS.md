@@ -72,6 +72,7 @@ Every "Used" feature is checked again on the running cluster (`GET _license` = b
 | Elastic feature | Needed for | Tier (from the PDF) | Decision |
 |---|---|---|---|
 | Role-based access control, file and native authentication, API keys | Spec security | Free – Basic | Used |
+| Cluster info, license and health APIs (`GET /`, `GET _license`, `GET _cluster/health`) | Module settings status, doctor | Core REST APIs, not a subscription feature (not in the PDF) | Used (Task 1.3; `odoo_app` needs only cluster `monitor`; answered on the basic cluster) |
 | Data streams, index lifecycle management, data stream lifecycle | Events | Free – Basic | Used |
 | Ingest pipelines (Ingest Node Pipeline Builder) | Events | Free – Basic | Used |
 | Synonym management, dynamically updateable synonyms | FR2 | Free – Basic | Used (confirm the synonyms API on the cluster, Task 3.1) |

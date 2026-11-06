@@ -1,13 +1,13 @@
 # STATUS
 
-Updated: 2026-11-06 by agent session 3 (integration user rights fix implemented, waiting for the supervisor's review)
+Updated: 2026-11-06 by agent session 4 (Task 1.3 implemented, waiting for the supervisor's manual test)
 
 ## Current position
 - Milestone: M1 — Docker stack, module skeleton, debugging, first interview — in progress
 - M1 order (supervisor, 2026-10-29): 1.1a → 1.1b → 1.4a → 1.2a → 1.2b → 1.3 → 1.4b → 1.5 → 1.7; 1.6 in parallel, not blocking the tag
-- Task: follow-up of 1.2a — integration user may create products ("Products / Create" group + JSON-2 rights check in
-  `shop db create`) — state: implemented, PR open, waiting for the supervisor
-- Branch / PR: `fix/integration-product-rights` — PR to `develop` (see the task report)
+- Task: 1.3 — module skeleton (`website_sale_lost_demand` 19.0.0.1.0, `shop test tools|module`, doctor `odoo`) —
+  state: implemented, PR open, waiting for the supervisor's manual test
+- Branch / PR: `feat/module-skeleton` — PR to `develop` (see the task report)
 - Repository: https://github.com/akramnemri/odoo-search-lost-demand (public, default branch `develop`)
 
 ## Milestone 0 exit check (2026-10-28)
@@ -19,8 +19,9 @@ Updated: 2026-11-06 by agent session 3 (integration user rights fix implemented,
 - `main` still holds only the prompt pack: the first promotion `develop` → `main` is Task 1.7 (tag `m1-stack`)
 
 ## Environment
-- Doctor: 46 OK, 1 WARN, 0 FAIL, 5 SKIP — run on 2026-11-06 with the stack up; WARN = free disk 45.8 GB (< 50 GB
-  recommended; snapshots use only 7 MB)
+- Doctor: 48 OK, 2 WARN, 0 FAIL, 4 SKIP — run on 2026-11-06 (evening) with the stack up; WARN = free disk 37.5 GB
+  (< 50 GB recommended; 45.8 GB the same morning, cause not identified) and module not installed in `shop` yet
+  (installed by the 1.3 manual test)
 - Stack: `uv run shop up|down|status|logs`; `compose.yaml` (project `odoo-search-lost-demand`); clean start from empty
   volumes healthy in 94 s; `shop up` from stopped 66–82 s; images pulled 2026-10-29 (2.34 GB compressed)
 - Memory measured 2026-10-29 (no data yet), table in `01_ARCHITECTURE.md` §5.3: standard stack ≈ 3.9 GiB peak
@@ -49,6 +50,9 @@ Updated: 2026-11-06 by agent session 3 (integration user rights fix implemented,
   `shop_integration` with a JSON-2 API key in `.env`; 1 product ("Standard delivery"), 0 sale orders
 - Snapshots (`local/snapshots/`): `baseline-empty` (2026-11-06, 6.9 MB: the state above, use this one);
   `after-1-2a-manual-test` (2026-11-06, older: its integration user cannot create products)
+- Module `website_sale_lost_demand` 19.0.0.1.0: not installed in `shop` yet (manual test of Task 1.3 installs it from
+  Apps; `baseline-empty` stays the state without it). `shop test module` uses a throwaway `shop_test`, dropped after
+  each run
 - Elasticsearch: users `odoo_app`, `shop_tools`, personal Kibana user `supervisor` (built-in `editor` role); no indices
 - Product index: none
 - Events stored: 0
@@ -74,7 +78,10 @@ Updated: 2026-11-06 by agent session 3 (integration user rights fix implemented,
   restore into a temporary database then swap) — merged 2026-11-06 (PR #13, agent on the supervisor's instruction
   after the manual test passed and CI and SonarCloud were green)
 - 1.2a follow-up — integration user gets `product.group_product_manager`; `shop db create` checks create rights on
-  `product.template` and `product.supplierinfo` over JSON-2 (`has_access`) — implemented 2026-11-06, not merged yet
+  `product.template` and `product.supplierinfo` over JSON-2 (`has_access`) — merged 2026-11-06 (PR #14, 85ec82a)
+- 1.3 — module skeleton: `services/` (config, ES client with status cache, circuit breaker), read-only Elasticsearch
+  status in Website settings, group "Lost Demand / Shop manager", `shop test tools|module [--es]`, doctor `odoo` —
+  implemented 2026-11-06, not merged yet
 
 ## Latest results
 - none (no evaluation yet)
@@ -112,6 +119,13 @@ Updated: 2026-11-06 by agent session 3 (integration user rights fix implemented,
   scheduled jobs now run on every database owned by `odoo` (only `shop`). The empty auto-created database was dropped
 - Kibana memory limit raised (supervisor, 2026-10-29): standard 1536m → 2g, lowmem 1g → 1280m; it idled at 75–88 %
   of the old limits. After the change: 1.34 of 2 GiB at startup (standard)
+- Task 1.3 plan accepted by the supervisor's "go" (2026-11-06), with the agent's recommendations: status block in
+  Settings > Website (computed, non-stored fields on `res.config.settings`, no new model), manifest license LGPL-3,
+  `shop test module` drops and recreates `shop_test` without asking (never the shop database), no `elasticsearch`
+  package on the host (the client is imported only when a real client is built), group "Shop manager" created now with
+  a header-only `ir.model.access.csv`. Module depends only on `website_sale` for now
+- Module services are tested on the host by pytest as the top-level package `services` (`pythonpath` in
+  `pyproject.toml`); ruff ignores F401 in addon `__init__.py` and B018 in manifests (Odoo conventions)
 
 ## Open issues / risks
 - PyCharm Pro trial ends 2026-11-14. Plan: finish the Docker debugging task before then; otherwise apply for the
@@ -119,7 +133,11 @@ Updated: 2026-11-06 by agent session 3 (integration user rights fix implemented,
 - Docker memory 8.3 GB is at the low edge of `standard` and shared with another project's containers
 - XML-RPC/JSON-RPC: deprecated in Odoo 19, removal planned in Odoo 22 (`.odoo-src/odoo/addons/rpc/controllers/__init__.py`);
   the tools use JSON-2 only (`POST /json/2/<model>/<method>`, bearer API key)
-- Free disk 45.8 GB (2026-11-06), below the 50 GB the doctor recommends; datasets (ESCI 1.1 GB, REES46 13.7 GB) come in M2/M7
+- Free disk 37.5 GB (2026-11-06 evening, 45.8 GB that morning; cause not found: `docker system df` shows 14.7 GB of
+  images, 13.1 GB reclaimable, and 4.3 GB build cache, shared with the other project), below the 50 GB the doctor
+  recommends; datasets (ESCI 1.1 GB, REES46 13.7 GB) come in M2/M7. Never prune without the supervisor
+- `shop test module` takes about 85–90 s (fresh `shop_test` with `website_sale` and its dependencies) and runs a second
+  Odoo process in the `odoo` container next to the development server
 - Kibana and Elasticsearch memory under real dashboard and indexing load is not measured yet (M4, M7, M8)
 - The PostgreSQL password was shown once in the agent chat (process list check, before the fix); it never reached
   the repository. Rotate it if the transcript is shared (needs `ALTER USER` on the existing volume)
@@ -129,9 +147,12 @@ Updated: 2026-11-06 by agent session 3 (integration user rights fix implemented,
 - A local shop owner for interview #1 (Task 1.6) — start looking early
 
 ## Next step (exact)
-- Supervisor: review the rights-fix PR, then merge it into `develop`
-- Then **Task 1.3** (module skeleton), best in a fresh session: the PyCharm Pro trial ends 2026-11-14 and Task 1.4b
-  (debugging) needs 1.3 first
+- Supervisor: manual test of Task 1.3 (task report), then review and merge the PR into `develop`
+- Then **Task 1.4b** (PyCharm debugging) before 2026-11-14, when the Pro trial ends: breakpoint in
+  `models/res_config_settings.py::_compute_lost_demand_es_status` (runs when Settings opens)
+- Agent note: Odoo `call_kw` takes the record ids as the first argument of non-`@api.model` methods
+  (`odoo/service/model.py`): `onchange` over `/web/dataset/call_kw` needs `args = [[], values, names, spec]`
+- Agent note: on Windows, `python3` in Git Bash is the Store stub and hangs; use `uv run python`
 - Agent notes: detect-secrets flags `*_PASSWORD = "..."` and multi-key strings in tests — build test `.env` text from a
   dict, mark fake values with `# pragma: allowlist secret`; never print container command lines or `.env` values
 - Agent note: `shop lint` (`pre-commit run --all-files`) skips untracked files and no git hook is installed:
