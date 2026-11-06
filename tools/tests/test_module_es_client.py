@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
+import threading
+import time
+from collections.abc import Iterator
+from dataclasses import replace
 from typing import Any
 
 import pytest
 
 from services.breaker import BreakerState
 from services.config import EsConfig
-from services.es_client import ClusterStatus, EsClient, EsUnavailable, describe_error
+from services.es_client import POOL_WORKERS, ClusterStatus, EsClient, EsUnavailable, describe_error
 
 
 class FakeTransportError(Exception):
@@ -36,6 +40,8 @@ class FakeRaw:
 
     def __init__(self) -> None:
         self.down = False
+        # Set to an unset Event to make every call hang (like a DNS lookup of a stopped container).
+        self.hang: threading.Event | None = None
         self.calls: list[str] = []
         self.timeouts: list[float] = []
         self.license = FakeLicense(self)
@@ -47,6 +53,8 @@ class FakeRaw:
 
     def answer(self, name: str, body: dict[str, Any]) -> dict[str, Any]:
         self.calls.append(name)
+        if self.hang is not None:
+            self.hang.wait(timeout=5)
         if self.down:
             raise FakeTransportError("Connection error caused by: name resolution failed")
         return body
@@ -191,3 +199,52 @@ def test_long_error_messages_are_cut() -> None:
     assert text.startswith("FakeTransportError: xxx")
     assert text.endswith("...")
     assert len(text) < 250
+
+
+# --- hard deadline (the client's own timeout does not cover a hanging DNS lookup) ---
+
+FAST = replace(CONFIG, search_timeout=0.05, status_timeout=0.05, breaker_failures=100)
+
+
+@pytest.fixture
+def hanging(raw: FakeRaw) -> Iterator[FakeRaw]:
+    raw.hang = threading.Event()
+    yield raw
+    raw.hang.set()  # let the background calls finish
+
+
+@pytest.fixture
+def fast_service(hanging: FakeRaw) -> EsClient:
+    return EsClient(FAST, client=hanging, errors=(FakeTransportError,))
+
+
+def test_status_returns_after_the_deadline_when_a_call_hangs(fast_service: EsClient) -> None:
+    started = time.monotonic()
+
+    status = fast_service.cluster_status()
+
+    assert time.monotonic() - started < 1
+    assert not status.reachable
+    assert status.error == "DeadlineExceeded: no answer within 0.05 s"
+
+
+def test_guarded_returns_after_the_deadline_and_counts_a_failure(fast_service: EsClient) -> None:
+    started = time.monotonic()
+
+    with pytest.raises(EsUnavailable, match="DeadlineExceeded: no answer within 0.05 s"):
+        fast_service.guarded(lambda client: client.info())
+
+    assert time.monotonic() - started < 1
+    assert fast_service.breaker._failures == 1
+
+
+def test_hanging_calls_do_not_pile_up(fast_service: EsClient, hanging: FakeRaw) -> None:
+    calls = POOL_WORKERS + 3  # more calls than workers: the extra ones wait in the queue
+    started = time.monotonic()
+
+    for _ in range(calls):
+        with pytest.raises(EsUnavailable):
+            fast_service.guarded(lambda client: client.info())
+
+    assert time.monotonic() - started < calls * 0.05 + 1
+    assert len(hanging.calls) <= POOL_WORKERS  # queued calls were cancelled, never sent

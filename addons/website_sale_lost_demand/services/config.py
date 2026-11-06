@@ -15,8 +15,9 @@ PREFIX = "LOST_DEMAND_ES_"
 REQUIRED = ("URL", "USERNAME", "PASSWORD")
 # name -> (default, minimum); every value is a positive number
 OPTIONAL_NUMBERS: dict[str, tuple[float, float]] = {
-    "SEARCH_TIMEOUT_MS": (500, 1),  # shopper search: short, then fall back to Odoo (docs/ai/02 §3)
-    "STATUS_TIMEOUT_MS": (2000, 1),  # one status request of the settings page
+    # Both are hard deadlines, DNS lookup included (es_client.EsClient._within).
+    "SEARCH_TIMEOUT_MS": (500, 1),  # one shopper call: short, then fall back to Odoo (docs/ai/02 §3)
+    "STATUS_TIMEOUT_MS": (2000, 1),  # the whole status check of the settings page (3 requests)
     "HEALTH_CACHE_SECONDS": (10, 0),  # how long the settings page reuses the last status
     "BREAKER_FAILURES": (3, 1),  # consecutive failures that open the circuit
     "BREAKER_RESET_SECONDS": (30, 1),  # time an open circuit waits before one trial request

@@ -3,10 +3,16 @@
 `elasticsearch` (pinned in the Odoo image, docker/odoo/requirements.txt) is imported only when a real client
 is built, so the host tests of this file run without it (they inject a fake low-level client).
 
-- `cluster_status()` feeds the settings page: info, license and health, each with the short status timeout,
-  cached for a few seconds. It never raises: an outage is a status, not an error.
-- `guarded()` runs one call on behalf of a shopper through the circuit breaker, with the search timeout.
+- `cluster_status()` feeds the settings page: info, license and health within the status timeout, cached for
+  a few seconds. It never raises: an outage is a status, not an error.
+- `guarded()` runs one call on behalf of a shopper through the circuit breaker, within the search timeout.
   Any client error becomes `EsUnavailable`, which the caller answers with Odoo's own search (Task 3.3).
+
+Hard deadline: the client's `request_timeout` does not cover the DNS lookup. With the `elasticsearch`
+container stopped, resolving its name takes ~8 s in the `odoo` container (Docker DNS times out; measured
+2026-11-06). So every call runs in a small worker pool and the caller waits at most the timeout; a call
+still hanging finishes in the background and its result is dropped. Operations passed to `guarded()` must
+therefore only use the client they receive, never an Odoo cursor or environment (other thread).
 """
 
 from __future__ import annotations
@@ -16,6 +22,8 @@ import os
 import threading
 import time
 from collections.abc import Callable, Mapping
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FutureTimeout
 from dataclasses import dataclass, replace
 from typing import Any, Protocol, TypeVar
 
@@ -25,10 +33,17 @@ from .config import EsConfig, load_config
 _logger = logging.getLogger(__name__)
 T = TypeVar("T")
 ERROR_TEXT_LIMIT = 200
+# Calls hanging in a DNS lookup occupy a worker until it gives up; when all are busy, new calls wait in the
+# queue and hit their deadline, so a dead cluster never piles up threads.
+POOL_WORKERS = 4
 
 
 class EsUnavailable(Exception):
     """Elasticsearch cannot answer now (down, slow, refusing, or circuit open); fall back."""
+
+
+class DeadlineExceeded(Exception):
+    """No answer within the call's timeout, whatever the cause (DNS, connection, slow cluster)."""
 
 
 @dataclass(frozen=True)
@@ -81,6 +96,16 @@ class EsClient:
         self._lock = threading.Lock()
         self._cached: tuple[float, ClusterStatus] | None = None
         self.breaker = CircuitBreaker(config.breaker_failures, config.breaker_reset_seconds, clock)
+        self._pool = ThreadPoolExecutor(max_workers=POOL_WORKERS, thread_name_prefix="lost-demand-es")
+
+    def _within(self, seconds: float, call: Callable[[], T]) -> T:
+        """Run `call` in the pool; raise DeadlineExceeded when it has not finished after `seconds`."""
+        future = self._pool.submit(call)
+        try:
+            return future.result(timeout=seconds)
+        except FutureTimeout:
+            future.cancel()  # still queued: never runs; already running: its result is dropped
+            raise DeadlineExceeded(f"no answer within {seconds:g} s") from None
 
     def _raw(self) -> Any:
         with self._lock:
@@ -120,12 +145,17 @@ class EsClient:
     def _fetch_status(self) -> ClusterStatus:
         checked_at = self._wall_clock()
         breaker = self.breaker.state.value
+        timeout = self.config.status_timeout
+
+        def fetch() -> tuple[Mapping[str, Any], Mapping[str, Any], Mapping[str, Any]]:
+            client = self._raw().options(request_timeout=timeout)
+            return _body(client.info()), _body(client.license.get()), _body(client.cluster.health())
+
         try:
-            client = self._raw().options(request_timeout=self.config.status_timeout)
-            info = _body(client.info())
-            license_info = _body(client.license.get()).get("license", {})
-            health = _body(client.cluster.health())
-        except self._client_errors() as error:
+            # One deadline for the three requests: the settings page waits at most `status_timeout`.
+            info, license_body, health = self._within(timeout, fetch)
+            license_info = license_body.get("license", {})
+        except (*self._client_errors(), DeadlineExceeded) as error:
             return ClusterStatus(
                 reachable=False, breaker=breaker, error=describe_error(error), checked_at=checked_at
             )
@@ -149,10 +179,10 @@ class EsClient:
         """
         if not self.breaker.allow_request():
             raise EsUnavailable("circuit open: Elasticsearch failed recently")
+        seconds = timeout or self.config.search_timeout
         try:
-            client = self._raw().options(request_timeout=timeout or self.config.search_timeout)
-            result = operation(client)
-        except self._client_errors() as error:
+            result = self._within(seconds, lambda: operation(self._raw().options(request_timeout=seconds)))
+        except (*self._client_errors(), DeadlineExceeded) as error:
             if self.breaker.record_failure():
                 _logger.warning("Elasticsearch circuit opened: %s", describe_error(error))
             raise EsUnavailable(describe_error(error)) from error

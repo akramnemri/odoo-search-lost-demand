@@ -37,8 +37,12 @@ stored in the Odoo database.
 | `LOST_DEMAND_ES_URL` | required | e.g. `http://elasticsearch:9200`, no login inside |
 | `LOST_DEMAND_ES_USERNAME` | required | `odoo_app` (role in `docker/es-setup/setup.sh`) |
 | `LOST_DEMAND_ES_PASSWORD` | required | `ODOO_APP_ES_PASSWORD` of `.env` |
-| `LOST_DEMAND_ES_SEARCH_TIMEOUT_MS` | 500 | timeout of a shopper call, then fallback |
-| `LOST_DEMAND_ES_STATUS_TIMEOUT_MS` | 2000 | timeout of each status request of the settings page |
+| `LOST_DEMAND_ES_SEARCH_TIMEOUT_MS` | 500 | deadline of a shopper call, then fallback |
+| `LOST_DEMAND_ES_STATUS_TIMEOUT_MS` | 2000 | deadline of the whole status check of the settings page |
+
+Timeouts are hard deadlines: each call runs in a small worker pool (4 threads) and the caller stops waiting
+when the deadline passes. The client's own `request_timeout` does not cover the DNS lookup, which takes ~8 s
+when the `elasticsearch` container is stopped.
 | `LOST_DEMAND_ES_HEALTH_CACHE_SECONDS` | 10 | reuse of the last status |
 | `LOST_DEMAND_ES_BREAKER_FAILURES` | 3 | consecutive failures that open the circuit |
 | `LOST_DEMAND_ES_BREAKER_RESET_SECONDS` | 30 | wait before one trial call |
