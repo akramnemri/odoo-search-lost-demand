@@ -1,13 +1,13 @@
 # STATUS
 
-Updated: 2026-11-06 by agent session 3 (Task 1.2b implemented, waiting for the supervisor's manual test)
+Updated: 2026-11-06 by agent session 3 (integration user rights fix implemented, waiting for the supervisor's review)
 
 ## Current position
 - Milestone: M1 — Docker stack, module skeleton, debugging, first interview — in progress
 - M1 order (supervisor, 2026-10-29): 1.1a → 1.1b → 1.4a → 1.2a → 1.2b → 1.3 → 1.4b → 1.5 → 1.7; 1.6 in parallel, not blocking the tag
-- Task: 1.2b — Database snapshots (`uv run shop snapshot save|restore|list`) — state: implemented, PR open, waiting for the
-  manual test
-- Branch / PR: `chore/db-snapshots` — PR to `develop` (see the task report)
+- Task: follow-up of 1.2a — integration user may create products ("Products / Create" group + JSON-2 rights check in
+  `shop db create`) — state: implemented, PR open, waiting for the supervisor
+- Branch / PR: `fix/integration-product-rights` — PR to `develop` (see the task report)
 - Repository: https://github.com/akramnemri/odoo-search-lost-demand (public, default branch `develop`)
 
 ## Milestone 0 exit check (2026-10-28)
@@ -43,12 +43,12 @@ Updated: 2026-11-06 by agent session 3 (Task 1.2b implemented, waiting for the s
 - REES46: not yet (13.67 GB; usage rules in ADR-012)
 - Odoo source copy: `.odoo-src/odoo/` from `odoo:19.0-20261015` (Odoo `19.0.post20261015`), 38,948 files, 409 MB,
   translations (`*.po`) excluded, 19 font symlinks skipped; copied in 320 s; provenance in `.odoo-src/SOURCE.toml`
-- Odoo database: `shop`, created 2026-10-29 by `shop db reset` in 90 s (dropped first: the blank database the server had
-  auto-created at the first start, base only, no data); 86 modules, no demo data, company and website "Lost Demand
-  Demo Shop", USD, generic chart of accounts, en_US, Demo payment provider (test), guest checkout on; integration user
-  `shop_integration` with a JSON-2 API key in `.env`; on 2026-11-06 it held 1 product ("Standard delivery") and
-  0 sale orders
-- Snapshots: `local/snapshots/after-1-2a-manual-test` (2026-11-06, 6.9 MB: the state above)
+- Odoo database: `shop`, recreated 2026-11-06 by `shop db reset` in 87 s (supervisor-approved, to give the integration
+  user the "Products / Create" group); 86 modules, no demo data, company and website "Lost Demand Demo Shop", USD,
+  generic chart of accounts, en_US, Demo payment provider (test), guest checkout on; integration user
+  `shop_integration` with a JSON-2 API key in `.env`; 1 product ("Standard delivery"), 0 sale orders
+- Snapshots (`local/snapshots/`): `baseline-empty` (2026-11-06, 6.9 MB: the state above, use this one);
+  `after-1-2a-manual-test` (2026-11-06, older: its integration user cannot create products)
 - Elasticsearch: users `odoo_app`, `shop_tools`, personal Kibana user `supervisor` (built-in `editor` role); no indices
 - Product index: none
 - Events stored: 0
@@ -71,7 +71,10 @@ Updated: 2026-11-06 by agent session 3 (Task 1.2b implemented, waiting for the s
   `db_name` removed from `odoo.conf` — merged 2026-11-06 (PR #12, agent on the supervisor's instruction after the
   manual test passed and CI and SonarCloud were green)
 - 1.2b — `shop snapshot save|restore|list` (pg_dump/pg_restore 16 in the `db` container, filestore tar, checksums,
-  restore into a temporary database then swap) — implemented 2026-11-06, not merged yet
+  restore into a temporary database then swap) — merged 2026-11-06 (PR #13, agent on the supervisor's instruction
+  after the manual test passed and CI and SonarCloud were green)
+- 1.2a follow-up — integration user gets `product.group_product_manager`; `shop db create` checks create rights on
+  `product.template` and `product.supplierinfo` over JSON-2 (`has_access`) — implemented 2026-11-06, not merged yet
 
 ## Latest results
 - none (no evaluation yet)
@@ -102,7 +105,8 @@ Updated: 2026-11-06 by agent session 3 (Task 1.2b implemented, waiting for the s
 - `stop_grace_period`: Elasticsearch 60 s, PostgreSQL 30 s (Elasticsearch was killed with exit 137 at Docker's default 10 s)
 - Task 1.2 split into 1.2a (database) and 1.2b (snapshots) (supervisor, 2026-10-29). Company and website "Lost Demand
   Demo Shop", no country (generic chart); integration user with Sales, Inventory and Purchase Administrator rights, no
-  Settings rights; persistent (non-expiring) API key, local `.env` only
+  Settings rights; persistent (non-expiring) API key, local `.env` only. "Products / Create" added 2026-11-06
+  (supervisor): in 19.0 only `product.group_product_manager` creates products, and only Settings implies it
 - `db_name` removed from `odoo.conf` (supervisor, 2026-10-29, option A): with it, the 19.0 server creates a blank
   database (admin/admin) at every start (`odoo/cli/server.py::main`). `dbfilter = ^shop$` and `list_db = False` stay;
   scheduled jobs now run on every database owned by `odoo` (only `shop`). The empty auto-created database was dropped
@@ -115,9 +119,6 @@ Updated: 2026-11-06 by agent session 3 (Task 1.2b implemented, waiting for the s
 - Docker memory 8.3 GB is at the low edge of `standard` and shared with another project's containers
 - XML-RPC/JSON-RPC: deprecated in Odoo 19, removal planned in Odoo 22 (`.odoo-src/odoo/addons/rpc/controllers/__init__.py`);
   the tools use JSON-2 only (`POST /json/2/<model>/<method>`, bearer API key)
-- The integration user cannot create products: 19.0 has a separate group `product.group_product_manager`
-  ("Products / Create", `.odoo-src/odoo/addons/product/security/product_security.xml`), implied only by Settings.
-  Task 2.4 (catalog import) needs it: fix `configure_shop.py` and the existing user before then (found in Task 1.2b)
 - Free disk 45.8 GB (2026-11-06), below the 50 GB the doctor recommends; datasets (ESCI 1.1 GB, REES46 13.7 GB) come in M2/M7
 - Kibana and Elasticsearch memory under real dashboard and indexing load is not measured yet (M4, M7, M8)
 - The PostgreSQL password was shown once in the agent chat (process list check, before the fix); it never reached
@@ -128,9 +129,9 @@ Updated: 2026-11-06 by agent session 3 (Task 1.2b implemented, waiting for the s
 - A local shop owner for interview #1 (Task 1.6) — start looking early
 
 ## Next step (exact)
-- Supervisor: manual test of Task 1.2b (save, change, restore), then merge the PR into `develop`
-- Agent after the merge: sync `develop`, delete the branch, then post the plan for **Task 1.3** (module skeleton).
-  Decide first whether the integration user's missing "Products / Create" group is fixed as a small task now or in 2.4
+- Supervisor: review the rights-fix PR, then merge it into `develop`
+- Then **Task 1.3** (module skeleton), best in a fresh session: the PyCharm Pro trial ends 2026-11-14 and Task 1.4b
+  (debugging) needs 1.3 first
 - Agent notes: detect-secrets flags `*_PASSWORD = "..."` and multi-key strings in tests — build test `.env` text from a
   dict, mark fake values with `# pragma: allowlist secret`; never print container command lines or `.env` values
 - Agent note: `shop lint` (`pre-commit run --all-files`) skips untracked files and no git hook is installed:

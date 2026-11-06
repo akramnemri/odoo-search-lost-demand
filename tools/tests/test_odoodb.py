@@ -12,7 +12,7 @@ import pytest
 from shoptools import odoodb, stack
 from shoptools.cli import main
 from shoptools.envfile import parse_env, set_env_value
-from shoptools.odoo_scripts.configure_shop import RESULT_PREFIX
+from shoptools.odoo_scripts.configure_shop import INTEGRATION_GROUPS, RESULT_PREFIX
 from shoptools.odoodb import (
     Settings,
     SetupError,
@@ -151,15 +151,25 @@ def test_set_env_value_appends_a_missing_key(tmp_path: Path) -> None:
 
 
 @pytest.fixture
-def fake_odoo() -> Iterator[tuple[str, list[dict[str, str]]]]:
+def fake_odoo() -> Iterator[tuple[str, list[dict[str, str]], set[str]]]:
+    """Answers context_get, and has_access with True except for the models put in `denied`."""
     seen: list[dict[str, str]] = []
+    denied: set[str] = set()
 
     class Handler(BaseHTTPRequestHandler):
         def do_POST(self) -> None:  # noqa: N802 (http.server API)
-            self.rfile.read(int(self.headers.get("Content-Length", 0)))
-            seen.append({"path": self.path, **{key.lower(): value for key, value in self.headers.items()}})
+            body_in = self.rfile.read(int(self.headers.get("Content-Length", 0))).decode()
+            seen.append(
+                {
+                    "path": self.path,
+                    "body": body_in,
+                    **{key.lower(): value for key, value in self.headers.items()},
+                }
+            )
             authorized = self.headers.get("Authorization") == "bearer good-key"
-            body = json.dumps({"lang": "en_US"} if authorized else {"error": "Invalid apikey"}).encode()
+            model, method = self.path.rsplit("/", 2)[-2:]  # /json/2/<model>/<method>
+            answer: object = model not in denied if method == "has_access" else {"lang": "en_US"}
+            body = json.dumps(answer if authorized else {"error": "Invalid apikey"}).encode()
             self.send_response(200 if authorized else 401)
             self.send_header("Content-Type", "application/json")
             self.end_headers()
@@ -171,24 +181,50 @@ def fake_odoo() -> Iterator[tuple[str, list[dict[str, str]]]]:
     server = HTTPServer(("127.0.0.1", 0), Handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
-    yield f"http://127.0.0.1:{server.server_port}", seen
+    yield f"http://127.0.0.1:{server.server_port}", seen, denied
     server.shutdown()
 
 
-def test_json2_check_sends_the_bearer_key_and_database(fake_odoo: tuple[str, list[dict[str, str]]]) -> None:
-    url, seen = fake_odoo
+FakeOdoo = tuple[str, list[dict[str, str]], set[str]]
+
+
+def test_json2_check_sends_the_bearer_key_and_database(fake_odoo: FakeOdoo) -> None:
+    url, seen, _ = fake_odoo
 
     assert check_json2("shop", "good-key", base_url=url) == {"lang": "en_US"}
     assert seen[0]["path"] == "/json/2/res.users/context_get"
     assert seen[0]["x-odoo-database"] == "shop"
 
 
-def test_json2_refusal_does_not_leak_the_key(fake_odoo: tuple[str, list[dict[str, str]]]) -> None:
-    url, _ = fake_odoo
+def test_json2_refusal_does_not_leak_the_key(fake_odoo: FakeOdoo) -> None:
+    url, _, _ = fake_odoo
 
     with pytest.raises(SetupError, match="HTTP 401") as error:
         check_json2("shop", "bad-key", base_url=url)
     assert "bad-key" not in str(error.value)
+
+
+def test_write_access_is_checked_without_creating_anything(fake_odoo: FakeOdoo) -> None:
+    url, seen, _ = fake_odoo
+
+    odoodb.check_write_access("shop", "good-key", base_url=url)
+
+    assert [call["path"] for call in seen] == [f"/json/2/{model}/has_access" for model in odoodb.WRITE_MODELS]
+    assert all(json.loads(call["body"]) == {"operation": "create"} for call in seen)
+
+
+def test_missing_create_rights_fail_the_check(fake_odoo: FakeOdoo) -> None:
+    url, _, denied = fake_odoo
+    denied.add("product.template")
+
+    with pytest.raises(SetupError, match="cannot create records in: product.template"):
+        odoodb.check_write_access("shop", "good-key", base_url=url)
+
+
+def test_integration_user_may_create_products_but_has_no_settings_rights() -> None:
+    assert "product.group_product_manager" in INTEGRATION_GROUPS
+    assert "base.group_system" not in INTEGRATION_GROUPS
+    assert "base.group_erp_manager" not in INTEGRATION_GROUPS
 
 
 # --- shop db create / reset (no call reaches Docker) ---
