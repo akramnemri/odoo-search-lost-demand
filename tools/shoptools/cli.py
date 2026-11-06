@@ -12,7 +12,7 @@ import sys
 from collections.abc import Callable, Sequence
 from pathlib import Path
 
-from shoptools import __version__, odoosrc, stack
+from shoptools import __version__, odoodb, odoosrc, stack
 from shoptools.doctor.expected import VERSIONS_FILE, find_repo_root, load_expected
 from shoptools.doctor.report import SECTIONS, run_doctor
 from shoptools.envfile import PROFILES, init_env
@@ -26,8 +26,8 @@ PLANNED_COMMANDS: dict[str, tuple[str, str]] = {
     "down": ("stop the stack (never removes volumes)", "1.1b"),
     "status": ("show the state of the stack", "1.1b"),
     "logs": ("show logs of a stack service", "1.1b"),
-    "db": ("create or reset the Odoo database", "1.2"),
-    "snapshot": ("save, restore or list database snapshots", "1.2"),
+    "db": ("create or reset the Odoo database", "1.2a"),
+    "snapshot": ("save, restore or list database snapshots", "1.2b"),
     "test": ("run the tools or module test suites", "1.3"),
     "odoo-src": ("copy the Odoo source from the pinned image into .odoo-src/", "1.4a"),
     "data": ("fetch datasets and build the catalog slice", "2.1"),
@@ -150,6 +150,23 @@ def _run_logs(namespace: argparse.Namespace) -> int:
     return stack.run_logs(repo_root, namespace.service, follow=namespace.follow, tail=namespace.tail)
 
 
+def _add_db_arguments(parser: argparse.ArgumentParser) -> None:
+    actions = parser.add_subparsers(dest="db_action", metavar="<action>", required=True)
+    actions.add_parser("create", help="create the shop database (refuses if it exists)")
+    actions.add_parser(
+        "reset", help="DESTRUCTIVE: drop the database and its filestore, then create it (asks first)"
+    )
+
+
+def _run_db(namespace: argparse.Namespace) -> int:
+    repo_root = _repo_root("db")
+    if repo_root is None:
+        return 1
+    if namespace.db_action == "reset":
+        return odoodb.run_reset(repo_root)
+    return odoodb.run_create(repo_root)
+
+
 def _add_odoo_src_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--force", action="store_true", help="replace an existing .odoo-src/")
     parser.add_argument(
@@ -185,6 +202,7 @@ IMPLEMENTED_COMMANDS: dict[
     "down": (_add_no_arguments, _run_down),
     "status": (_add_no_arguments, _run_status),
     "logs": (_add_logs_arguments, _run_logs),
+    "db": (_add_db_arguments, _run_db),
     "odoo-src": (_add_odoo_src_arguments, _run_odoo_src),
 }
 

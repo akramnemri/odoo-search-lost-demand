@@ -129,3 +129,17 @@ def test_logs_rejects_unknown_service() -> None:
         main(["logs", "postgres"])
 
     assert exit_info.value.code == 2
+
+
+def test_docker_calls_never_read_the_terminal(monkeypatch: pytest.MonkeyPatch) -> None:
+    # `docker compose exec` forwards stdin: it swallowed the confirmation typed for `shop db reset`.
+    received: dict[str, object] = {}
+
+    def fake_run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        received.update(kwargs)
+        return subprocess.CompletedProcess(command, 0, "", "")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    stack._run(["docker", "compose", "exec", "-T", "db", "psql"], capture=True)
+
+    assert received["stdin"] is subprocess.DEVNULL

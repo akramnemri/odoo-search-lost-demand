@@ -29,3 +29,17 @@ def test_published_ports_are_bound_to_localhost_only() -> None:
         assert port.startswith("127.0.0.1:"), (
             f"port {port} must be bound to 127.0.0.1 (01_ARCHITECTURE.md §12)"
         )
+
+
+def test_odoo_never_creates_the_database_by_itself() -> None:
+    # With `db_name`, the 19.0 server creates a blank database (login admin/admin) at every start;
+    # `uv run shop db create` is the only way the database appears (Task 1.2a).
+    conf = (REPO_ROOT / "docker" / "odoo" / "odoo.conf").read_text(encoding="utf-8")
+    options = {
+        line.split("=", 1)[0].strip()
+        for line in conf.splitlines()
+        if "=" in line and not line.startswith(";")
+    }
+
+    assert "db_name" not in options
+    assert {"dbfilter", "list_db"} <= options

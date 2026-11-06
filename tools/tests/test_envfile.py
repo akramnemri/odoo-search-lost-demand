@@ -127,7 +127,10 @@ def test_real_example_matches_the_standard_profile_and_has_only_safe_values() ->
     assert set(PROFILES["lowmem"]) == set(PROFILES["standard"])
     for key, value in values.items():
         if any(word in key for word in ("PASSWORD", "PASSWD", "_KEY")):
-            assert value == GENERATED, f"{key} must be generated, never written in .env.example"
+            # Empty = filled later by a tool (ODOO_API_KEY by `shop db create`).
+            assert value in (GENERATED, ""), (
+                f"{key} must be generated or empty, never written in .env.example"
+            )
 
 
 def test_cli_env_init_never_prints_secret_values(
@@ -146,7 +149,7 @@ def test_cli_env_init_never_prints_secret_values(
     assert "ELASTIC_PASSWORD" in output
     assert values["ELASTIC_PASSWORD"] not in output
     for key, value in values.items():
-        if "PASSWORD" in key or key.endswith("_KEY"):
+        if value and ("PASSWORD" in key or key.endswith("_KEY")):
             assert value not in output
 
 
