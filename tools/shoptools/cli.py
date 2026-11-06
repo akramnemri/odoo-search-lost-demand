@@ -17,6 +17,8 @@ from shoptools.doctor.expected import VERSIONS_FILE, find_repo_root, load_expect
 from shoptools.doctor.report import SECTIONS, run_doctor
 from shoptools.envfile import PROFILES, init_env
 
+ACTION_METAVAR = "<action>"
+
 # command -> (help text, roadmap task that implements it; see docs/ai/05_ROADMAP.md)
 PLANNED_COMMANDS: dict[str, tuple[str, str]] = {
     "doctor": ("check the machine, tools, stack and data", "0.5"),
@@ -72,7 +74,7 @@ def _run_lint(namespace: argparse.Namespace) -> int:
 
 
 def _add_env_arguments(parser: argparse.ArgumentParser) -> None:
-    actions = parser.add_subparsers(dest="env_action", metavar="<action>", required=True)
+    actions = parser.add_subparsers(dest="env_action", metavar=ACTION_METAVAR, required=True)
     init = actions.add_parser("init", help="create .env, or add missing keys; existing values are kept")
     init.add_argument(
         "--profile",
@@ -151,7 +153,7 @@ def _run_logs(namespace: argparse.Namespace) -> int:
 
 
 def _add_db_arguments(parser: argparse.ArgumentParser) -> None:
-    actions = parser.add_subparsers(dest="db_action", metavar="<action>", required=True)
+    actions = parser.add_subparsers(dest="db_action", metavar=ACTION_METAVAR, required=True)
     actions.add_parser("create", help="create the shop database (refuses if it exists)")
     actions.add_parser(
         "reset", help="DESTRUCTIVE: drop the database and its filestore, then create it (asks first)"
@@ -168,7 +170,7 @@ def _run_db(namespace: argparse.Namespace) -> int:
 
 
 def _add_snapshot_arguments(parser: argparse.ArgumentParser) -> None:
-    actions = parser.add_subparsers(dest="snapshot_action", metavar="<action>", required=True)
+    actions = parser.add_subparsers(dest="snapshot_action", metavar=ACTION_METAVAR, required=True)
     save = actions.add_parser("save", help="dump the database and its filestore to local/snapshots/<name>/")
     save.add_argument("name", help="snapshot name: lowercase letters, digits, '.', '_' and '-'")
     save.add_argument("--force", action="store_true", help="replace an existing snapshot of that name")
@@ -187,7 +189,8 @@ def _run_snapshot(namespace: argparse.Namespace) -> int:
         return snapshot.run_save(repo_root, namespace.name, force=namespace.force)
     if namespace.snapshot_action == "restore":
         return snapshot.run_restore(repo_root, namespace.name)
-    return snapshot.run_list(repo_root)
+    snapshot.run_list(repo_root)
+    return 0
 
 
 def _add_odoo_src_arguments(parser: argparse.ArgumentParser) -> None:

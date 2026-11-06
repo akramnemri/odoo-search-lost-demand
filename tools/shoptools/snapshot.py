@@ -39,7 +39,9 @@ DB_FILE = "db.dump"
 FILESTORE_FILE = "filestore.tar"
 METADATA_FILE = "metadata.toml"
 FILESTORE_PARENT = "/var/lib/odoo/filestore"
-RESTORE_DUMP_PATH = "/tmp/snapshot-restore.dump"  # inside the db container, removed after use
+# Inside the db container, removed after use. /root is private to root (`docker compose exec` runs as root);
+# /tmp and /var/lib/postgresql are writable by every user of the image.
+RESTORE_DUMP_PATH = "/root/snapshot-restore.dump"
 RESTORE_JOBS = 4
 FREE_SPACE_FACTOR = 2  # the custom-format dump is compressed; this leaves a margin for the filestore
 MB = 1024 * 1024
@@ -302,9 +304,11 @@ def _git_sha(repo_root: Path) -> str:
 
 
 def _odoo_image(repo_root: Path) -> str:
-    compose = (repo_root / stack.COMPOSE_FILE).read_text(encoding="utf-8")
-    match = re.search(r"^\s+image:\s*(\S*/odoo:\S*)\s*$", compose, re.MULTILINE)
-    return match.group(1) if match else "unknown"
+    for line in (repo_root / stack.COMPOSE_FILE).read_text(encoding="utf-8").splitlines():
+        key, _, value = line.strip().partition(":")
+        if key == "image" and "/odoo:" in value:
+            return value.strip()
+    return "unknown"
 
 
 def _prepare(repo_root: Path, command: str) -> odoodb.Settings | None:
@@ -492,12 +496,12 @@ def _verify(repo_root: Path, db: str, metadata: Metadata, seconds: float) -> int
     return 1 if differences else 0
 
 
-def run_list(repo_root: Path) -> int:
+def run_list(repo_root: Path) -> None:
     folder = repo_root / SNAPSHOTS_DIR
     snapshots = sorted(path for path in folder.glob("*") if path.is_dir() and not path.name.startswith("."))
     if not snapshots:
         print(f"No snapshots in {folder}. Save one with `uv run shop snapshot save <name>`.")
-        return 0
+        return
     print(f"{'name':<24} {'created (UTC)':<21} {'size':>9} {'products':>9} {'orders':>7}  git")
     for path in snapshots:
         try:
@@ -511,4 +515,3 @@ def run_list(repo_root: Path) -> int:
             f"{metadata.counts.get('products', '?'):>9} {metadata.counts.get('sale_orders', '?'):>7}  "
             f"{metadata.git_sha[:12]}"
         )
-    return 0
