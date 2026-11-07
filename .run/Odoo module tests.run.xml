@@ -17,7 +17,7 @@
     <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
     <option name="RUN_TOOL" value="" />
     <option name="SCRIPT_NAME" value="odoo" />
-    <option name="PARAMETERS" value="-d shop_test --db-filter=^shop_test$ --http-port=8079 --max-cron-threads=0 -i website_sale_lost_demand --test-tags=/website_sale_lost_demand,-es --stop-after-init" />
+    <option name="PARAMETERS" value="--addons-path=/opt/project/addons -d shop_test --db-filter=^shop_test$ --http-port=8079 --max-cron-threads=0 -i website_sale_lost_demand --test-tags=/website_sale_lost_demand,-es --stop-after-init" />
     <option name="SHOW_COMMAND_LINE" value="false" />
     <option name="EMULATE_TERMINAL" value="false" />
     <option name="MODULE_MODE" value="true" />

@@ -100,7 +100,9 @@ Updated: 2026-11-07 by agent session 5 (Task 1.4b prepared, waiting for the supe
   PyCharm had dropped that interpreter from the `.run/` Odoo configurations (loaded at 00:59, before it existed) and
   turned on "debug just my code": both restored/turned off. Scripted `pdb` check in a throwaway container: breakpoint
   at `res_config_settings.py:60` and step into `orm/environments.py::Environment._` work. Path mappings and the PyCharm
-  breakpoint itself not verified yet. Debug parameters: `--limit-time-real=0` (threaded
+  breakpoint itself not verified yet. First Debug (02:11): no stop, although the compute ran (its Elasticsearch
+  calls are in the log): PyCharm maps only `<repo>` ↔ `/opt/project` (`IDE_PROJECT_ROOTS`), the module ran from
+  `/mnt/extra-addons`. Fix: both Odoo configurations load it with `--addons-path=/opt/project/addons`. Debug parameters: `--limit-time-real=0` (threaded
   Odoo reloads the server when a paused request passes 120 s, `odoo/service/server.py`, `ThreadedServer.process_limit`),
   `--max-cron-threads=0`
 

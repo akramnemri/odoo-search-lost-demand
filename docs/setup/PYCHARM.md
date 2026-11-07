@@ -21,8 +21,9 @@ Tested with PyCharm 2026.2.3 (build PY-262.10968.92, Pro trial until 2026-11-14)
   `docker compose run --service-ports --entrypoint "" odoo python3 -m odoo …` (base image `odoo.conf`, connection from
   the `PG*` variables of `compose.yaml`, `shop` served on 8069, database manager disabled).
 - PyCharm mounts the repository read-write at `/opt/project` and its helpers volume (`pycharm_helpers`, built once from
-  the `busybox` image) at `/opt/.pycharm_helpers`. Our module still runs from `/mnt/extra-addons`
-  (bind mount from `addons/`), so the path mapping `addons/` ↔ `/mnt/extra-addons` is what makes breakpoints match.
+  the `busybox` image) at `/opt/.pycharm_helpers`, and maps `<repo>` ↔ `/opt/project` by itself. The Odoo
+  configurations therefore load our module from `/opt/project/addons` (`--addons-path`), so breakpoints in `addons/`
+  match; the normal server keeps loading it from `/mnt/extra-addons`.
 - Odoo runs threaded (`workers = 0`): each HTTP request is a thread; the module's Elasticsearch calls run on a
   second thread from a 4-thread pool (`services/es_client.py`, `EsClient._within`). The debugger follows both.
 
@@ -54,10 +55,12 @@ Tested with PyCharm 2026.2.3 (build PY-262.10968.92, Pro trial until 2026-11-14)
 4. **Path mappings** (in the interpreter's settings, or the run configuration's *Path mappings* field if shown):
    | Local path | Remote path |
    |---|---|
-   | `<repo>\addons` | `/mnt/extra-addons` |
    | `<repo>\.odoo-src\odoo` | `/usr/lib/python3/dist-packages/odoo` |
-   PyCharm may derive the first one from the volume in `compose.yaml`; check it is there. The second one makes
-   "step into" open the local copy of the exact Odoo code in the image, and lets breakpoints in `.odoo-src/` work.
+   Optional: it makes "step into" open the local copy of the exact Odoo code in the image (without it PyCharm opens its
+   own downloaded copy under `remote_sources`). No mapping is needed for our module: the Odoo configurations load it
+   from `/opt/project/addons` (`--addons-path`), inside the repository mount PyCharm maps by itself
+   (`<repo>` ↔ `/opt/project`). The first session (2026-11-07) showed why: with the module loaded from
+   `/mnt/extra-addons`, PyCharm sent the breakpoint as `/opt/project/addons/…` and never stopped.
 5. **Odoo source for navigation**: *Settings > Project Structure*: mark `.odoo-src` as *Sources* (so `import odoo` resolves
    in the editor, `06_ENVIRONMENT_SETUP.md` §5). Never edit files there.
 6. **Debugger settings** (*Settings > Build, Execution, Deployment > Python Debugger*): *Gevent compatible* off
@@ -70,12 +73,16 @@ version and tell the agent: the hand-written files are a starting point.
 
 | Name | What | Notes |
 |---|---|---|
-| `Odoo (debug)` | `python -m odoo --limit-time-real=0 --max-cron-threads=0 --db-filter=^shop$ --no-database-list` on the Docker Compose interpreter | The development server on http://127.0.0.1:8069 |
+| `Odoo (debug)` | `python -m odoo --addons-path=/opt/project/addons --limit-time-real=0 --max-cron-threads=0 --db-filter=^shop$ --no-database-list` on the Docker Compose interpreter | The development server on http://127.0.0.1:8069 |
 | `Odoo module tests` | `python -m odoo -d shop_test … -i website_sale_lost_demand --test-tags=/website_sale_lost_demand,-es --stop-after-init` | Same as `uv run shop test module` without the `es` tests and without the drop of `shop_test` |
 | `tools tests` | pytest on `tools/tests` with `.venv` | Same as `uv run shop test tools` |
 
 Why these parameters (Odoo 19.0 source in `.odoo-src/odoo/`):
 
+- `--addons-path=/opt/project/addons`: our module from the repository mount PyCharm adds and maps (`<repo>` ↔
+  `/opt/project`, see `IDE_PROJECT_ROOTS` in the container), not from `/mnt/extra-addons`, so breakpoints in
+  `addons/` match without a manual path mapping. Same files, read-write instead of read-only. Odoo's own addons are
+  always added by Odoo itself.
 - `--limit-time-real=0`: in threaded mode Odoo checks every request thread against `limit_time_real` (120 s by default) and
   **reloads the whole server** when one runs longer (`service/server.py`, `ThreadedServer.process_limit` and `run`).
   A request paused at a breakpoint for two minutes would restart Odoo under you. `0` turns the check off.
@@ -156,7 +163,7 @@ Save as PNG (< 200 KB each, crop to the dialog) in `docs/setup/img/pycharm/` and
 | `port is already allocated` / bind error on 8069 | Another Odoo on 8069 (a native service, or a container of another project): stop it |
 | Console shows Odoo starting but no `pydevd` / "Connected to pydev debugger" line | You clicked Run (green triangle), not Debug (bug icon) |
 | Shop down after a debug session | Expected: the run replaced the `odoo` container. `uv run shop up` |
-| Breakpoint shown with a cross, never hit | Path mapping `addons` ↔ `/mnt/extra-addons` missing or wrong |
+| Page loads, breakpoint never hit (the Odoo log shows the request) | Module not loaded from `/opt/project/addons`: `--addons-path=/opt/project/addons` missing from the parameters. Check *Run > Mute Breakpoints* is off |
 | Step into opens a read-only file under PyCharm's `remote_sources` | Path mapping `.odoo-src\odoo` ↔ `/usr/lib/python3/dist-packages/odoo` missing |
 | Odoo restarts while paused ("virtual real time limit") | `--limit-time-real=0` missing from the parameters |
 | Odoo configuration shows `<no interpreter>` or the project interpreter, or `No module named odoo` on the host | Interpreter removed when `.run/` loaded (section 3): pick `Odoo 19 (Docker Compose: odoo)` again |

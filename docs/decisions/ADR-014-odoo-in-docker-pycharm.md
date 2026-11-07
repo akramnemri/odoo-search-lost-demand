@@ -28,6 +28,9 @@ of auto-reloading.
   container: stop at `res_config_settings.py:60` under `fields.py::Field.__get__` → `compute_value` →
   `models.py::_compute_field_value`, step into `_lost_demand_es_status`, then into `orm/environments.py::Environment._`).
   This does not test PyCharm itself.
+- PyCharm maps only the repository to `/opt/project`; a breakpoint in `addons/` never matched code loaded from
+  `/mnt/extra-addons` (supervisor's first Debug, 2026-11-07). The Odoo configurations load the module from
+  `/opt/project/addons` (`--addons-path`), so no manual path mapping is needed.
 - PyCharm drops the interpreter from `.run/` configurations it loads before that interpreter exists, and turns on
   "debug just my code" (which skips Odoo core); both are set explicitly in `.run/`.
 - In threaded mode Odoo reloads the server when a request runs longer than `limit_time_real`
