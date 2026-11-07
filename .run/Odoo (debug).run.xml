@@ -1,10 +1,6 @@
 <component name="ProjectRunConfigurationManager">
-  <!-- Task 1.4b, docs/setup/PYCHARM.md. Runs `python -m odoo` in a new `odoo` service container started by
-       PyCharm's Docker Compose interpreter. Stop the normal container first: docker compose stop odoo.
-       Content and source roots are NOT added to PYTHONPATH: the project is mounted at /opt/project, and
-       /opt/project/.odoo-src/odoo would otherwise shadow the real Odoo package of the image. -->
   <configuration default="false" name="Odoo (debug)" type="PythonConfigurationType" factoryName="Python">
-    <module name="odoo-search-lost-demand" />
+    <module name="shoptools" />
     <option name="ENV_FILES" value="" />
     <option name="INTERPRETER_OPTIONS" value="" />
     <option name="PARENT_ENVS" value="true" />
@@ -17,6 +13,9 @@
     <option name="IS_MODULE_SDK" value="false" />
     <option name="ADD_CONTENT_ROOTS" value="false" />
     <option name="ADD_SOURCE_ROOTS" value="false" />
+    <option name="DEBUG_JUST_MY_CODE" value="false" />
+    <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+    <option name="RUN_TOOL" value="" />
     <option name="SCRIPT_NAME" value="odoo" />
     <option name="PARAMETERS" value="--limit-time-real=0 --max-cron-threads=0 --db-filter=^shop$ --no-database-list" />
     <option name="SHOW_COMMAND_LINE" value="false" />

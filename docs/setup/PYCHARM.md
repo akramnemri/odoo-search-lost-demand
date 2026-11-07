@@ -11,11 +11,15 @@ Tested with PyCharm 2026.2.3 (build PY-262.10968.92, Pro trial until 2026-11-14)
 - The Docker Compose interpreter is a paid (Pro) feature of PyCharm. The free tier cannot do it (section 9).
 - A run/debug configuration on that interpreter starts a **new** `odoo` service container with `docker compose run`
   (checked in the PyCharm 2026.2.3 Docker plugin), with PyCharm's debugger (`pydevd`) wrapped around our command.
-  The image's entrypoint still runs, so `/etc/odoo/odoo.conf` is written from `.env` as usual
-  (`docker/odoo/entrypoint.sh`), and the `elasticsearch`, `db` and `.env` settings are the same as for `uv run shop up`.
+  PyCharm may clear the image's entrypoint (its helper containers ran with `entrypoint=[]`, 2026-11-07). Then our
+  `docker/odoo/entrypoint.sh` does not write `odoo.conf`, and Odoo reads the base image's default `/etc/odoo/odoo.conf`
+  (addons path and data directory only). That is enough: the database connection comes from the `PG*` variables of
+  `compose.yaml`, and the run configuration passes `--db-filter=^shop$ --no-database-list` itself. Checked with
+  `docker compose run --service-ports --entrypoint "" odoo python3 -m odoo …`: `shop` served on 8069, database
+  manager disabled. The Elasticsearch settings also come from `compose.yaml` (`LOST_DEMAND_ES_*`).
 - The normal `odoo` container holds port 8069. **Stop it before debugging**, start it again after (section 5).
-- PyCharm mounts the repository at `/opt/project` in that container and adds a small helpers volume
-  (`pycharm_helpers`, built once from the `busybox` image). Our module still runs from `/mnt/extra-addons`
+- PyCharm adds its helpers volume (`pycharm_helpers`, built once from the `busybox` image) and may mount the
+  repository at `/opt/project`. Our module still runs from `/mnt/extra-addons`
   (bind mount from `addons/`), so the path mapping `addons/` ↔ `/mnt/extra-addons` is what makes breakpoints match.
 - Odoo runs threaded (`workers = 0`): each HTTP request is a thread; the module's Elasticsearch calls run on a
   second thread from a 4-thread pool (`services/es_client.py`, `EsClient._within`). The debugger follows both.
@@ -25,8 +29,8 @@ Tested with PyCharm 2026.2.3 (build PY-262.10968.92, Pro trial until 2026-11-14)
 - Docker Desktop running; `uv run shop up` done and `uv run shop doctor` green (known warnings only).
 - The PyCharm Pro trial or license active (human-only step).
 - `.odoo-src/` present (`uv run shop odoo-src`, Task 1.4a).
-- First use only: PyCharm builds its helpers image and copies its helpers (expect tens of MB, no admin rights).
-  It also reads the interpreter's packages once (1–2 min).
+- First use only: PyCharm builds its helpers image `pycharm_helpers:PY-<build>` (163 MB for PY-262.10968.92) and a
+  helpers volume, no admin rights. It also reads the interpreter's packages once (about 13 min on 2026-11-07).
 
 ## 3. One-time setup
 
@@ -40,7 +44,11 @@ Tested with PyCharm 2026.2.3 (build PY-262.10968.92, Pro trial until 2026-11-14)
      volumes, network and database as `uv run shop up`.
    - Next: PyCharm introspects the image. Interpreter path: `/usr/bin/python3` (Python 3.12.3).
    - Rename it exactly **`Odoo 19 (Docker Compose: odoo)`**: the run configurations in `.run/` refer to that name.
-   - Do **not** make it the project's default interpreter (keep `.venv` for `tools/`).
+   - Project interpreter: either one works, because every run configuration names its own interpreter. With this
+     one the editor resolves `import odoo` from the image; with `.venv` it resolves `tools/` packages (pytest, ruff).
+   - PyCharm loads `.run/` when the project opens. If that happened before this interpreter existed, it removes the
+     interpreter from the two Odoo configurations (they then show the project interpreter): pick
+     `Odoo 19 (Docker Compose: odoo)` again in each one.
 4. **Path mappings** (in the interpreter's settings, or the run configuration's *Path mappings* field if shown):
    | Local path | Remote path |
    |---|---|
@@ -74,8 +82,10 @@ Why these parameters (Odoo 19.0 source in `.odoo-src/odoo/`):
   database even if the configuration file were not written.
 - Module mode `odoo` (`python -m odoo`, `odoo/__main__.py` → `odoo/cli/command.py::main` → `odoo/cli/server.py::main`):
   the same entry point as `/usr/bin/odoo`, without a remote script path.
-- *Add content roots / source roots to PYTHONPATH* are **off**: the repository is mounted at `/opt/project`, and
-  `/opt/project/.odoo-src/odoo` on `PYTHONPATH` would shadow the image's Odoo package.
+- *Add content roots / source roots to PYTHONPATH* are **off**: if PyCharm mounts the repository in the container
+  (`/opt/project`), `/opt/project/.odoo-src/odoo` on `PYTHONPATH` would shadow the image's Odoo package.
+- *Debug just my code* is **off** in both Odoo configurations: with it on, the debugger skips Odoo's own code
+  (`dist-packages`), and "step into an Odoo core method" (the manual test) does not work.
 
 ### Check the command once
 
@@ -148,6 +158,8 @@ Save as PNG (< 200 KB each, crop to the dialog) in `docs/setup/img/pycharm/` and
 | Breakpoint shown with a cross, never hit | Path mapping `addons` ↔ `/mnt/extra-addons` missing or wrong |
 | Step into opens a read-only file under PyCharm's `remote_sources` | Path mapping `.odoo-src\odoo` ↔ `/usr/lib/python3/dist-packages/odoo` missing |
 | Odoo restarts while paused ("virtual real time limit") | `--limit-time-real=0` missing from the parameters |
+| Odoo configuration shows `<no interpreter>` or the project interpreter, or `No module named odoo` on the host | Interpreter removed when `.run/` loaded (section 3): pick `Odoo 19 (Docker Compose: odoo)` again |
+| Step into never enters `.odoo-src/` | *Debug just my code* switched on again: turn it off in the configuration |
 | `ModuleNotFoundError` or a second `odoo` package | *Add content/source roots to PYTHONPATH* switched on again: turn both off |
 | Odoo answers but the page lists no database / login fails | Wrong database filter: check `.env` `ODOO_DB_NAME` (= `shop`) and the `--db-filter` parameter |
 | Python code change not picked up | Expected on the Windows drive (ADR-014): restart the debug run |

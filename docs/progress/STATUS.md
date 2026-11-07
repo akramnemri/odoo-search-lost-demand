@@ -92,9 +92,13 @@ Updated: 2026-11-07 by agent session 5 (Task 1.4b prepared, waiting for the supe
   (`EsClient._within`): the stopped-container check takes 2.09 s (status timeout 2 s), recovery 0.31 s
 
 - 1.4b (in progress) — `docs/setup/PYCHARM.md`, `.run/` (`Odoo (debug)`, `Odoo module tests`, `tools tests`);
-  ADR-014 findings. PyCharm 2026.2.3 runs a Docker Compose interpreter with `docker compose run` and keeps the image's
-  entrypoint (read from its Docker plugin); `docker compose run --service-ports odoo python3 -m odoo …` served `shop`
-  on 8069 with the generated `odoo.conf` (database manager disabled). Debug parameters: `--limit-time-real=0` (threaded
+  ADR-014 findings. PyCharm 2026.2.3 runs a Docker Compose interpreter with `docker compose run` (read from its Docker
+  plugin); its helper containers clear the image entrypoint, so `odoo.conf` may not be generated. The debug parameters
+  cover that: `docker compose run --service-ports --entrypoint "" odoo python3 -m odoo …` served `shop` on 8069
+  (database manager disabled). Supervisor's setup (2026-11-07, PyCharm log): interpreter `Odoo 19 (Docker Compose:
+  odoo)` created 01:19, Python 3.12, helpers image 163 MB, also set as the project interpreter. PyCharm had dropped
+  that interpreter from the `.run/` Odoo configurations (loaded at 00:59, before it existed) and turned on "debug just
+  my code": both restored/turned off in `.run/`. Path mappings not yet verified (PyCharm had not saved its settings). Debug parameters: `--limit-time-real=0` (threaded
   Odoo reloads the server when a paused request passes 120 s, `odoo/service/server.py`, `ThreadedServer.process_limit`),
   `--max-cron-threads=0`
 
