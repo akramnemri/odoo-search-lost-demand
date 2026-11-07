@@ -9,17 +9,19 @@ Tested with PyCharm 2026.2.3 (build PY-262.10968.92, Pro trial until 2026-11-14)
 ## 1. How it works (read once)
 
 - The Docker Compose interpreter is a paid (Pro) feature of PyCharm. The free tier cannot do it (section 9).
-- A run/debug configuration on that interpreter starts a **new** `odoo` service container with `docker compose run`
-  (checked in the PyCharm 2026.2.3 Docker plugin), with PyCharm's debugger (`pydevd`) wrapped around our command.
-  PyCharm may clear the image's entrypoint (its helper containers ran with `entrypoint=[]`, 2026-11-07). Then our
-  `docker/odoo/entrypoint.sh` does not write `odoo.conf`, and Odoo reads the base image's default `/etc/odoo/odoo.conf`
-  (addons path and data directory only). That is enough: the database connection comes from the `PG*` variables of
-  `compose.yaml`, and the run configuration passes `--db-filter=^shop$ --no-database-list` itself. Checked with
-  `docker compose run --service-ports --entrypoint "" odoo python3 -m odoo …`: `shop` served on 8069, database
-  manager disabled. The Elasticsearch settings also come from `compose.yaml` (`LOST_DEMAND_ES_*`).
-- The normal `odoo` container holds port 8069. **Stop it before debugging**, start it again after (section 5).
-- PyCharm adds its helpers volume (`pycharm_helpers`, built once from the `busybox` image) and may mount the
-  repository at `/opt/project`. Our module still runs from `/mnt/extra-addons`
+- A run/debug configuration on that interpreter **replaces the `odoo` service container**: PyCharm runs
+  `docker compose up` with `compose.yaml` plus a generated override
+  (`%LOCALAPPDATA%\JetBrains\PyCharm2026.2\tmp\docker_compose\docker-compose.override.<n>.yml`, seen 2026-11-07) that
+  sets our command (with PyCharm's debugger, `pydevd`, around it when you click Debug), PyCharm's environment
+  variables, the working directory `/opt/project` and two extra mounts. The image's entrypoint still runs, so
+  `odoo.conf` is written from `.env` as usual; port 8069 is published as usual. When the run stops, the `odoo`
+  container stays stopped: `uv run shop up` recreates the normal one.
+- PyCharm's own helper containers (interpreter introspection, file sync) use `docker compose run` with the entrypoint
+  cleared. The debug parameters do not depend on the entrypoint anyway: checked with
+  `docker compose run --service-ports --entrypoint "" odoo python3 -m odoo …` (base image `odoo.conf`, connection from
+  the `PG*` variables of `compose.yaml`, `shop` served on 8069, database manager disabled).
+- PyCharm mounts the repository read-write at `/opt/project` and its helpers volume (`pycharm_helpers`, built once from
+  the `busybox` image) at `/opt/.pycharm_helpers`. Our module still runs from `/mnt/extra-addons`
   (bind mount from `addons/`), so the path mapping `addons/` ↔ `/mnt/extra-addons` is what makes breakpoints match.
 - Odoo runs threaded (`workers = 0`): each HTTP request is a thread; the module's Elasticsearch calls run on a
   second thread from a 4-thread pool (`services/es_client.py`, `EsClient._within`). The debugger follows both.
@@ -89,16 +91,13 @@ Why these parameters (Odoo 19.0 source in `.odoo-src/odoo/`):
 
 ### Check the command once
 
-*Run > Edit Configurations > Odoo (debug)* > *Docker Compose* section > *Command preview*. It should be a
-`docker compose … run … odoo` command. If Odoo then does not answer on http://127.0.0.1:8069, the run does not publish the
-service ports: add `--service-ports` to *Command and options* after `run`, apply, and take the screenshot of section 7.
+*Run > Edit Configurations > Odoo (debug)* > *Docker Compose* section > *Command preview*: a `docker compose … up …`
+command on `compose.yaml` and PyCharm's override file. Keep the default *Command and options*. Take the screenshot of
+section 7.
 
 ## 5. The debug session (manual test of Task 1.4b)
 
-1. Stop the normal Odoo container (the debug one needs port 8069):
-   ```bash
-   docker compose stop odoo
-   ```
+1. Nothing to stop: the debug run replaces the normal `odoo` container (section 1).
 2. Open `addons/website_sale_lost_demand/models/res_config_settings.py` and set a breakpoint on the first line of
    `_compute_lost_demand_es_status` (`status, message = self._lost_demand_es_status()`).
 3. Select `Odoo (debug)` and click **Debug** (bug icon). Wait for `HTTP service (werkzeug) running on …:8069` in the console.
@@ -154,7 +153,9 @@ Save as PNG (< 200 KB each, crop to the dialog) in `docs/setup/img/pycharm/` and
 
 | Symptom | Fix |
 |---|---|
-| `port is already allocated` / bind error on 8069 | The normal container still runs: `docker compose stop odoo` |
+| `port is already allocated` / bind error on 8069 | Another Odoo on 8069 (a native service, or a container of another project): stop it |
+| Console shows Odoo starting but no `pydevd` / "Connected to pydev debugger" line | You clicked Run (green triangle), not Debug (bug icon) |
+| Shop down after a debug session | Expected: the run replaced the `odoo` container. `uv run shop up` |
 | Breakpoint shown with a cross, never hit | Path mapping `addons` ↔ `/mnt/extra-addons` missing or wrong |
 | Step into opens a read-only file under PyCharm's `remote_sources` | Path mapping `.odoo-src\odoo` ↔ `/usr/lib/python3/dist-packages/odoo` missing |
 | Odoo restarts while paused ("virtual real time limit") | `--limit-time-real=0` missing from the parameters |
