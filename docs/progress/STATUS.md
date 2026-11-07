@@ -1,14 +1,13 @@
 # STATUS
 
-Updated: 2026-11-06 by agent session 4 (Task 1.3 implemented, waiting for the supervisor's manual test)
+Updated: 2026-11-07 by agent session 5 (Task 1.4b prepared, waiting for the supervisor's PyCharm session)
 
 ## Current position
 - Milestone: M1 — Docker stack, module skeleton, debugging, first interview — in progress
 - M1 order (supervisor, 2026-10-29): 1.1a → 1.1b → 1.4a → 1.2a → 1.2b → 1.3 → 1.4b → 1.5 → 1.7; 1.6 in parallel, not blocking the tag
-- Task: 1.3 — module skeleton (`website_sale_lost_demand` 19.0.0.1.0, `shop test tools|module`, doctor `odoo`) —
-  state: manual test passed (supervisor, 2026-11-06) and browser re-test passed (agent with the supervisor,
-  2026-11-06, see below), CI and SonarCloud green, waiting for the merge
-- Branch / PR: `feat/module-skeleton` — PR to `develop` (see the task report)
+- Task: 1.4b — PyCharm debugging [HUMAN] — state: guide and run configurations ready, Docker Compose run of Odoo
+  reproduced without PyCharm; waiting for the supervisor's PyCharm session (2-hour time box, before 2026-11-14)
+- Branch / PR: `chore/pycharm-debugging` — PR to `develop` (see the task report)
 - Repository: https://github.com/akramnemri/odoo-search-lost-demand (public, default branch `develop`)
 
 ## Milestone 0 exit check (2026-10-28)
@@ -83,7 +82,7 @@ Updated: 2026-11-06 by agent session 4 (Task 1.3 implemented, waiting for the su
   `product.template` and `product.supplierinfo` over JSON-2 (`has_access`) — merged 2026-11-06 (PR #14, 85ec82a)
 - 1.3 — module skeleton: `services/` (config, ES client with status cache, circuit breaker), read-only Elasticsearch
   status in Website settings, group "Lost Demand / Shop manager", `shop test tools|module [--es]`, doctor `odoo` —
-  manual test passed 2026-11-06, PR #15 not merged yet. Browser re-test (2026-11-06, built-in browser): the module was
+  manual test passed 2026-11-06; squash-merged 2026-11-06 (PR #15, 6da9cab). Browser re-test (2026-11-06, built-in browser): the module was
   not yet in `shop`'s Apps list (the running server had cached "manifest not found"); after `docker compose restart odoo`
   it installed from Apps; status block correct with Elasticsearch up, stopped (Unreachable, page still opens) and
   started again; a non-admin user (throwaway `ld_tester`, archived afterwards) gets Access Error on Settings.
@@ -91,6 +90,21 @@ Updated: 2026-11-06 by agent session 4 (Task 1.3 implemented, waiting for the su
   resolving its name takes 8 s in the `odoo` container (Docker DNS times out) and the client's `request_timeout`
   does not cover DNS, so a status check took 7.7 s. Every call now runs in a 4-thread pool with a hard deadline
   (`EsClient._within`): the stopped-container check takes 2.09 s (status timeout 2 s), recovery 0.31 s
+
+- 1.4b (in progress) — `docs/setup/PYCHARM.md`, `.run/` (`Odoo (debug)`, `Odoo module tests`, `tools tests`);
+  ADR-014 findings. A PyCharm run replaces the `odoo` service container (`docker compose up` + PyCharm's generated
+  override; entrypoint kept, 8069 published; `uv run shop up` afterwards); its helper containers use `docker compose
+  run` with the entrypoint cleared, and the debug parameters also work that way (`--entrypoint ""` check). Supervisor's
+  setup (2026-11-07, PyCharm log): interpreter `Odoo 19 (Docker Compose: odoo)` created 01:19, Python 3.12, helpers
+  image 163 MB, also the project interpreter; first Run (not Debug) of `Odoo (debug)` at 01:53 started Odoo in 5 s.
+  PyCharm had dropped that interpreter from the `.run/` Odoo configurations (loaded at 00:59, before it existed) and
+  turned on "debug just my code": both restored/turned off. Scripted `pdb` check in a throwaway container: breakpoint
+  at `res_config_settings.py:60` and step into `orm/environments.py::Environment._` work. Path mappings and the PyCharm
+  breakpoint itself not verified yet. First Debug (02:11): no stop, although the compute ran (its Elasticsearch
+  calls are in the log): PyCharm maps only `<repo>` ↔ `/opt/project` (`IDE_PROJECT_ROOTS`), the module ran from
+  `/mnt/extra-addons`. Fix: both Odoo configurations load it with `--addons-path=/opt/project/addons`. Debug parameters: `--limit-time-real=0` (threaded
+  Odoo reloads the server when a paused request passes 120 s, `odoo/service/server.py`, `ThreadedServer.process_limit`),
+  `--max-cron-threads=0`
 
 ## Latest results
 - none (no evaluation yet)
@@ -156,9 +170,10 @@ Updated: 2026-11-06 by agent session 4 (Task 1.3 implemented, waiting for the su
 - A local shop owner for interview #1 (Task 1.6) — start looking early
 
 ## Next step (exact)
-- Supervisor: merge PR #15 (Task 1.3) into `develop` (manual test passed, CI and SonarCloud green)
-- Then **Task 1.4b** (PyCharm debugging) before 2026-11-14, when the Pro trial ends: breakpoint in
-  `models/res_config_settings.py::_compute_lost_demand_es_status` (runs when Settings opens)
+- Supervisor: PyCharm session of **Task 1.4b** following `docs/setup/PYCHARM.md` (before 2026-11-14, when the Pro trial
+  ends): breakpoint in `models/res_config_settings.py::_compute_lost_demand_es_status`, step into
+  `Environment._`, screenshots of §7; then decide ADR-014 (Accepted or host-run fallback) and the post-trial option
+- Then Task 1.5 (CI module job)
 - Agent note: Odoo `call_kw` takes the record ids as the first argument of non-`@api.model` methods
   (`odoo/service/model.py`): `onchange` over `/web/dataset/call_kw` needs `args = [[], values, names, spec]`
 - Agent note: on Windows, `python3` in Git Bash is the Store stub and hangs; use `uv run python`
