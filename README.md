@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/akramnemri/odoo-search-lost-demand/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/akramnemri/odoo-search-lost-demand/actions/workflows/ci.yml)
 
-Final-year project (ERP + Big Data). An Odoo 19 Community shop whose search runs on Elasticsearch, and which turns
+School project (ERP + Big Data). An Odoo 19 Community shop whose search runs on Elasticsearch, and which turns
 every search, click, add-to-cart and purchase into restocking decisions inside Odoo.
 
 - Elasticsearch-powered shop search with typo tolerance, synonyms and in-stock ranking, falling back to Odoo's search
