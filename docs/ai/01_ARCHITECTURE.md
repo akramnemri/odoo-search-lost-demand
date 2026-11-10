@@ -10,7 +10,7 @@ STOP and explain the conflict to the supervisor instead of working around it.
 
 ## 1. The project in one page
 
-Final-year project (PFE), type ERP + Big Data. Source: *Project Specification: Search and Lost-Demand Analysis
+School project, type ERP + Big Data. Source: *Project Specification: Search and Lost-Demand Analysis
 for an Odoo Online Shop* (25 October 2026), stored in `docs/sources/`.
 
 **Problem.** Small online shops lose sales in two ways their sales reports never show:
