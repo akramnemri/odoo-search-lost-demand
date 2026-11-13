@@ -187,5 +187,9 @@ on the host with the free PyCharm tier (plain local interpreter), PostgreSQL and
 
 Each of these needs the supervisor's "go" (download, compose change). The decision and its reason go in ADR-014.
 
-**After 2026-11-14:** the Docker Compose interpreter needs a paid license. Options (supervisor decision, STATUS open issue):
-the JetBrains student license if it is free with no bank card, otherwise the fallback above.
+**After 2026-11-14:** the Docker Compose interpreter needs a paid license. Decision (supervisor, 2026-11-13): the free
+JetBrains educational license for students. Apply at <https://www.jetbrains.com/academy/student-pack/> with a
+university email address (fastest), an ISIC/ITIC card or a GitHub Student Developer Pack account; no payment. It lasts
+one year and is renewed from the JetBrains Account while you are a student; non-commercial use only. Then activate it in
+PyCharm (*Help > Register*, sign in with the JetBrains Account). Nothing in this guide changes. If the application is
+refused, use the fallback above.

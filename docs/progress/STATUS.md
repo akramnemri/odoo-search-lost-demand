@@ -151,8 +151,11 @@ Updated: 2026-11-07 by agent session 5 (Task 1.4b prepared, waiting for the supe
   `pyproject.toml`); ruff ignores F401 in addon `__init__.py` and B018 in manifests (Odoo conventions)
 
 ## Open issues / risks
-- PyCharm Pro trial ends 2026-11-14. Plan: finish the Docker debugging task before then; otherwise apply for the
-  JetBrains student license only if it is free with no bank card, else switch to a free alternative (decide in Task 1.4b)
+- PyCharm Pro trial ends 2026-11-14. Supervisor decision (2026-11-13): apply for the free JetBrains educational (student)
+  license, which keeps the Docker Compose interpreter; free, verified by university email, ISIC/ITIC card or GitHub
+  Student Pack, valid one year and renewable while a student (JetBrains sales FAQ). Applying is human-only. Until it is
+  active, PyCharm's free tier cannot debug in Docker: use the scripted `pdb` check or wait; the host-run fallback
+  (`docs/setup/PYCHARM.md` §9) stays the plan only if the license is refused
 - Docker memory 8.3 GB is at the low edge of `standard` and shared with another project's containers
 - XML-RPC/JSON-RPC: deprecated in Odoo 19, removal planned in Odoo 22 (`.odoo-src/odoo/addons/rpc/controllers/__init__.py`);
   the tools use JSON-2 only (`POST /json/2/<model>/<method>`, bearer API key)
@@ -172,7 +175,8 @@ Updated: 2026-11-07 by agent session 5 (Task 1.4b prepared, waiting for the supe
 ## Next step (exact)
 - Supervisor: PyCharm session of **Task 1.4b** following `docs/setup/PYCHARM.md` (before 2026-11-14, when the Pro trial
   ends): breakpoint in `models/res_config_settings.py::_compute_lost_demand_es_status`, step into
-  `Environment._`, screenshots of §7; then decide ADR-014 (Accepted or host-run fallback) and the post-trial option
+  `Environment._`, screenshots of §7; then ADR-014 (Accepted or host-run fallback). Post-trial: JetBrains student
+  license (supervisor, 2026-11-13), applied for by the supervisor
 - Then Task 1.5 (CI module job)
 - Agent note: Odoo `call_kw` takes the record ids as the first argument of non-`@api.model` methods
   (`odoo/service/model.py`): `onchange` over `/web/dataset/call_kw` needs `args = [[], values, names, spec]`

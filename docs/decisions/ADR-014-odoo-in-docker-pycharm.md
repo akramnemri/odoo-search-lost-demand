@@ -38,5 +38,10 @@ of auto-reloading.
 - Guide and configurations: `docs/setup/PYCHARM.md`, `.run/`. Final status after the supervisor's session
   (breakpoint hit and step into core within the 2-hour time box: Accepted; otherwise the host-run fallback).
 
+## License after the trial
+The Docker Compose interpreter is a paid PyCharm feature; the trial ends 2026-11-14. Supervisor decision (2026-11-13): the
+free JetBrains educational license for students (no payment, one year, renewable). If it is refused, the host-run
+fallback becomes the decision.
+
 ## Revisit when
 Task 1.4 result (2-hour time box), or if Windows bind mounts prove too slow.
