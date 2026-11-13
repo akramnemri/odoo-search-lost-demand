@@ -3,8 +3,8 @@
 Task 1.4b, ADR-014. Odoo runs in its container; PyCharm debugs it through a **Docker Compose interpreter**.
 Tested with PyCharm 2026.2.3 (build PY-262.10968.92, Pro trial until 2026-11-14) and Docker Desktop 4.60.1.
 
-> Result of the first session (fill in after the supervisor's test): _pending_ — breakpoint hit: yes/no,
-> step into Odoo core: yes/no, time spent: … min. Final decision in ADR-014.
+> Result (supervisor's session, 2026-11-13): breakpoint hit **yes**, step into Odoo core **yes**
+> (`Environment._`, screenshots 06 and 07). ADR-014 accepted.
 
 ## 1. How it works (read once)
 
@@ -143,7 +143,8 @@ section 7.
 
 ## 7. Screenshots to capture (supervisor)
 
-Save as PNG (< 200 KB each, crop to the dialog) in `docs/setup/img/pycharm/` and commit them on this branch:
+Save as PNG (crop to PyCharm's window, under the repository's 500 KB file limit) in `docs/setup/img/pycharm/`.
+06 and 07 were captured on 2026-11-13; the others are optional:
 
 | File | Shows |
 |---|---|

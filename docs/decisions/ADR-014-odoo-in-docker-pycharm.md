@@ -1,13 +1,13 @@
 # ADR-014 — Odoo runs in Docker; debugging through PyCharm's Docker Compose interpreter
 
-- Status: Proposed (final after Task 1.4)
+- Status: Accepted (2026-11-13, Task 1.4b manual test)
 - Date: 2026-10-28
 - Source: `docs/ai/01_ARCHITECTURE.md` §3
 
 ## Context
 One environment for everything, and the specification requires PyCharm debugging.
 
-## Decision (proposed)
+## Decision
 Odoo runs in its container; PyCharm debugs it through a Docker Compose interpreter.
 Fallback: Odoo from source on the host, with PostgreSQL and Elasticsearch still in Docker.
 
@@ -35,8 +35,18 @@ of auto-reloading.
   "debug just my code" (which skips Odoo core); both are set explicitly in `.run/`.
 - In threaded mode Odoo reloads the server when a request runs longer than `limit_time_real`
   (`odoo/service/server.py`, `ThreadedServer.process_limit`): the debug configuration sets `--limit-time-real=0`.
-- Guide and configurations: `docs/setup/PYCHARM.md`, `.run/`. Final status after the supervisor's session
-  (breakpoint hit and step into core within the 2-hour time box: Accepted; otherwise the host-run fallback).
+- Guide and configurations: `docs/setup/PYCHARM.md`, `.run/`.
+
+## Result (supervisor's PyCharm session, 2026-11-13)
+- Debug of `Odoo (debug)` on the Docker Compose interpreter (PyCharm 2026.2.3, pydevd): the breakpoint in
+  `res_config_settings.py::_compute_lost_demand_es_status` (line 60) stopped when Settings was reloaded; the *Frames*
+  list showed `fields.py::Field.__get__` → `compute_value` → `models.py::_compute_field_value` → `determine`.
+- Step Into from `_lost_demand_es_status` (line 52) opened `odoo/orm/environments.py::Environment._` (line 330,
+  `source = 'Reachable'`). PyCharm opened its downloaded copy (`remote_sources`): the optional `.odoo-src` path mapping
+  was not set.
+- Screenshots: `docs/setup/img/pycharm/06-breakpoint-hit.png`, `07-step-into-core.png`.
+- Time: spread over two sittings (2026-11-07 setup and first runs, 2026-11-13 test); the fixes above were found on the
+  way. Breakpoints work, so the host-run fallback is not needed: the decision is accepted as proposed.
 
 ## License after the trial
 The Docker Compose interpreter is a paid PyCharm feature; the trial ends 2026-11-14. Supervisor decision (2026-11-13): the
@@ -44,4 +54,4 @@ free JetBrains educational license for students (no payment, one year, renewable
 fallback becomes the decision.
 
 ## Revisit when
-Task 1.4 result (2-hour time box), or if Windows bind mounts prove too slow.
+The student license is refused, or Windows bind mounts prove too slow.
