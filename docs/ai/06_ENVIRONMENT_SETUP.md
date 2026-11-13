@@ -227,7 +227,8 @@ The agent must read the real 19.0 code before overriding it. Keep an exact copy 
 - Odoo debugging (default, ADR-014): add an interpreter **On Docker Compose** using `compose.yaml` and the `odoo` service;
   create a run/debug configuration that starts Odoo in that container with our addons path and the development database;
   set path mappings (`addons/` ↔ `/mnt/extra-addons`); attach `.odoo-src/` as an additional content root for navigation.
-  Acceptance: a breakpoint in a module controller stops when the page is opened.
+  Acceptance: a breakpoint in module code stops when the page is opened (Task 1.4b: the settings compute method; the module
+  has no controller yet). Step-by-step guide, run configurations (`.run/`) and their reasons: `docs/setup/PYCHARM.md`.
 - If this feature is unavailable in the installed edition, or breakpoints do not work within a 2-hour time box, use the fallback:
   run Odoo from source on the host (uv virtual environment with Odoo's `requirements.txt`, same Python minor as the image)
   with PostgreSQL and Elasticsearch still in Docker. Document the decision in `docs/setup/PYCHARM.md` and the ADR.

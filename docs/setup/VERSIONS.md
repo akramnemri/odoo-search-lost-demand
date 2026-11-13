@@ -30,7 +30,7 @@ Upgrade rule: patch versions only, at milestone boundaries, with an ADR line and
 | Docker Desktop | 4.60 | 4.97.0 (2026-10-26) | 4.60.1 — OK | [Docker Desktop release notes](https://docs.docker.com/desktop/release-notes/) | **Not updated (supervisor decision 2026-10-28):** 4.60.1 meets every need of this project, and an update would restart the engine under another project's running stack |
 | Docker Engine / Compose | Engine 27 / Compose 2.20 | — | Engine 29.2.0 / Compose v5.0.2 — OK | — | Always `docker compose` (never v1 `docker-compose`) |
 | WSL | 2.0 | — | 2.6.3 — OK | — | |
-| PyCharm | 2025.1 (unified product) | 2026.2.3 | 2026.2.3 — OK | [JetBrains releases API](https://data.services.jetbrains.com/products/releases?code=PCP&latest=true&type=release) | Docker Compose interpreter checked in Task 1.4 |
+| PyCharm | 2025.1 (unified product) | 2026.2.3 | 2026.2.3 — OK | [JetBrains releases API](https://data.services.jetbrains.com/products/releases?code=PCP&latest=true&type=release) | Docker Compose interpreter confirmed in Task 1.4b (2026-11-13, ADR-014) |
 | Kaggle CLI | — | — | — | — | Run with `uvx` in M7; version pinned then |
 
 ## 3. Python libraries (resolved and locked by uv in `uv.lock`, Task 0.4)

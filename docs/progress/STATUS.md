@@ -1,14 +1,13 @@
 # STATUS
 
-Updated: 2026-11-06 by agent session 4 (Task 1.3 implemented, waiting for the supervisor's manual test)
+Updated: 2026-11-13 by agent session 5 (Task 1.4b manual test passed, PR #16 waiting for the merge)
 
 ## Current position
 - Milestone: M1 — Docker stack, module skeleton, debugging, first interview — in progress
 - M1 order (supervisor, 2026-10-29): 1.1a → 1.1b → 1.4a → 1.2a → 1.2b → 1.3 → 1.4b → 1.5 → 1.7; 1.6 in parallel, not blocking the tag
-- Task: 1.3 — module skeleton (`website_sale_lost_demand` 19.0.0.1.0, `shop test tools|module`, doctor `odoo`) —
-  state: manual test passed (supervisor, 2026-11-06) and browser re-test passed (agent with the supervisor,
-  2026-11-06, see below), CI and SonarCloud green, waiting for the merge
-- Branch / PR: `feat/module-skeleton` — PR to `develop` (see the task report)
+- Task: 1.4b — PyCharm debugging [HUMAN] — state: manual test passed (supervisor, 2026-11-13: breakpoint hit, step
+  into `Environment._`), ADR-014 Accepted, CI green; waiting for the merge of PR #16
+- Branch / PR: `chore/pycharm-debugging` — PR to `develop` (see the task report)
 - Repository: https://github.com/akramnemri/odoo-search-lost-demand (public, default branch `develop`)
 
 ## Milestone 0 exit check (2026-10-28)
@@ -83,7 +82,7 @@ Updated: 2026-11-06 by agent session 4 (Task 1.3 implemented, waiting for the su
   `product.template` and `product.supplierinfo` over JSON-2 (`has_access`) — merged 2026-11-06 (PR #14, 85ec82a)
 - 1.3 — module skeleton: `services/` (config, ES client with status cache, circuit breaker), read-only Elasticsearch
   status in Website settings, group "Lost Demand / Shop manager", `shop test tools|module [--es]`, doctor `odoo` —
-  manual test passed 2026-11-06, PR #15 not merged yet. Browser re-test (2026-11-06, built-in browser): the module was
+  manual test passed 2026-11-06; squash-merged 2026-11-06 (PR #15, 6da9cab). Browser re-test (2026-11-06, built-in browser): the module was
   not yet in `shop`'s Apps list (the running server had cached "manifest not found"); after `docker compose restart odoo`
   it installed from Apps; status block correct with Elasticsearch up, stopped (Unreachable, page still opens) and
   started again; a non-admin user (throwaway `ld_tester`, archived afterwards) gets Access Error on Settings.
@@ -91,6 +90,21 @@ Updated: 2026-11-06 by agent session 4 (Task 1.3 implemented, waiting for the su
   resolving its name takes 8 s in the `odoo` container (Docker DNS times out) and the client's `request_timeout`
   does not cover DNS, so a status check took 7.7 s. Every call now runs in a 4-thread pool with a hard deadline
   (`EsClient._within`): the stopped-container check takes 2.09 s (status timeout 2 s), recovery 0.31 s
+
+- 1.4b (manual test passed 2026-11-13, PR #16 not merged yet) — `docs/setup/PYCHARM.md`, `.run/` (`Odoo (debug)`, `Odoo module tests`, `tools tests`);
+  ADR-014 findings. A PyCharm run replaces the `odoo` service container (`docker compose up` + PyCharm's generated
+  override; entrypoint kept, 8069 published; `uv run shop up` afterwards); its helper containers use `docker compose
+  run` with the entrypoint cleared, and the debug parameters also work that way (`--entrypoint ""` check). Supervisor's
+  setup (2026-11-07, PyCharm log): interpreter `Odoo 19 (Docker Compose: odoo)` created 01:19, Python 3.12, helpers
+  image 163 MB, also the project interpreter; first Run (not Debug) of `Odoo (debug)` at 01:53 started Odoo in 5 s.
+  PyCharm had dropped that interpreter from the `.run/` Odoo configurations (loaded at 00:59, before it existed) and
+  turned on "debug just my code": both restored/turned off. Scripted `pdb` check in a throwaway container: breakpoint
+  at `res_config_settings.py:60` and step into `orm/environments.py::Environment._` work. Path mappings and the PyCharm
+  breakpoint itself not verified yet. First Debug (02:11): no stop, although the compute ran (its Elasticsearch
+  calls are in the log): PyCharm maps only `<repo>` ↔ `/opt/project` (`IDE_PROJECT_ROOTS`), the module ran from
+  `/mnt/extra-addons`. Fix: both Odoo configurations load it with `--addons-path=/opt/project/addons`. Debug parameters: `--limit-time-real=0` (threaded
+  Odoo reloads the server when a paused request passes 120 s, `odoo/service/server.py`, `ThreadedServer.process_limit`),
+  `--max-cron-threads=0`
 
 ## Latest results
 - none (no evaluation yet)
@@ -108,7 +122,7 @@ Updated: 2026-11-06 by agent session 4 (Task 1.3 implemented, waiting for the su
   force-push, no deletion); squash + merge commits, no rebase; head branches auto-deleted
 - Team: solo developer for now (supervisor, 2026-10-28); the specification lists a co-author who does not open PRs
 - No GitHub issues or project board for now
-- ADR-008, ADR-013, ADR-014 still Proposed (final after Tasks 4.2, 2.2, 1.4b)
+- ADR-008, ADR-013 still Proposed (final after Tasks 4.2, 2.2). ADR-014 Accepted 2026-11-13 (Task 1.4b)
 - Personal Kibana user gets the built-in `editor` role (not read-only) because dashboards are built in the UI in
   Task 4.5; `01_ARCHITECTURE.md` §5.2 updated — approved by the supervisor 2026-10-29
 - `.odoo-src/` layout `.odoo-src/odoo/...` and translations (`*.po`) excluded by default, `--with-translations` to
@@ -137,8 +151,11 @@ Updated: 2026-11-06 by agent session 4 (Task 1.3 implemented, waiting for the su
   `pyproject.toml`); ruff ignores F401 in addon `__init__.py` and B018 in manifests (Odoo conventions)
 
 ## Open issues / risks
-- PyCharm Pro trial ends 2026-11-14. Plan: finish the Docker debugging task before then; otherwise apply for the
-  JetBrains student license only if it is free with no bank card, else switch to a free alternative (decide in Task 1.4b)
+- PyCharm Pro trial ends 2026-11-14. Supervisor decision (2026-11-13): apply for the free JetBrains educational (student)
+  license, which keeps the Docker Compose interpreter; free, verified by university email, ISIC/ITIC card or GitHub
+  Student Pack, valid one year and renewable while a student (JetBrains sales FAQ). Applying is human-only. Until it is
+  active, PyCharm's free tier cannot debug in Docker: use the scripted `pdb` check or wait; the host-run fallback
+  (`docs/setup/PYCHARM.md` §9) stays the plan only if the license is refused
 - Docker memory 8.3 GB is at the low edge of `standard` and shared with another project's containers
 - XML-RPC/JSON-RPC: deprecated in Odoo 19, removal planned in Odoo 22 (`.odoo-src/odoo/addons/rpc/controllers/__init__.py`);
   the tools use JSON-2 only (`POST /json/2/<model>/<method>`, bearer API key)
@@ -156,9 +173,11 @@ Updated: 2026-11-06 by agent session 4 (Task 1.3 implemented, waiting for the su
 - A local shop owner for interview #1 (Task 1.6) — start looking early
 
 ## Next step (exact)
-- Supervisor: merge PR #15 (Task 1.3) into `develop` (manual test passed, CI and SonarCloud green)
-- Then **Task 1.4b** (PyCharm debugging) before 2026-11-14, when the Pro trial ends: breakpoint in
-  `models/res_config_settings.py::_compute_lost_demand_es_status` (runs when Settings opens)
+- Supervisor: merge PR #16 (Task 1.4b; manual test passed 2026-11-13, CI and SonarCloud green); apply for the JetBrains
+  student license before the trial ends (2026-11-14, PyCharm showed 2 days left on 2026-11-13)
+- Then **Task 1.5** (CI module job)
+- Agent note: PyCharm rewrites `.run/*.run.xml` from its in-memory copy and can undo committed changes (it dropped
+  `--addons-path` and turned "debug just my code" on again on 2026-11-13): check `git diff .run` before committing
 - Agent note: Odoo `call_kw` takes the record ids as the first argument of non-`@api.model` methods
   (`odoo/service/model.py`): `onchange` over `/web/dataset/call_kw` needs `args = [[], values, names, spec]`
 - Agent note: on Windows, `python3` in Git Bash is the Store stub and hangs; use `uv run python`
