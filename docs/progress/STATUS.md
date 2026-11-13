@@ -1,13 +1,13 @@
 # STATUS
 
-Updated: 2026-11-13 by agent session 5 (Task 1.4b manual test passed, PR #16 waiting for the merge)
+Updated: 2026-11-14 by agent session 5 (Task 1.4b merged; PyCharm follow-ups and the one-off container fix)
 
 ## Current position
 - Milestone: M1 — Docker stack, module skeleton, debugging, first interview — in progress
 - M1 order (supervisor, 2026-10-29): 1.1a → 1.1b → 1.4a → 1.2a → 1.2b → 1.3 → 1.4b → 1.5 → 1.7; 1.6 in parallel, not blocking the tag
-- Task: 1.4b — PyCharm debugging [HUMAN] — state: manual test passed (supervisor, 2026-11-13: breakpoint hit, step
-  into `Environment._`), ADR-014 Accepted, CI green; waiting for the merge of PR #16
-- Branch / PR: `chore/pycharm-debugging` — PR to `develop` (see the task report)
+- Task: 1.4b follow-ups while the PyCharm Pro trial lasts (supervisor, 2026-11-14): test configuration run, optional
+  screenshots, and a fix found on the way (`shop` tools misread services when one-off containers exist)
+- Branch / PR: `fix/compose-ps-oneoff` — PR to `develop` (see the task report)
 - Repository: https://github.com/akramnemri/odoo-search-lost-demand (public, default branch `develop`)
 
 ## Milestone 0 exit check (2026-10-28)
@@ -91,7 +91,7 @@ Updated: 2026-11-13 by agent session 5 (Task 1.4b manual test passed, PR #16 wai
   does not cover DNS, so a status check took 7.7 s. Every call now runs in a 4-thread pool with a hard deadline
   (`EsClient._within`): the stopped-container check takes 2.09 s (status timeout 2 s), recovery 0.31 s
 
-- 1.4b (manual test passed 2026-11-13, PR #16 not merged yet) — `docs/setup/PYCHARM.md`, `.run/` (`Odoo (debug)`, `Odoo module tests`, `tools tests`);
+- 1.4b — merged 2026-11-14 (PR #16, 067b772); manual test passed 2026-11-13 — `docs/setup/PYCHARM.md`, `.run/` (`Odoo (debug)`, `Odoo module tests`, `tools tests`);
   ADR-014 findings. A PyCharm run replaces the `odoo` service container (`docker compose up` + PyCharm's generated
   override; entrypoint kept, 8069 published; `uv run shop up` afterwards); its helper containers use `docker compose
   run` with the entrypoint cleared, and the debug parameters also work that way (`--entrypoint ""` check). Supervisor's
@@ -105,6 +105,12 @@ Updated: 2026-11-13 by agent session 5 (Task 1.4b manual test passed, PR #16 wai
   `/mnt/extra-addons`. Fix: both Odoo configurations load it with `--addons-path=/opt/project/addons`. Debug parameters: `--limit-time-real=0` (threaded
   Odoo reloads the server when a paused request passes 120 s, `odoo/service/server.py`, `ThreadedServer.process_limit`),
   `--max-cron-threads=0`
+
+- 1.4b follow-up (2026-11-14): PyCharm `Odoo module tests` run passed (10 tests, 0 failed, exit code 0). Then
+  `shop test module` refused to start ("service odoo is not running and healthy") although `odoo-1` was healthy:
+  `parse_ps` kept one container per service and PyCharm's exited `docker compose run` helpers (service `odoo`, label
+  `com.docker.compose.oneoff=True`) replaced it. `parse_ps` now skips one-off containers (`shop status`, doctor and
+  `shop test module` all use it)
 
 ## Latest results
 - none (no evaluation yet)
@@ -173,8 +179,9 @@ Updated: 2026-11-13 by agent session 5 (Task 1.4b manual test passed, PR #16 wai
 - A local shop owner for interview #1 (Task 1.6) — start looking early
 
 ## Next step (exact)
-- Supervisor: merge PR #16 (Task 1.4b; manual test passed 2026-11-13, CI and SonarCloud green); apply for the JetBrains
-  student license before the trial ends (2026-11-14, PyCharm showed 2 days left on 2026-11-13)
+- Supervisor: review the PR of `fix/compose-ps-oneoff`; optional PyCharm screenshots 01–05 and 08
+  (`docs/setup/PYCHARM.md` §7) while the trial lasts; apply for the JetBrains student license (the trial ends
+  2026-11-14 or 15: PyCharm showed 2 days left on 2026-11-13)
 - Then **Task 1.5** (CI module job)
 - Agent note: PyCharm rewrites `.run/*.run.xml` from its in-memory copy and can undo committed changes (it dropped
   `--addons-path` and turned "debug just my code" on again on 2026-11-13): check `git diff .run` before committing

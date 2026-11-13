@@ -82,8 +82,26 @@ def logs_command(repo_root: Path, service: str | None, follow: bool, tail: int) 
     return command
 
 
+_ONE_OFF_LABEL = "com.docker.compose.oneoff=True"
+
+
+def _is_one_off(row: dict) -> bool:
+    """A `docker compose run` container (PyCharm's helpers and test runs), not the service's own container.
+
+    One-off containers carry the service's name too; an exited one listed after the real container would
+    otherwise hide it (Task 1.4b, 2026-11-14). Compose lists labels as one "key=value,key=value" string.
+    """
+    labels = row.get("Labels", "")
+    if isinstance(labels, dict):
+        return labels.get("com.docker.compose.oneoff") == "True"
+    return _ONE_OFF_LABEL in str(labels).split(",")
+
+
 def parse_ps(stdout: str) -> list[ServiceState]:
-    """Output of `docker compose ps --format json`: one object per line (Compose ≥ 2.21) or one JSON array."""
+    """Output of `docker compose ps --format json`: one object per line (Compose ≥ 2.21) or one JSON array.
+
+    One-off containers (`docker compose run`) are skipped: callers key the result by service name.
+    """
     text = stdout.strip()
     if not text:
         return []
@@ -99,6 +117,7 @@ def parse_ps(stdout: str) -> list[ServiceState]:
             exit_code=int(row.get("ExitCode", 0)),
         )
         for row in rows
+        if not _is_one_off(row)
     ]
 
 

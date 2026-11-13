@@ -69,6 +69,34 @@ def test_parse_ps_reads_a_json_array_from_older_compose() -> None:
     assert [state.service for state in parse_ps(json.dumps(ROWS))] == ["db", "es-setup"]
 
 
+def test_parse_ps_skips_one_off_containers() -> None:
+    # PyCharm's `docker compose run` helpers carry the service name `odoo` too; listed after the real
+    # container, an exited one used to hide the healthy `odoo` service from `shop test module`,
+    # `shop status` and the doctor.
+    rows = [
+        {
+            "Service": "odoo",
+            "State": "running",
+            "Health": "healthy",
+            "ExitCode": 0,
+            "Labels": "com.docker.compose.oneoff=False,com.docker.compose.service=odoo",
+        },
+        {
+            "Service": "odoo",
+            "State": "exited",
+            "Health": "",
+            "ExitCode": 0,
+            "Labels": "com.docker.compose.service=odoo,com.docker.compose.oneoff=True",
+        },
+    ]
+    stdout = "\n".join(json.dumps(row) for row in rows)
+
+    states = {state.service: state for state in parse_ps(stdout)}
+
+    assert parse_ps(stdout) == [ServiceState("odoo", "running", "healthy", 0)]
+    assert states["odoo"].state == "running"
+
+
 def test_parse_ps_with_no_containers() -> None:
     assert parse_ps("") == []
     assert parse_ps("[]") == []
