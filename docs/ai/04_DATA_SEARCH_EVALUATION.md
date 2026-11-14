@@ -58,6 +58,12 @@ removal, is `docs/evaluation/protocol.md` §3–4):
 Tests: same seed → identical output hashes; dev ∩ test = ∅; every judged product of every selected query is in the catalog;
 every hidden product is an E-target of a traffic query.
 
+Implementation (Task 2.3a): `uv run shop data build-slice [--dry-run]`, rules in the docstring of
+`tools/shoptools/data/slice_builder.py`, settings in `tools/shoptools/data/slice.toml`. Outputs in `data/processed/`:
+`queries-dev`, `queries-test`, `queries-test-typo`, `qrels`, `catalog` (Parquet, sorted rows) and `slice-manifest.json`
+(config, seed, input and output SHA-256, counts); aggregates in `results/summary/slice-report.md`. Query normalization
+is `tools/shoptools/data/normalize.py` (§8.1), the typo model `tools/shoptools/data/typos.py` (§9).
+
 ## 4. Synthetic enrichment (labelled synthetic everywhere)
 
 ESCI products have no category, price, stock or vendor. We add them deterministically, with a seed and documented rules:

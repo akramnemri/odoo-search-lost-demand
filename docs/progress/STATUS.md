@@ -1,15 +1,16 @@
 # STATUS
 
-Updated: 2026-11-14 by agent session 5 (Task 2.1 done: ESCI fetched and profiled, waiting for the manual test)
+Updated: 2026-11-14 by agent session 6 — Task 2.3a manual test passed (run by the agent on the supervisor's request)
 
 ## Current position
 - Milestone: M2 — Datasets, evaluation protocol, catalog import — in progress. M1 released 2026-11-14 (PR #22,
   merge commit f3926a1, tag `m1-stack`)
-- M2 order: 2.1 → 2.2 → 2.3 → 2.4 (split 2.4a/2.4b proposed, to confirm) → 2.5 → 2.6. Task 1.6 (interview) still
-  open, in parallel
-- Task: 2.1 — ESCI acquisition — state: implemented, ESCI fetched and verified, profile written; waiting for the
-  supervisor's manual test. Task 2.2 (protocol) approved 2026-11-14, PR #24 open (ESCI counts added)
-- Branch / PR: `feat/esci-fetch` — PR #23 to `develop`; `chore/evaluation-protocol` — PR #24
+- M2 order: 2.1 ✓ → 2.2 ✓ → 2.3a → 2.3b → 2.4 (split 2.4a/2.4b proposed, to confirm) → 2.5 → 2.6. Task 1.6
+  (interview) still open, in parallel
+- Task: **2.3a — slice builder, part a** — state: **manual test passed 2026-11-14** (run by the agent on the
+  supervisor's request; merge on green CI authorised by the supervisor). Tasks 2.1 and 2.2 merged 2026-11-14; protocol tagged `protocol-v1`
+- Branch / PR: `feat/slice-query-sets` (from `develop` 5689f1e) — draft PR #26 to `develop`
+- Local checkout: on `feat/slice-query-sets`; no other worktree; ESCI in `data/raw/esci/` (3 files, verified)
 - Repository: https://github.com/akramnemri/odoo-search-lost-demand (public, default branch `develop`)
 
 ## Milestone 0 exit check (2026-10-28)
@@ -46,6 +47,10 @@ Updated: 2026-11-14 by agent session 5 (Task 2.1 done: ESCI fetched and profiled
   Profile `results/summary/esci-profile.md`: `us`/`small_version = 1` = 20,888 train + 8,956 test queries, 601,354
   judgments (median 16 per query), 482,105 distinct judged products; all small_version cells: 48,300 queries,
   1,118,011 judgments (matches ESCI's published figures). Profile: 8 s, peak 277 MiB working set
+- Slice (Task 2.3a, 2026-11-14): `data/processed/` holds dev 300, test 700, test-typo 700 (17 unchanged), qrels
+  20,117, catalog **19,869 products**; 0 test candidates removed as duplicates of dev; every query has an E judgment.
+  Two runs gave identical SHA-256 (`results/summary/slice-report.md`); 12–21 s, peak 639 MiB working set.
+  No hidden or out-of-stock sets and no enrichment yet (Task 2.3b)
 - REES46: not yet (13.67 GB; usage rules in ADR-012)
 - Odoo source copy: `.odoo-src/odoo/` from `odoo:19.0-20261015` (Odoo `19.0.post20261015`), 38,948 files, 409 MB,
   translations (`*.po`) excluded, 19 font symlinks skipped; copied in 320 s; provenance in `.odoo-src/SOURCE.toml`
@@ -135,13 +140,32 @@ Updated: 2026-11-14 by agent session 5 (Task 2.1 done: ESCI fetched and profiled
   regress stack: 3 port FAILs only because the doctor ignores `COMPOSE_PROJECT_NAME`; on the real stack afterwards
   50 OK, 0 WARN, 0 FAIL. Guest checkout not repeated (last checked in 1.2a). `docs/report/notes/M1.md`,
   `docs/progress/CHANGELOG.md`
-- 2.1 (in progress) — `shop data fetch esci [--dry-run] [--yes]` (`tools/shoptools/data/`): files from the repository's
+- 2.1 — merged 2026-11-14 (PR #23, 29c3563); manual test passed (supervisor) — `shop data fetch esci [--dry-run] [--yes]` (`tools/shoptools/data/`): files from the repository's
   Git LFS storage (media.githubusercontent.com) and raw files at the pinned commit, no git clone in `data/`; resumable
   `.part` + Range, size and SHA-256 checked against the pin before the rename; `data/manifest.toml` written atomically
   (sorted, first download date kept). `shop data profile esci` → `results/summary/esci-profile.md` (aggregates only,
   column batches). Doctor section `data` (was a placeholder): size, Parquet markers, LFS pointer detection, manifest;
   WARN before the fetch. New dependency `pyarrow==26.0.0` in a default `data` uv group. detect-secrets flags SHA-256
   values: marked `pragma: allowlist secret` (pins, manifest lines, tests)
+
+- 2.2 — merged 2026-11-14 (PR #24, 5689f1e), tag **`protocol-v1`** (annotated, on 5689f1e): `docs/evaluation/protocol.md`
+  approved by the supervisor (decisions D1–D11, all as recommended) after a review that added: dev/test hidden sets
+  (thresholds chosen on dev), a negative-control campaign, seed and noisy-shopper robustness runs, a time-to-detection
+  curve, a test-typo set, breakdowns incl. a vocabulary-mismatch (synonym) subset, condensed NDCG, effect sizes, Holm
+  correction, dev/test duplicate removal, E7 resilience, interview ratings, pre-registration. ADR-013 Accepted.
+  Academic supervisor's approval: not asked yet (the supervisor's call, D11)
+
+- 2.3a — PR #26; manual test passed 2026-11-14, run by the agent at the supervisor's request: dry run, two real
+  builds with identical output SHA-256 (also equal to `sha256sum` and the manifest; the committed report unchanged),
+  and 11 protocol checks recomputed from the raw ESCI file without the builder's code (sizes, splits, texts, dev/test
+  disjoint by id and normalized text, qrels = all judgments, gains, catalog = judged products, titles, typo
+  coverage), all PASS; 15 random typo rows look plausible. SonarCloud's gate failed on the first push (7 new
+  findings: redundant exception, typo-map complexity, composite test assertions); fixed, output hashes unchanged —
+  `shop data build-slice [--dry-run]` (`tools/shoptools/data/slice_builder.py`, config `slice.toml`), shared
+  `normalize_query` (`normalize.py`, 04 §8.1) and typo model (`typos.py`, protocol §6.3, reused by Locust in M5).
+  Seed streams = SHA-256(`<seed>:<label>`) → `random.Random`. Inputs checked against the pinned SHA-256; the manifest
+  is deleted first and written last. Fix during the task: pyarrow pre-buffers a whole row group (ESCI files have one),
+  1.57 GiB peak; `pre_buffer=False` + 8 MiB buffered stream → 639 MiB, same output hashes. 40 new tests (325 total)
 
 ## Latest results
 - none (no evaluation yet)
@@ -160,7 +184,11 @@ Updated: 2026-11-14 by agent session 5 (Task 2.1 done: ESCI fetched and profiled
   head branches auto-deleted
 - Team: solo developer for now (supervisor, 2026-10-28); the specification lists a co-author who does not open PRs
 - No GitHub issues or project board for now
-- ADR-008, ADR-013 still Proposed (final after Tasks 4.2, 2.2). ADR-014 Accepted 2026-11-13 (Task 1.4b)
+- ADR-008 still Proposed (final after Task 4.2). ADR-013 Accepted 2026-11-14 (protocol v1); ADR-014 Accepted
+  2026-11-13 (Task 1.4b)
+- Evaluation protocol v1 is binding (`docs/evaluation/protocol.md`, tag `protocol-v1`); `04` §3, §8, §11 point to it.
+  Unsatisfied-query signal approved. Seed `20261025` with one derived stream per random step
+- Task 2.3 split into 2.3a and 2.3b (supervisor, 2026-11-14)
 - Personal Kibana user gets the built-in `editor` role (not read-only) because dashboards are built in the UI in
   Task 4.5; `01_ARCHITECTURE.md` §5.2 updated — approved by the supervisor 2026-10-29
 - `.odoo-src/` layout `.odoo-src/odoo/...` and translations (`*.po`) excluded by default, `--with-translations` to
@@ -217,9 +245,12 @@ Updated: 2026-11-14 by agent session 5 (Task 2.1 done: ESCI fetched and profiled
 - A local shop owner for interview #1 (Task 1.6) — start looking early
 
 ## Next step (exact)
-- Supervisor: manual test of Task 2.1 (PR #23); then merge PR #23 and PR #24, and the agent tags `protocol-v1`
-- Then Task 2.3a (query sets, qrels, catalog extraction, test-typo set; go given 2026-11-14), then 2.3b (enrichment,
-  hidden and out-of-stock sets, report)
+- **Agent: merge PR #26** (squash) once CI and SonarCloud are green on the fix commit (supervisor's instruction,
+  2026-11-14), then `develop` locally
+- Observation for 2.3b/M5 (not a protocol deviation): the typo position is uniform over the word's letters, so
+  first-letter typos ("poll" → "opll") occur; real typos are rarer there. The shopper model may weight positions
+- Then Task 2.3b (enrichment: categories `categories.toml`, synthetic price/stock/vendor; hidden-dev, hidden-test,
+  out-of-stock sets, stratified, E-targets only; `results/summary/enrichment-report.md`)
 - Supervisor: JetBrains student license; optional PyCharm screenshots 01–05 and 08 (`docs/setup/PYCHARM.md` §7); the
   screenshots listed in `docs/report/notes/M1.md`; Task 1.6 (interview) in parallel
 - Agent note: PyCharm rewrites `.run/*.run.xml` from its in-memory copy and can undo committed changes (it dropped
@@ -227,6 +258,14 @@ Updated: 2026-11-14 by agent session 5 (Task 2.1 done: ESCI fetched and profiled
 - Agent note: Odoo `call_kw` takes the record ids as the first argument of non-`@api.model` methods
   (`odoo/service/model.py`): `onchange` over `/web/dataset/call_kw` needs `args = [[], values, names, spec]`
 - Agent note: on Windows, `python3` in Git Bash is the Store stub and hangs; use `uv run python`
+- Agent note: SHA-256 values and 40-hex commits trip detect-secrets: mark them `# pragma: allowlist secret`
+  (pins, manifest lines, tests) or use non-hex test values
+- Agent note: never poll CI (no `gh pr checks --watch`, no sleep loops); auto-merge is off in the repository: ask the
+  supervisor to come back when a run has finished. Required checks: lint, tools ×2, compose, module (~3–4 min)
+- Agent note: to work on a second branch while the checkout is busy (a long download, PyCharm open), use a git
+  worktree next to the repository and remove it after the merge; never switch branches under a running job
+- Agent note: a stack run under another Compose project (isolated regression) needs `COMPOSE_PROJECT_NAME` set for
+  every command of that run only; the doctor honours it since PR #25
 - Agent note: a new module needs `docker compose restart odoo` before Apps > Update Apps List: 19.0 caches manifest
   lookups per process, including "not found" (`odoo/modules/module.py`, `Manifest._get_manifest_from_addons`)
 - Agent note: in the built-in browser, navigating to the same Odoo URL (only `#...` differs) does not reload the page;
