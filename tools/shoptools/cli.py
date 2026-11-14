@@ -1,0 +1,303 @@
+"""Entry point of `uv run shop <command>`.
+
+Every command of the roadmap is declared here so `shop --help` shows the whole tool from day one.
+Commands not built yet exit with code 1 and name the task that will implement them.
+"""
+
+from __future__ import annotations
+
+import argparse
+import subprocess
+import sys
+from collections.abc import Callable, Sequence
+from pathlib import Path
+
+from shoptools import __version__, moduletest, odoodb, odoosrc, snapshot, stack
+from shoptools.doctor.expected import VERSIONS_FILE, find_repo_root, load_expected
+from shoptools.doctor.report import SECTIONS, run_doctor
+from shoptools.envfile import PROFILES, init_env
+
+ACTION_METAVAR = "<action>"
+
+# command -> (help text, roadmap task that implements it; see docs/ai/05_ROADMAP.md)
+PLANNED_COMMANDS: dict[str, tuple[str, str]] = {
+    "doctor": ("check the machine, tools, stack and data", "0.5"),
+    "lint": ("run the pre-commit quality gate", "0.6"),
+    "env": ("generate .env secrets from .env.example", "1.1a"),
+    "up": ("start the Docker Compose stack", "1.1b"),
+    "down": ("stop the stack (never removes volumes)", "1.1b"),
+    "status": ("show the state of the stack", "1.1b"),
+    "logs": ("show logs of a stack service", "1.1b"),
+    "db": ("create or reset the Odoo database", "1.2a"),
+    "snapshot": ("save, restore or list database snapshots", "1.2b"),
+    "test": ("run the tools or module test suites", "1.3"),
+    "odoo-src": ("copy the Odoo source from the pinned image into .odoo-src/", "1.4a"),
+    "data": ("fetch datasets and build the catalog slice", "2.1"),
+    "import": ("import the catalog into Odoo", "2.4"),
+    "index": ("rebuild or check the product index", "3.1"),
+    "probe": ("measure freshness of products and events", "3.2"),
+    "eval": ("run evaluation campaigns (NDCG, detection, speed)", "3.4"),
+    "kibana": ("import or export Kibana saved objects", "4.5"),
+    "shoppers": ("run Locust virtual shoppers", "5.3"),
+    "scenario": ("run scripted end-to-end scenarios", "6.4"),
+    "replay": ("replay REES46 events into Elasticsearch", "7.3"),
+}
+
+
+def _add_doctor_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--section",
+        action="append",
+        choices=SECTIONS,
+        help="check only this section (repeatable); default: all",
+    )
+    parser.add_argument("--json", action="store_true", help="print the report as JSON")
+    parser.add_argument(
+        "--verbose", "-v", action="store_true", help="show expected values and hints for every line"
+    )
+    parser.add_argument(
+        "--fix", action="store_true", help="offer safe repository-level fixes, asking before each one"
+    )
+
+
+def _run_doctor(namespace: argparse.Namespace) -> int:
+    return run_doctor(namespace.section, as_json=namespace.json, verbose=namespace.verbose, fix=namespace.fix)
+
+
+def _add_no_arguments(parser: argparse.ArgumentParser) -> None:
+    pass
+
+
+def _run_lint(namespace: argparse.Namespace) -> int:
+    # Same command as the CI `lint` job, run with this environment's pre-commit (pinned in uv.lock).
+    return subprocess.run([sys.executable, "-m", "pre_commit", "run", "--all-files"], check=False).returncode
+
+
+def _add_env_arguments(parser: argparse.ArgumentParser) -> None:
+    actions = parser.add_subparsers(dest="env_action", metavar=ACTION_METAVAR, required=True)
+    init = actions.add_parser("init", help="create .env, or add missing keys; existing values are kept")
+    init.add_argument(
+        "--profile",
+        choices=sorted(PROFILES),
+        help="(re)apply the memory settings of a RAM profile (default for a new .env: standard)",
+    )
+
+
+def _repo_root(command: str) -> Path | None:
+    repo_root = find_repo_root(Path.cwd())
+    if repo_root is None:
+        print(f"shop {command}: run this command inside the repository.", file=sys.stderr)
+    return repo_root
+
+
+def _run_env(namespace: argparse.Namespace) -> int:
+    repo_root = _repo_root("env")
+    if repo_root is None:
+        return 1
+    result = init_env(repo_root / ".env.example", repo_root / ".env", namespace.profile)
+
+    print(f"{'Created' if result.created else 'Updated'} {repo_root / '.env'}")
+    if result.generated:
+        print(f"  generated secrets: {', '.join(result.generated)}")
+    if result.added:
+        print(f"  added keys: {', '.join(result.added)}")
+    if result.kept:
+        print(f"  kept {len(result.kept)} existing values")
+    if result.profile_applied:
+        print(f"  applied RAM profile: {result.profile_applied}")
+    print("Values are not shown. Read them in .env (git-ignored, never commit it).")
+    return 0
+
+
+def _add_up_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--no-kibana",
+        action="store_true",
+        help="start everything except Kibana (saves memory on 8 GB machines)",
+    )
+
+
+def _run_up(namespace: argparse.Namespace) -> int:
+    repo_root = _repo_root("up")
+    if repo_root is None:
+        return 1
+    images = load_expected(repo_root / VERSIONS_FILE).stack_images
+    return stack.run_up(repo_root, images, no_kibana=namespace.no_kibana)
+
+
+def _run_down(namespace: argparse.Namespace) -> int:
+    repo_root = _repo_root("down")
+    return 1 if repo_root is None else stack.run_down(repo_root)
+
+
+def _run_status(namespace: argparse.Namespace) -> int:
+    repo_root = _repo_root("status")
+    return 1 if repo_root is None else stack.run_status(repo_root)
+
+
+def _add_logs_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("service", nargs="?", choices=stack.SERVICES, help="one service; default: all")
+    parser.add_argument(
+        "--follow", "-f", action="store_true", help="keep printing new lines (Ctrl+C to stop)"
+    )
+    parser.add_argument(
+        "--tail", type=int, default=200, help="lines per service to show first (default: 200)"
+    )
+
+
+def _run_logs(namespace: argparse.Namespace) -> int:
+    repo_root = _repo_root("logs")
+    if repo_root is None:
+        return 1
+    return stack.run_logs(repo_root, namespace.service, follow=namespace.follow, tail=namespace.tail)
+
+
+def _add_db_arguments(parser: argparse.ArgumentParser) -> None:
+    actions = parser.add_subparsers(dest="db_action", metavar=ACTION_METAVAR, required=True)
+    actions.add_parser("create", help="create the shop database (refuses if it exists)")
+    actions.add_parser(
+        "reset", help="DESTRUCTIVE: drop the database and its filestore, then create it (asks first)"
+    )
+
+
+def _run_db(namespace: argparse.Namespace) -> int:
+    repo_root = _repo_root("db")
+    if repo_root is None:
+        return 1
+    if namespace.db_action == "reset":
+        return odoodb.run_reset(repo_root)
+    return odoodb.run_create(repo_root)
+
+
+def _add_snapshot_arguments(parser: argparse.ArgumentParser) -> None:
+    actions = parser.add_subparsers(dest="snapshot_action", metavar=ACTION_METAVAR, required=True)
+    save = actions.add_parser("save", help="dump the database and its filestore to local/snapshots/<name>/")
+    save.add_argument("name", help="snapshot name: lowercase letters, digits, '.', '_' and '-'")
+    save.add_argument("--force", action="store_true", help="replace an existing snapshot of that name")
+    restore = actions.add_parser(
+        "restore", help="DESTRUCTIVE: replace the database and its filestore with a snapshot (asks first)"
+    )
+    restore.add_argument("name", help="snapshot name (see `shop snapshot list`)")
+    actions.add_parser("list", help="list the saved snapshots")
+
+
+def _run_snapshot(namespace: argparse.Namespace) -> int:
+    repo_root = _repo_root("snapshot")
+    if repo_root is None:
+        return 1
+    if namespace.snapshot_action == "save":
+        return snapshot.run_save(repo_root, namespace.name, force=namespace.force)
+    if namespace.snapshot_action == "restore":
+        return snapshot.run_restore(repo_root, namespace.name)
+    snapshot.run_list(repo_root)
+    return 0
+
+
+def _add_test_arguments(parser: argparse.ArgumentParser) -> None:
+    suites = parser.add_subparsers(dest="test_suite", metavar="<suite>", required=True)
+    # Any further arguments of `shop test tools` go to pytest (see main()).
+    suites.add_parser(
+        "tools", help="pytest on the host: tools/ and the module's pure services/ (+ pytest args)"
+    )
+    module = suites.add_parser(
+        "module",
+        help=f"Odoo tests of the module in the container, on a throwaway {moduletest.TEST_DB!r} database",
+    )
+    module.add_argument("--es", action="store_true", help="also run the tests that need Elasticsearch")
+    module.add_argument(
+        "--keep-db", action="store_true", help=f"keep {moduletest.TEST_DB!r} after the run, to inspect it"
+    )
+
+
+def _run_test(namespace: argparse.Namespace) -> int:
+    repo_root = _repo_root("test")
+    if repo_root is None:
+        return 1
+    if namespace.test_suite == "tools":
+        return moduletest.run_tool_tests(repo_root, namespace.extra_args)
+    return moduletest.run_module_tests(repo_root, with_es=namespace.es, keep_db=namespace.keep_db)
+
+
+def _add_odoo_src_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--force", action="store_true", help="replace an existing .odoo-src/")
+    parser.add_argument(
+        "--with-translations",
+        action="store_true",
+        help="also copy the *.po translations (about 870 MB more; the shop is English-only)",
+    )
+    parser.add_argument("--dry-run", action="store_true", help="measure what would be copied, copy nothing")
+
+
+def _run_odoo_src(namespace: argparse.Namespace) -> int:
+    repo_root = _repo_root("odoo-src")
+    if repo_root is None:
+        return 1
+    image = load_expected(repo_root / VERSIONS_FILE).odoo_image
+    return odoosrc.run_copy(
+        repo_root,
+        image,
+        force=namespace.force,
+        with_translations=namespace.with_translations,
+        dry_run=namespace.dry_run,
+    )
+
+
+# command -> (function adding its arguments, function running it)
+IMPLEMENTED_COMMANDS: dict[
+    str, tuple[Callable[[argparse.ArgumentParser], None], Callable[[argparse.Namespace], int]]
+] = {
+    "doctor": (_add_doctor_arguments, _run_doctor),
+    "lint": (_add_no_arguments, _run_lint),
+    "env": (_add_env_arguments, _run_env),
+    "up": (_add_up_arguments, _run_up),
+    "down": (_add_no_arguments, _run_down),
+    "status": (_add_no_arguments, _run_status),
+    "logs": (_add_logs_arguments, _run_logs),
+    "db": (_add_db_arguments, _run_db),
+    "snapshot": (_add_snapshot_arguments, _run_snapshot),
+    "test": (_add_test_arguments, _run_test),
+    "odoo-src": (_add_odoo_src_arguments, _run_odoo_src),
+}
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="shop",
+        description="Tools for the Odoo search and lost-demand project.",
+    )
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
+    subparsers = parser.add_subparsers(dest="command", metavar="<command>")
+    for name, (help_text, task) in PLANNED_COMMANDS.items():
+        command = subparsers.add_parser(name, help=f"{help_text} [Task {task}]")
+        if name in IMPLEMENTED_COMMANDS:
+            add_arguments, _ = IMPLEMENTED_COMMANDS[name]
+            add_arguments(command)
+    return parser
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    parser = build_parser()
+    # Placeholders accept any arguments, so the message names the missing task instead of a usage error.
+    namespace, extra_args = parser.parse_known_args(argv)
+    implemented = IMPLEMENTED_COMMANDS.get(namespace.command)
+    passes_args = namespace.command == "test" and getattr(namespace, "test_suite", None) == "tools"
+    namespace.extra_args = extra_args
+    if extra_args and not passes_args and (namespace.command is None or implemented is not None):
+        parser.error(f"unrecognized arguments: {' '.join(extra_args)}")
+    if namespace.command is None:
+        parser.print_help()
+        return 0
+    if implemented is not None:
+        _, run = implemented
+        return run(namespace)
+
+    _, task = PLANNED_COMMANDS[namespace.command]
+    print(
+        f"shop {namespace.command}: not implemented yet (planned in Task {task}, see docs/ai/05_ROADMAP.md).",
+        file=sys.stderr,
+    )
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

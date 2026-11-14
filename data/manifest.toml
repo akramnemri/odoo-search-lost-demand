@@ -1,0 +1,2 @@
+# Provenance of every downloaded data file (filled by `uv run shop data fetch`, checked by the doctor).
+# One [[file]] table per file: path, source_url, version, sha256, size_bytes, license, downloaded_at.

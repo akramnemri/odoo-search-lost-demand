@@ -1,0 +1,55 @@
+# Machine-readable pinned versions, read by `uv run shop doctor`.
+# Keep in sync with docs/setup/VERSIONS.md (the human-readable source of truth, with sources and dates).
+# Status: APPROVED 2026-10-28 (Task 0.2), verified 2026-10-28.
+
+[stack]
+odoo_image = "odoo:19.0-20261015"
+odoo_image_python = "3.12"
+postgres_image = "postgres:16.15-trixie"
+elasticsearch_image = "docker.elastic.co/elasticsearch/elasticsearch:9.5.5"
+kibana_image = "docker.elastic.co/kibana/kibana:9.5.5"
+elasticsearch_version = "9.5.5"
+elasticsearch_client = "9.5.1"
+elastic_license = "basic"
+
+[python]
+host = "3.12"
+
+[tools.git]
+min = "2.40"
+
+[tools.git_lfs]
+min = "3.0"
+
+[tools.gh]
+min = "2.40"
+severity = "warn"
+
+[tools.uv]
+min = "0.13.6"
+
+[tools.docker_desktop]
+min = "4.60"
+
+[tools.docker_engine]
+min = "27.0"
+
+[tools.docker_compose]
+min = "2.20"
+
+[tools.wsl]
+min = "2.0"
+
+[machine]
+ram_gb_recommended = 16
+ram_gb_min = 8
+disk_free_gb_warn = 50
+disk_free_gb_fail = 20
+vm_max_map_count_min = 262144
+
+[machine.docker_memory_gb]
+lowmem = 5
+standard = 8
+
+[ports]
+required_free = [8069, 8072, 9200, 5601, 8089]
