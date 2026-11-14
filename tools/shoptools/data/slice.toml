@@ -24,3 +24,30 @@ I = 0.0
 [typos]
 # test-typo: one edit in one word of at least this many letters (protocol §6.3).
 min_word_letters = 4
+
+# --- Task 2.3b: shop catalog. Everything below is SYNTHETIC (docs/ai/04_DATA_SEARCH_EVALUATION.md §4). ---
+
+[enrichment]
+# Keyword rules and per-category price parameters.
+categories_file = "tools/shoptools/data/categories.toml"
+# List prices: log-normal per category (categories.toml), clamped to these whole dollars, then x.99.
+price = { min_dollars = 2, max_dollars = 999 }
+# Units on hand, uniform on a log scale; the out-of-stock set starts at 0.
+stock = { min = 3, max = 150 }
+# Synthetic vendors; the same brand always has the same vendor.
+vendors = 20
+# Per product: purchase price as a share of the list price, minimum order quantity, lead time in days.
+vendor_price_share = { min = 0.55, max = 0.75 }
+vendor_min_qty = { min = 1, max = 10 }
+vendor_lead_days = { min = 2, max = 14 }
+# ESCI description + bullet points as plain text, cut at a word boundary.
+description_max_chars = 2000
+
+[hidden]
+# Protocol v1.1 §4, option B2 (supervisor, 2026-11-14): all Exact products of this share of each set's queries
+# (hidden-test from the test queries, hidden-dev from the dev queries), stratified by category.
+query_share = 0.2
+
+[out_of_stock]
+# This share of the products in no hidden set start at 0 units, drawn among E products of non-hidden queries.
+share = 0.1

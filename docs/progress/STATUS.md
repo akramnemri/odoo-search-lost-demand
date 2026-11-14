@@ -1,15 +1,15 @@
 # STATUS
 
-Updated: 2026-11-14 by agent session 6 — 2.3a merged (PR #26); Task 2.3b in progress (go 2026-11-14, option B2)
+Updated: 2026-11-14 by agent session 6 — Task 2.3b implemented, waiting for the supervisor's manual test
 
 ## Current position
 - Milestone: M2 — Datasets, evaluation protocol, catalog import — in progress. M1 released 2026-11-14 (PR #22,
   merge commit f3926a1, tag `m1-stack`)
 - M2 order: 2.1 ✓ → 2.2 ✓ → 2.3a ✓ → 2.3b → 2.4 (split 2.4a/2.4b proposed, to confirm) → 2.5 → 2.6. Task 1.6
   (interview) still open, in parallel
-- Task: **2.3b — slice builder, part b (enrichment, hidden sets, out-of-stock set)** — state: **in progress**, go
-  given 2026-11-14 with hidden-set option **B2** (query-level hiding, see "Decisions"). 2.3a merged 2026-11-14
-  (PR #26, 506ae13); protocol tagged `protocol-v1`
+- Task: **2.3b — slice builder, part b (enrichment, hidden sets, out-of-stock set)** — state: **implemented,
+  automated checks passed, waiting for the supervisor's manual test**; go 2026-11-14 with hidden-set option **B2**
+  (protocol v1.1, see "Decisions"). 2.3a merged 2026-11-14 (PR #26, 506ae13); protocol tagged `protocol-v1`
 - Branch / PR: `feat/slice-enrichment` (from `develop` 506ae13)
 - Local checkout: on `feat/slice-enrichment`; no other worktree; ESCI in `data/raw/esci/` (3 files, verified)
 - Repository: https://github.com/akramnemri/odoo-search-lost-demand (public, default branch `develop`)
@@ -51,7 +51,10 @@ Updated: 2026-11-14 by agent session 6 — 2.3a merged (PR #26); Task 2.3b in pr
 - Slice (Task 2.3a, 2026-11-14): `data/processed/` holds dev 300, test 700, test-typo 700 (17 unchanged), qrels
   20,117, catalog **19,869 products**; 0 test candidates removed as duplicates of dev; every query has an E judgment.
   Two runs gave identical SHA-256 (`results/summary/slice-report.md`); 12–21 s, peak 639 MiB working set.
-  No hidden or out-of-stock sets and no enrichment yet (Task 2.3b)
+  Shop catalog (Task 2.3b, same command): `products.parquet` 19,869 with SYNTHETIC category (91.5 % not "Other"),
+  price (median $23.99), stock, 20 vendors; hidden-test 140 test queries → 1,081 products (5.4 %), hidden-dev 60 dev
+  queries → 508 (2.6 %), out-of-stock 1,828; `results/summary/enrichment-report.md`. Full build 16–24 s, peak
+  687–754 MiB; two runs identical, 2.3a hashes unchanged
 - REES46: not yet (13.67 GB; usage rules in ADR-012)
 - Odoo source copy: `.odoo-src/odoo/` from `odoo:19.0-20261015` (Odoo `19.0.post20261015`), 38,948 files, 409 MB,
   translations (`*.po`) excluded, 19 font symlinks skipped; copied in 320 s; provenance in `.odoo-src/SOURCE.toml`
@@ -169,6 +172,17 @@ Updated: 2026-11-14 by agent session 6 — 2.3a merged (PR #26); Task 2.3b in pr
   is deleted first and written last. Fix during the task: pyarrow pre-buffers a whole row group (ESCI files have one),
   1.57 GiB peak; `pre_buffer=False` + 8 MiB buffered stream → 639 MiB, same output hashes. 40 new tests (325 total)
 
+- 2.3b — implemented 2026-11-14 on `feat/slice-enrichment`, manual test pending — step 5 of `shop data build-slice`:
+  `enrichment.py` (keyword categories from `categories.toml`, 22 + Other, keyword lists written from dev products
+  only, 92.5 % coverage on dev; log-normal prices per category in cents ending .99; log-uniform stock 3–150; vendor
+  from a hash of the normalized brand; vendor terms; HTML-free descriptions capped at 2,000 characters),
+  `hidden_sets.py` (protocol v1.1 §4, B2: hidden queries stratified by the majority category of their E products,
+  largest remainder; hidden-dev excludes dev queries sharing an E product with hidden-test; out-of-stock among E
+  products of non-hidden queries), `shop_catalog.py` (tables, statistics, report). Protocol v1.1 written (§4, §10,
+  D12, "Changes"), ADR-013 and `04` §3–4 updated. Speed-up during the task: keyword index + cached word folding +
+  no HTML parser on plain text, step 23 s → 8 s, same hashes. 41 new tests (366 total). Independent check on the
+  real outputs (pyarrow only): 11 rules PASS
+
 ## Latest results
 - none (no evaluation yet)
 
@@ -253,7 +267,12 @@ Updated: 2026-11-14 by agent session 6 — 2.3a merged (PR #26); Task 2.3b in pr
 - A local shop owner for interview #1 (Task 1.6) — start looking early
 
 ## Next step (exact)
-- **Agent: implement Task 2.3b** on `feat/slice-enrichment` (go 2026-11-14, option B2)
+- **Supervisor: manual test of Task 2.3b** (PR to `develop` from `feat/slice-enrichment`): run
+  `uv run shop data build-slice` twice and compare the 10 SHA-256; read `results/summary/enrichment-report.md`
+  (are categories, prices and stock plausible?) and `docs/evaluation/protocol.md` §4 and "Changes" (v1.1)
+- After the merge (supervisor's call): annotated tag `protocol-v1.1` on the merge commit, before any detection run
+  (pre-registration, protocol §9); academic supervisor's approval of v1.1 if required (D11)
+- Then Task 2.4 (catalog importer; the split 2.4a/2.4b is still to confirm)
 - Observation for 2.3b/M5 (not a protocol deviation): the typo position is uniform over the word's letters, so
   first-letter typos ("poll" → "opll") occur; real typos are rarer there. The shopper model may weight positions
 - Supervisor: JetBrains student license; optional PyCharm screenshots 01–05 and 08 (`docs/setup/PYCHARM.md` §7); the

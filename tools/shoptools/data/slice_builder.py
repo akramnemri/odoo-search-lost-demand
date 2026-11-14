@@ -1,7 +1,9 @@
-"""Catalog slice and query sets from ESCI: `uv run shop data build-slice [--dry-run]` (Task 2.3a).
+"""Catalog slice, query sets and shop catalog from ESCI: `uv run shop data build-slice [--dry-run]` (Tasks 2.3a, 2.3b).
 
-Binding rules: docs/evaluation/protocol.md §2–3, §6.1 and §6.3 (tag `protocol-v1`); settings in
-`tools/shoptools/data/slice.toml`. Named `slice_builder` so it does not shadow the built-in `slice`. Task 2.3b adds the synthetic enrichment, the hidden sets and the out-of-stock set.
+Binding rules: docs/evaluation/protocol.md §2–4, §6.1 and §6.3 (v1.1); settings in `tools/shoptools/data/slice.toml`.
+Named `slice_builder` so it does not shadow the built-in `slice`. Steps 1–6 below are Task 2.3a; step 7 (synthetic
+enrichment, hidden sets, out-of-stock set) is Task 2.3b, in `shop_catalog.py`, with its own random streams, so it never
+changes the 2.3a outputs.
 
 Input: the two ESCI Parquet files in data/raw/esci/, checked against their pinned SHA-256 (never modified).
 Steps, each with its own random stream derived from the base seed and a label (`derived_rng`):
@@ -12,7 +14,9 @@ Steps, each with its own random stream derived from the base seed and a label (`
    normalized text (`normalize_query`) equals a dev query's (stream `test-queries`); the removed count is recorded;
 4. qrels: every judgment of the dev and test queries, with the gain of its label;
 5. test-typo: each test query with one typo from `make_typo` (stream `typos`);
-6. catalog: every product judged for a dev or test query (any label), with its ESCI text fields.
+6. catalog: every product judged for a dev or test query (any label), with its ESCI text fields;
+7. shop catalog: synthetic category, price, stock and vendor per product; hidden-test, hidden-dev and out-of-stock
+   sets (`shop_catalog.build_shop_catalog`); report in results/summary/enrichment-report.md.
 
 Outputs in data/processed/ (git-ignored): Parquet files with sorted rows, then `slice-manifest.json` (config,
 seed, input and output SHA-256, counts, versions). The manifest is removed first and written last, so a stopped run
@@ -42,7 +46,8 @@ from pathlib import Path
 from statistics import median
 from typing import TYPE_CHECKING, Any
 
-from shoptools.data import download, esci
+from shoptools.data import download, esci, shop_catalog
+from shoptools.data.enrichment import CategoryRulesError, load_category_rules
 from shoptools.data.normalize import normalize_query
 from shoptools.data.typos import OPERATIONS, make_typo
 
@@ -52,13 +57,16 @@ if TYPE_CHECKING:
 CONFIG_FILE = Path("tools") / "shoptools" / "data" / "slice.toml"
 PROCESSED_DIR = Path("data") / "processed"
 REPORT_FILE = Path("results") / "summary" / "slice-report.md"
+ENRICHMENT_REPORT_FILE = Path("results") / "summary" / "enrichment-report.md"
 MANIFEST_NAME = "slice-manifest.json"
 DEV_FILE = "queries-dev.parquet"
 TEST_FILE = "queries-test.parquet"
 TYPO_FILE = "queries-test-typo.parquet"
 QRELS_FILE = "qrels.parquet"
 CATALOG_FILE = "catalog.parquet"
-OUTPUT_FILES = (DEV_FILE, TEST_FILE, TYPO_FILE, QRELS_FILE, CATALOG_FILE)
+SLICE_OUTPUT_FILES = (DEV_FILE, TEST_FILE, TYPO_FILE, QRELS_FILE, CATALOG_FILE)  # Task 2.3a
+OUTPUT_FILES = SLICE_OUTPUT_FILES + shop_catalog.OUTPUT_FILES
+SEED_STREAMS = ("dev-queries", "test-queries", "typos", *shop_catalog.SEED_STREAMS)
 LABELS = ("E", "S", "C", "I")
 PRODUCT_TEXT_COLUMNS = (
     "product_title",
@@ -69,7 +77,7 @@ PRODUCT_TEXT_COLUMNS = (
 )
 BATCH_ROWS = 50_000
 STREAM_BUFFER_BYTES = 8 * 1024 * 1024
-STEPS = 5
+STEPS = 6
 
 
 class SliceError(Exception):
@@ -94,13 +102,18 @@ class SliceConfig:
     test: QuerySetRule
     gains: dict[str, float]
     min_word_letters: int
+    shop: shop_catalog.ShopSettings
     parsed: dict[str, Any]  # the whole file as parsed, for the hash and the manifest
 
     @property
     def sha256(self) -> str:
-        """Hash of the parsed values, not of the file text: comments and spacing do not change it."""
-        canonical = json.dumps(self.parsed, sort_keys=True, separators=(",", ":"))
-        return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+        return parsed_sha256(self.parsed)
+
+
+def parsed_sha256(parsed: dict[str, Any]) -> str:
+    """Hash of parsed TOML values, not of the file text: comments and spacing do not change it."""
+    canonical = json.dumps(parsed, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
 def load_config(path: Path) -> SliceConfig:
@@ -115,6 +128,7 @@ def load_config(path: Path) -> SliceConfig:
             test=QuerySetRule(int(queries["test"]["size"]), str(queries["test"]["split"])),
             gains={label: float(gain) for label, gain in parsed["gains"].items()},
             min_word_letters=int(parsed["typos"]["min_word_letters"]),
+            shop=shop_catalog.parse_shop_settings(parsed),
             parsed=parsed,
         )
     except (OSError, KeyError, TypeError, ValueError) as error:  # tomllib.TOMLDecodeError is a ValueError
@@ -511,9 +525,9 @@ def render_report(manifest: dict[str, Any]) -> str:
         "| file | rows | SHA-256 |",
         "|---|---:|---|",
     ]
-    lines += [
-        f"| `{name}` | {output['rows']:,} | `{output['sha256'][:16]}…` |" for name, output in manifest["outputs"].items()
-    ]
+    outputs = manifest["outputs"]
+    lines += [f"| `{name}` | {outputs[name]['rows']:,} | `{outputs[name]['sha256'][:16]}…` |" for name in SLICE_OUTPUT_FILES]
+    lines += ["", "The shop catalog built from this slice (Task 2.3b) is described in `results/summary/enrichment-report.md`."]
     return "\n".join(lines) + "\n"
 
 
@@ -575,15 +589,36 @@ def run_build_slice(
         typos = build_test_typos(selection.test, config)
         catalog = read_catalog(repo_root / esci.RAW_DIR / esci.PRODUCTS, config.locale, product_ids)
         step(4, f"test-typo and catalog: {catalog.num_rows:,} products read from {esci.PRODUCTS}")
-        manifest = _write_outputs(repo_root, config, config_file, inputs, selection, qrels, typos, catalog)
-    except (SliceError, esci.EsciError, OSError) as error:
+        rules = load_category_rules(repo_root / config.shop.categories_file)
+        shop = shop_catalog.build_shop_catalog(
+            catalog,
+            [(row.query_set, row.query_id, row.product_id, row.label) for row in qrels],
+            [query.query_id for query in selection.dev],
+            [query.query_id for query in selection.test],
+            config.shop,
+            rules,
+            lambda label: derived_rng(config.seed, label),
+        )
+        stats = shop.statistics
+        step(
+            5,
+            f"shop catalog: {stats['not_other']:,} of {stats['products']:,} products categorised; hidden-test "
+            f"{stats['hidden_test']['products']:,} products ({stats['hidden_test']['queries']} queries), hidden-dev "
+            f"{stats['hidden_dev']['products']:,} ({stats['hidden_dev']['queries']}), out-of-stock "
+            f"{stats['out_of_stock']['products']:,}",
+        )
+        manifest = _write_outputs(repo_root, config, config_file, inputs, selection, qrels, typos, catalog, shop)
+    except (SliceError, CategoryRulesError, esci.EsciError, OSError) as error:
         print(f"\nshop data build-slice: {error}", file=sys.stderr)
         return 1
-    step(5, f"outputs written to {PROCESSED_DIR.as_posix()}/")
+    step(6, f"outputs written to {PROCESSED_DIR.as_posix()}/")
     write(f"Slice built in {time.monotonic() - started:.0f} s. Output SHA-256:\n")
     for name, output in manifest["outputs"].items():
         write(f"  {output['sha256']}  {name} ({output['rows']:,} rows)\n")
-    write(f"Report: {REPORT_FILE.as_posix()}; manifest: {(PROCESSED_DIR / MANIFEST_NAME).as_posix()}\n")
+    write(
+        f"Reports: {REPORT_FILE.as_posix()}, {ENRICHMENT_REPORT_FILE.as_posix()}; "
+        f"manifest: {(PROCESSED_DIR / MANIFEST_NAME).as_posix()}\n"
+    )
     return 0
 
 
@@ -596,13 +631,14 @@ def _write_outputs(
     qrels: list[Judgment],
     typos: list[TypoQuery],
     catalog: pa.Table,
+    shop: shop_catalog.ShopCatalog,
 ) -> dict[str, Any]:
     import pyarrow as pa
 
     processed = repo_root / PROCESSED_DIR
     processed.mkdir(parents=True, exist_ok=True)
     (processed / MANIFEST_NAME).unlink(missing_ok=True)  # see the module docstring: manifest last
-    tables = _tables(selection, qrels, typos) | {CATALOG_FILE: catalog}
+    tables = _tables(selection, qrels, typos) | {CATALOG_FILE: catalog} | shop.tables
     outputs = {
         name: {"rows": tables[name].num_rows, "sha256": write_parquet(tables[name], processed / name)}
         for name in OUTPUT_FILES
@@ -611,15 +647,24 @@ def _write_outputs(
         config_name = config_file.resolve().relative_to(repo_root.resolve()).as_posix()
     except ValueError:
         config_name = config_file.name
+    categories_path = repo_root / config.shop.categories_file
     manifest = {
-        "builder": "uv run shop data build-slice (Task 2.3a)",
-        "protocol": "docs/evaluation/protocol.md (tag protocol-v1)",
+        "builder": "uv run shop data build-slice (Tasks 2.3a, 2.3b)",
+        "protocol": "docs/evaluation/protocol.md v1.1 (v1 tagged protocol-v1; §4 changed, option B2)",
         "config_file": config_name,
         "config_sha256": config.sha256,
         "config": config.parsed,
-        "seed_streams": ["dev-queries", "test-queries", "typos"],
+        "categories_file": config.shop.categories_file,
+        "categories_sha256": parsed_sha256(tomllib.loads(categories_path.read_text(encoding="utf-8"))),
+        "seed_streams": list(SEED_STREAMS),
+        "synthetic_fields": {shop_catalog.PRODUCTS_FILE: list(shop_catalog.SYNTHETIC_FIELDS)},
         "inputs": inputs,
-        "versions": {"python": platform.python_version(), "pyarrow": pa.__version__},
+        # Prices are drawn with floating-point maths: the platform is recorded with the versions.
+        "versions": {
+            "python": platform.python_version(),
+            "pyarrow": pa.__version__,
+            "platform": f"{platform.system()} {platform.machine()}",
+        },
         "counts": {
             "pool": {
                 "dev": selection.pool_dev,
@@ -630,9 +675,11 @@ def _write_outputs(
             "test": set_statistics(selection.test, qrels),
             "test_typo": typo_statistics(typos),
             "catalog": catalog_statistics(catalog, qrels),
+            "shop_catalog": shop.statistics,
         },
         "outputs": outputs,
     }
     _write_text(repo_root / REPORT_FILE, render_report(manifest))
+    _write_text(repo_root / ENRICHMENT_REPORT_FILE, shop_catalog.render_enrichment_report(manifest))
     _write_text(processed / MANIFEST_NAME, json.dumps(manifest, indent=2, sort_keys=True) + "\n")
     return manifest
