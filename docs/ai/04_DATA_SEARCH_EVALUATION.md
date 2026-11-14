@@ -50,13 +50,14 @@ removal, is `docs/evaluation/protocol.md` §3–4):
 4. **Traffic pool** (virtual shoppers) = dev + test queries. This does not leak labels into NDCG **as long as no click-based
    ranking feature is used**. If a popularity feature is ever used, NDCG runs must disable it or exclude test-query traffic (ADR).
 5. **qrels** file: query ID, product ID, label, gain.
-6. **Hidden set** (detection test): 20 % of the catalog size, chosen with a fixed seed, stratified by category,
-   **only among products that are the Exact (E) match of at least one traffic query** (otherwise no shopper would ever look
-   for them and detection would be impossible by construction).
-7. **Out-of-stock set**: 10 % of the remaining products start with zero stock (default), for FR3 and the out-of-stock signal.
+6. **Hidden sets** (detection test, protocol v1.1 §4): every Exact (E) product of 20 % of the test queries
+   (hidden-test) and of 20 % of the dev queries (hidden-dev), chosen with a fixed seed, stratified by category. Hiding
+   single products would not work: almost every query keeps other exact matches (protocol "Changes").
+7. **Out-of-stock set**: 10 % of the products in neither hidden set start with zero stock, drawn among E products of
+   non-hidden queries, for FR3 and the out-of-stock signal.
 
 Tests: same seed → identical output hashes; dev ∩ test = ∅; every judged product of every selected query is in the catalog;
-every hidden product is an E-target of a traffic query.
+every hidden product is an E-target of a hidden query, and every E-target of a hidden query is hidden.
 
 Implementation (Task 2.3a): `uv run shop data build-slice [--dry-run]`, rules in the docstring of
 `tools/shoptools/data/slice_builder.py`, settings in `tools/shoptools/data/slice.toml`. Outputs in `data/processed/`:
@@ -80,6 +81,14 @@ ESCI products have no category, price, stock or vendor. We add them deterministi
 
 The slice builder writes an enrichment report (aggregates only: distributions per category, coverage) to
 `results/summary/enrichment-report.md`.
+
+Implementation (Task 2.3b): rules in `tools/shoptools/data/enrichment.py` and `categories.toml` (22 categories + Other;
+keyword lists written from dev products only), settings in `slice.toml` (`[enrichment]`, `[hidden]`, `[out_of_stock]`),
+hidden sets in `hidden_sets.py`, tables and report in `shop_catalog.py`. Outputs in `data/processed/`:
+`products.parquet` (the importer's input: id, name, description, brand, colour and the synthetic fields; prices in
+integer cents), `vendors.parquet`, `hidden-test.parquet` and `hidden-dev.parquet` (query id, product id, query
+category), `out-of-stock.parquet`. Prices use floating-point draws: the hashes are reproducible on the same platform,
+which the manifest records.
 
 **Odoo import mapping:** ESCI title → name; description → website/sales description; brand → `brand` (module field);
 color → kept for indexing (attribute only if needed); category → public category (+ a simple internal category);

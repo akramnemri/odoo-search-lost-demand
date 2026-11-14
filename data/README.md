@@ -36,3 +36,7 @@ with the downloads.
    `queries-dev.parquet`, `queries-test.parquet`, `queries-test-typo.parquet`, `qrels.parquet`, `catalog.parquet` and,
    last, `slice-manifest.json`; aggregates in `results/summary/slice-report.md`. About 15–25 s, under 0.7 GiB of memory.
 3. Same seed and settings (`tools/shoptools/data/slice.toml`) give the same SHA-256 for every output: compare two runs.
+
+The same command also builds the shop catalog (Task 2.3b): `products.parquet` with **synthetic** category, price,
+stock and vendor, `vendors.parquet`, the hidden sets `hidden-test.parquet` and `hidden-dev.parquet` and
+`out-of-stock.parquet`; aggregates in `results/summary/enrichment-report.md`. About 15–30 s and under 0.8 GiB in total.
