@@ -137,9 +137,19 @@ section 7.
 ## 6. Debugging a module test
 
 1. Set a breakpoint in `addons/website_sale_lost_demand/tests/test_settings_page.py`.
-2. Debug `Odoo module tests`. It creates `shop_test` if missing, installs the module, runs the tests and exits (2–3 min).
-   It runs in its own container; the development server may keep running.
-3. Afterwards run `uv run shop test module`: it drops the leftover `shop_test` first, then runs the suite normally.
+2. Run or Debug `Odoo module tests`. It creates `shop_test` if missing, installs the module, runs the tests and exits
+   (2–3 min). Like `Odoo (debug)`, it replaces the `odoo` service container, so the development server is down meanwhile.
+   Expected end of the console: `0 failed, 0 error(s) of 10 tests when loading database 'shop_test'`, then
+   `Process finished with exit code 0` (supervisor's run, 2026-11-14).
+   When Odoo exits, the service's `restart: unless-stopped` policy starts the container again for a moment and PyCharm
+   stops it (`odoo-1 exited with code 137` after the summary). Harmless: the exit code of the run is still 0.
+3. Afterwards bring the normal server back, then run the suite the usual way (it drops the leftover `shop_test` first):
+   ```bash
+   uv run shop up
+   ```
+   ```bash
+   uv run shop test module
+   ```
 
 ## 7. Screenshots to capture (supervisor)
 
@@ -173,8 +183,9 @@ Save as PNG (crop to PyCharm's window, under the repository's 500 KB file limit)
 | Odoo answers but the page lists no database / login fails | Wrong database filter: check `.env` `ODOO_DB_NAME` (= `shop`) and the `--db-filter` parameter |
 | Python code change not picked up | Expected on the Windows drive (ADR-014): restart the debug run |
 
-After any session, `docker compose ps` must show `odoo` running again (`uv run shop up`); leftover
-`odoo-search-lost-demand-odoo-run-…` containers can be listed with `docker ps -a` and are removed by PyCharm on stop.
+After any session, `docker compose ps` must show `odoo` running again (`uv run shop up`). PyCharm's helper runs leave
+stopped `odoo-search-lost-demand-odoo-run-…` containers behind (`docker ps -a`). They hold no data; the `shop` tools
+ignore them (one-off containers, since 2026-11-14) and `docker rm <name>` removes them if you want.
 
 ## 9. Fallback and after the trial
 
