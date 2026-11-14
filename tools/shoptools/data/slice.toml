@@ -1,0 +1,26 @@
+# Catalog slice and query sets: `uv run shop data build-slice` (Task 2.3a).
+# Binding rules: docs/evaluation/protocol.md §2–3 and §6 (tag protocol-v1). Changing any value here changes the
+# outputs and their hashes: record the change and its reason in docs/evaluation/results.md (protocol §9).
+
+[slice]
+# Base seed of the protocol (§3). Every random step uses its own stream derived from it and a label.
+seed = 20261025
+# Only these ESCI judgments are used (§2).
+locale = "us"
+small_version = 1
+
+[queries]
+# Drawn uniformly from the ESCI split named here; test excludes queries whose normalized text equals a dev query's.
+dev = { size = 300, split = "train" }
+test = { size = 700, split = "test" }
+
+[gains]
+# ESCI benchmark convention (protocol §6.1).
+E = 1.0
+S = 0.1
+C = 0.01
+I = 0.0
+
+[typos]
+# test-typo: one edit in one word of at least this many letters (protocol §6.3).
+min_word_letters = 4

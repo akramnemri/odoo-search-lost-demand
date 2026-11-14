@@ -13,6 +13,22 @@ from shoptools.doctor.system import CommandResult, HttpResponse
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
+def edit_distance(a: str, b: str) -> int:
+    """Damerau-Levenshtein distance, optimal string alignment variant (an adjacent swap is one edit)."""
+    rows = [[0] * (len(b) + 1) for _ in range(len(a) + 1)]
+    for i in range(len(a) + 1):
+        rows[i][0] = i
+    for j in range(len(b) + 1):
+        rows[0][j] = j
+    for i in range(1, len(a) + 1):
+        for j in range(1, len(b) + 1):
+            cost = 0 if a[i - 1] == b[j - 1] else 1
+            rows[i][j] = min(rows[i - 1][j] + 1, rows[i][j - 1] + 1, rows[i - 1][j - 1] + cost)
+            if i > 1 and j > 1 and a[i - 1] == b[j - 2] and a[i - 2] == b[j - 1]:
+                rows[i][j] = min(rows[i][j], rows[i - 2][j - 2] + 1)
+    return rows[len(a)][len(b)]
+
+
 @dataclass
 class FakeSystem:
     """Replays recorded command outputs; commands without a recorded answer behave as 'not installed'."""

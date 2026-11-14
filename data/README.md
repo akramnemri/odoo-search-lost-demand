@@ -27,3 +27,12 @@ with the downloads.
    resumed after an interruption (run the command again), and renamed only when its size and SHA-256 match.
    Files already present and correct are skipped. The entries in `manifest.toml` are written at the end.
 3. `uv run shop doctor --section data`: size, Parquet markers (a Git LFS pointer file is detected) and manifest.
+
+## Catalog slice and query sets (Task 2.3a)
+
+1. `uv run shop data build-slice --dry-run`: checks the ESCI files are present, selects the dev and test queries and
+   counts their judgments; writes nothing.
+2. `uv run shop data build-slice`: checks the ESCI files against their pinned SHA-256, then writes into `processed/`
+   `queries-dev.parquet`, `queries-test.parquet`, `queries-test-typo.parquet`, `qrels.parquet`, `catalog.parquet` and,
+   last, `slice-manifest.json`; aggregates in `results/summary/slice-report.md`. About 15–25 s, under 0.7 GiB of memory.
+3. Same seed and settings (`tools/shoptools/data/slice.toml`) give the same SHA-256 for every output: compare two runs.

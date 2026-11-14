@@ -13,7 +13,7 @@ from collections.abc import Callable, Sequence
 from pathlib import Path
 
 from shoptools import __version__, moduletest, odoodb, odoosrc, snapshot, stack
-from shoptools.data import esci
+from shoptools.data import esci, slice_builder
 from shoptools.doctor.expected import VERSIONS_FILE, find_repo_root, load_expected
 from shoptools.doctor.report import SECTIONS, run_doctor
 from shoptools.envfile import PROFILES, init_env
@@ -233,6 +233,13 @@ def _add_data_arguments(parser: argparse.ArgumentParser) -> None:
         "profile", help="write aggregate statistics of a fetched dataset to results/summary/"
     )
     profile.add_argument("dataset", choices=["esci"])
+    build = actions.add_parser(
+        "build-slice",
+        help="build the query sets, qrels and catalog in data/processed/ from ESCI (seeded, reproducible)",
+    )
+    build.add_argument(
+        "--dry-run", action="store_true", help="check inputs and select the queries; write nothing"
+    )
 
 
 def _run_data(namespace: argparse.Namespace) -> int:
@@ -241,6 +248,8 @@ def _run_data(namespace: argparse.Namespace) -> int:
         return 1
     if namespace.data_action == "fetch":
         return esci.run_fetch(repo_root, dry_run=namespace.dry_run, yes=namespace.yes)
+    if namespace.data_action == "build-slice":
+        return slice_builder.run_build_slice(repo_root, dry_run=namespace.dry_run)
     return esci.run_profile(repo_root)
 
 

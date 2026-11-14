@@ -1,15 +1,15 @@
 # STATUS
 
-Updated: 2026-11-14 by agent session 5 — HANDOFF: a fresh session starts Task 2.3a from here
+Updated: 2026-11-14 by agent session 6 — Task 2.3a implemented, waiting for the supervisor's manual test
 
 ## Current position
 - Milestone: M2 — Datasets, evaluation protocol, catalog import — in progress. M1 released 2026-11-14 (PR #22,
   merge commit f3926a1, tag `m1-stack`)
 - M2 order: 2.1 ✓ → 2.2 ✓ → 2.3a → 2.3b → 2.4 (split 2.4a/2.4b proposed, to confirm) → 2.5 → 2.6. Task 1.6
   (interview) still open, in parallel
-- Task: **2.3a — slice builder, part a** — state: **go given by the supervisor (2026-11-14), not started**; plan in
-  "Next step" below. Tasks 2.1 and 2.2 merged 2026-11-14; protocol tagged `protocol-v1`
-- Branch / PR: `feat/slice-query-sets` (from `develop` 5689f1e) — draft PR to `develop`, opened with this handoff
+- Task: **2.3a — slice builder, part a** — state: **implemented, automated checks passed, waiting for the
+  supervisor's manual test** (go given 2026-11-14). Tasks 2.1 and 2.2 merged 2026-11-14; protocol tagged `protocol-v1`
+- Branch / PR: `feat/slice-query-sets` (from `develop` 5689f1e) — draft PR #26 to `develop`
 - Local checkout: on `feat/slice-query-sets`; no other worktree; ESCI in `data/raw/esci/` (3 files, verified)
 - Repository: https://github.com/akramnemri/odoo-search-lost-demand (public, default branch `develop`)
 
@@ -47,6 +47,10 @@ Updated: 2026-11-14 by agent session 5 — HANDOFF: a fresh session starts Task 
   Profile `results/summary/esci-profile.md`: `us`/`small_version = 1` = 20,888 train + 8,956 test queries, 601,354
   judgments (median 16 per query), 482,105 distinct judged products; all small_version cells: 48,300 queries,
   1,118,011 judgments (matches ESCI's published figures). Profile: 8 s, peak 277 MiB working set
+- Slice (Task 2.3a, 2026-11-14): `data/processed/` holds dev 300, test 700, test-typo 700 (17 unchanged), qrels
+  20,117, catalog **19,869 products**; 0 test candidates removed as duplicates of dev; every query has an E judgment.
+  Two runs gave identical SHA-256 (`results/summary/slice-report.md`); 12–21 s, peak 639 MiB working set.
+  No hidden or out-of-stock sets and no enrichment yet (Task 2.3b)
 - REES46: not yet (13.67 GB; usage rules in ADR-012)
 - Odoo source copy: `.odoo-src/odoo/` from `odoo:19.0-20261015` (Odoo `19.0.post20261015`), 38,948 files, 409 MB,
   translations (`*.po`) excluded, 19 font symlinks skipped; copied in 320 s; provenance in `.odoo-src/SOURCE.toml`
@@ -151,6 +155,13 @@ Updated: 2026-11-14 by agent session 5 — HANDOFF: a fresh session starts Task 
   correction, dev/test duplicate removal, E7 resilience, interview ratings, pre-registration. ADR-013 Accepted.
   Academic supervisor's approval: not asked yet (the supervisor's call, D11)
 
+- 2.3a — implemented 2026-11-14 on `feat/slice-query-sets` (draft PR #26), manual test pending —
+  `shop data build-slice [--dry-run]` (`tools/shoptools/data/slice_builder.py`, config `slice.toml`), shared
+  `normalize_query` (`normalize.py`, 04 §8.1) and typo model (`typos.py`, protocol §6.3, reused by Locust in M5).
+  Seed streams = SHA-256(`<seed>:<label>`) → `random.Random`. Inputs checked against the pinned SHA-256; the manifest
+  is deleted first and written last. Fix during the task: pyarrow pre-buffers a whole row group (ESCI files have one),
+  1.57 GiB peak; `pre_buffer=False` + 8 MiB buffered stream → 639 MiB, same output hashes. 40 new tests (325 total)
+
 ## Latest results
 - none (no evaluation yet)
 
@@ -229,23 +240,10 @@ Updated: 2026-11-14 by agent session 5 — HANDOFF: a fresh session starts Task 
 - A local shop owner for interview #1 (Task 1.6) — start looking early
 
 ## Next step (exact)
-- **Agent (fresh session): implement Task 2.3a** on `feat/slice-query-sets` (go already given 2026-11-14; read
-  `docs/evaluation/protocol.md` §2–3, §6.1, §6.3 and `04` §3–4 first). Approved plan:
-  - `uv run shop data build-slice [--dry-run]`; config `tools/shoptools/data/slice.toml` (seed `20261025`, sizes,
-    locale `us`, `small_version = 1`); derived seed streams per step (`dev-queries`, `test-queries`, `typos`, …) with
-    the standard library's `random` (no new dependency)
-  - dev = 300 queries from the ESCI train split; test = 700 from the test split after removing queries whose
-    normalized text equals a dev query (normalization of `04` §8.1: NFKC, case-fold, trim, collapse whitespace, strip
-    surrounding punctuation; a shared normalizer in `tools/shoptools/data/`, to be reused by the module in M4)
-  - qrels (query id, product id, label, gain E 1.0 / S 0.1 / C 0.01 / I 0) for dev + test; catalog = all judged
-    products of dev + test, read from the 1.1 GB products file in column batches (memory < 2 GB); product text fields
-    kept for 2.3b and the import
-  - `test-typo`: one seeded edit (swap, delete, duplicate, keyboard-neighbour) in one word of ≥ 4 letters per test query
-  - outputs in `data/processed/` (Parquet, sorted rows) + a slice manifest (counts, seed, config hash, output SHA-256);
-    deterministic (same seed → same hashes)
-  - tests on synthetic ESCI-format fixtures: determinism, dev ∩ test = ∅ by id and by normalized text, every judged
-    product in the catalog, typo = exactly one edit, counts
-  - then STATUS, PR, task report, manual test (run twice, compare hashes)
+- **Supervisor: manual test of Task 2.3a** (PR #26): `uv run shop data build-slice --dry-run`, then
+  `uv run shop data build-slice` twice and compare the printed SHA-256 (also with
+  `results/summary/slice-report.md`); read the report; open a few rows of `data/processed/queries-test-typo.parquet`.
+  When it passes and CI is green: mark PR #26 ready and merge (squash), or ask the agent to
 - Then Task 2.3b (enrichment: categories `categories.toml`, synthetic price/stock/vendor; hidden-dev, hidden-test,
   out-of-stock sets, stratified, E-targets only; `results/summary/enrichment-report.md`)
 - Supervisor: JetBrains student license; optional PyCharm screenshots 01–05 and 08 (`docs/setup/PYCHARM.md` §7); the
