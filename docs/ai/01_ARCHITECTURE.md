@@ -251,7 +251,7 @@ Models and controllers stay thin and call services.
 | `lost_demand.index.queue` | Product outbox | Template ID + operation; collapsed per template; flushed in bulk |
 | `lost_demand.event.outbox` | Event outbox | Serialized event + attempts; flushed in bulk; bounded retention if Elasticsearch stays down |
 | `lost_demand.run` | One execution of the lost-demand job | Window, thresholds, counts, duration, status: an audit trail and evaluation evidence |
-| `lost_demand.signal` | A detected gap | Kind (`zero_result_query`, `unsatisfied_query` if approved, `out_of_stock_demand`), normalized query or product, counts, distinct sessions, trend, first/last seen, state |
+| `lost_demand.signal` | A detected gap | Kind (`zero_result_query`, `unsatisfied_query`, `out_of_stock_demand`), normalized query or product, counts, distinct sessions, trend, first/last seen, state |
 | `lost_demand.proposal` | Restock proposal | Product, vendor, suggested quantity, reason (signals), state `draft → approved → ordered`, or `dismissed`; link to the draft RFQ |
 | `lost_demand.asked_for` (FR10) | "Customers asked for" entry | Normalized query, counts, trend, candidate products, state `new → handled` or `ignored`, action taken |
 | `lost_demand.synonym` | Synonym rule | Terms, type (equivalent / one-way), active; synced to the Elasticsearch synonyms set |
@@ -347,7 +347,7 @@ Rules:
 1. **Zero-result queries:** normalized queries with result count 0, at least N searches and M distinct sessions in the window.
 2. **Out-of-stock demand:** products with weighted demand (views, clicks, add-to-cart attempts) above a threshold while
    their current Odoo stock is zero or below.
-3. **Unsatisfied queries** (proposed extension, needs supervisor approval in Task 2.2): queries whose searches returned
+3. **Unsatisfied queries** (approved 2026-11-14, `docs/evaluation/protocol.md` §5): queries whose searches returned
    results but got no click within a time limit. Needed for a meaningful hidden-catalog detection score.
 
 **Job.** An Odoo scheduled action (default hourly, plus a "Run now" button) queries Elasticsearch aggregations on
@@ -432,7 +432,7 @@ left for later); multi-server, cloud, Kafka, Spark, Hadoop; Elastic paid feature
 
 1. Team: one developer or a pair (binôme)? Who reviews pull requests?
 2. GitHub repository URL and visibility; license for the code (an Odoo-compatible license such as LGPL-3 is usual for modules).
-3. Hidden-catalog detection definition and the "unsatisfied query" signal (Task 2.2).
+3. ~~Hidden-catalog detection definition and the "unsatisfied query" signal~~ — decided 2026-11-14 (protocol v1).
 4. Default thresholds and windows for lost demand (after the first shop-owner interview).
 5. Report language and template required by the university; key dates (milestone reviews, report deadline, defense).
 6. Which laptop is the demo machine, and its RAM profile.
