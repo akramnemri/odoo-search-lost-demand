@@ -1,17 +1,18 @@
 # STATUS
 
-Updated: 2026-11-14 by agent session 6 — Task 2.3b manual test passed (run by the agent on the supervisor's request)
+Updated: 2026-11-14 by agent session 6 — 2.3b merged (PR #27), tag `protocol-v1.1`; Task 2.4a in progress
 
 ## Current position
 - Milestone: M2 — Datasets, evaluation protocol, catalog import — in progress. M1 released 2026-11-14 (PR #22,
   merge commit f3926a1, tag `m1-stack`)
-- M2 order: 2.1 ✓ → 2.2 ✓ → 2.3a ✓ → 2.3b → 2.4 (split 2.4a/2.4b proposed, to confirm) → 2.5 → 2.6. Task 1.6
-  (interview) still open, in parallel
-- Task: **2.3b — slice builder, part b (enrichment, hidden sets, out-of-stock set)** — state: **manual test
-  passed 2026-11-14** (run by the agent; merge on green CI authorised by the supervisor); go 2026-11-14 with hidden-set option **B2**
-  (protocol v1.1, see "Decisions"). 2.3a merged 2026-11-14 (PR #26, 506ae13); protocol tagged `protocol-v1`
-- Branch / PR: `feat/slice-enrichment` (from `develop` 506ae13) — PR #27 to `develop`
-- Local checkout: on `feat/slice-enrichment`; no other worktree; ESCI in `data/raw/esci/` (3 files, verified)
+- M2 order: 2.1 ✓ → 2.2 ✓ → 2.3a ✓ → 2.3b ✓ → 2.4a → 2.4b → 2.5 → 2.6. Task 1.6 (interview) still open, in
+  parallel
+- Task: **2.4a — catalog importer, part a** (module `brand` field; categories, vendors, published products with
+  vendor prices; id map) — state: **in progress**, go 2026-11-14 with all three recommendations (split 2.4a/2.4b,
+  JSON-2 API with ADR-019, no sales tax on imported products). 2.3b merged 2026-11-14 (PR #27, 27640d6); protocol
+  tags `protocol-v1` (5689f1e) and `protocol-v1.1` (27640d6)
+- Branch / PR: `feat/catalog-import` (from `develop` 27640d6)
+- Local checkout: on `feat/catalog-import`; no other worktree; ESCI in `data/raw/esci/` (3 files, verified)
 - Repository: https://github.com/akramnemri/odoo-search-lost-demand (public, default branch `develop`)
 
 ## Milestone 0 exit check (2026-10-28)
@@ -172,7 +173,8 @@ Updated: 2026-11-14 by agent session 6 — Task 2.3b manual test passed (run by 
   is deleted first and written last. Fix during the task: pyarrow pre-buffers a whole row group (ESCI files have one),
   1.57 GiB peak; `pre_buffer=False` + 8 MiB buffered stream → 639 MiB, same output hashes. 40 new tests (325 total)
 
-- 2.3b — PR #27; manual test passed 2026-11-14, run by the agent at the supervisor's request: dry run, two real
+- 2.3b — merged 2026-11-14 (PR #27, 27640d6, squash, by the agent on the supervisor's instruction after all checks
+  and the SonarCloud gate were green); annotated tag `protocol-v1.1` on 27640d6 (supervisor's go); manual test passed 2026-11-14, run by the agent at the supervisor's request: dry run, two real
   builds with identical SHA-256 for all 10 outputs (also equal to the build before the SonarCloud fixes; committed
   reports unchanged); 18 random products reviewed: prices, stock and vendor terms plausible, categories right for
   about 13 of 18 (misses from ambiguous bullet-point words: barstools → Beauty, a pillow → Electronics, a jersey →
@@ -210,6 +212,10 @@ Updated: 2026-11-14 by agent session 6 — Task 2.3b manual test passed (run by 
 - Evaluation protocol v1 is binding (`docs/evaluation/protocol.md`, tag `protocol-v1`); `04` §3, §8, §11 point to it.
   Unsatisfied-query signal approved. Seed `20261025` with one derived stream per random step
 - Task 2.3 split into 2.3a and 2.3b (supervisor, 2026-11-14)
+- Task 2.4 split into 2.4a (brand field, categories, vendors, products with vendor prices, id map) and 2.4b (stock,
+  full import, checks, snapshot); importer through the JSON-2 API (ADR-019) unless measured too slow (> 30 min
+  projected); imported products carry **no sales tax**, so the shop shows the synthetic prices as they are
+  (the generic chart would add 15 %) (supervisor, 2026-11-14)
 - Hidden sets: **option B2** (supervisor, 2026-11-14) — protocol v1.1, a deviation from v1 §4 and from the
   specification's "hide 20 % of the catalog". Measured on the slice: hiding single E-targets (v1) empties only 52–71
   of 1,000 queries and ~3 % of hidden products sit in such a query (8,786 of 8,824 E-targets are E for one query;
@@ -272,14 +278,12 @@ Updated: 2026-11-14 by agent session 6 — Task 2.3b manual test passed (run by 
 - A local shop owner for interview #1 (Task 1.6) — start looking early
 
 ## Next step (exact)
-- **Agent: merge PR #27** (squash) once the required checks and SonarCloud are green on the fix commit
-  (supervisor's instruction, 2026-11-14)
+- **Agent: implement Task 2.4a** on `feat/catalog-import` (go 2026-11-14)
 - Follow-up (before M9 facets, optional): keyword categories are right for roughly 3 of 4 products; ambiguous
   bullet-point words cause most misses. Tuning them (dev products only) changes the catalog hashes, so do it before
   Task 2.4's baseline snapshot or not at all
-- After the merge (supervisor's call): annotated tag `protocol-v1.1` on the merge commit, before any detection run
-  (pre-registration, protocol §9); academic supervisor's approval of v1.1 if required (D11)
-- Then Task 2.4 (catalog importer; the split 2.4a/2.4b is still to confirm)
+- Supervisor: academic supervisor's approval of protocol v1.1 if required (D11)
+- Then Task 2.4b (stock by inventory adjustment, full import, 10-product check, timing, snapshot `baseline-catalog`)
 - Observation for 2.3b/M5 (not a protocol deviation): the typo position is uniform over the word's letters, so
   first-letter typos ("poll" → "opll") occur; real typos are rarer there. The shopper model may weight positions
 - Supervisor: JetBrains student license; optional PyCharm screenshots 01–05 and 08 (`docs/setup/PYCHARM.md` §7); the
