@@ -1,12 +1,12 @@
 # STATUS
 
-Updated: 2026-11-14 by agent session 5 (Task 1.5 implemented, waiting for CI and the supervisor's manual test)
+Updated: 2026-11-14 by agent session 5 (Task 1.5 manual test passed, PR #19 waiting for the merge)
 
 ## Current position
 - Milestone: M1 — Docker stack, module skeleton, debugging, first interview — in progress
 - M1 order (supervisor, 2026-10-29): 1.1a → 1.1b → 1.4a → 1.2a → 1.2b → 1.3 → 1.4b → 1.5 → 1.7; 1.6 in parallel, not blocking the tag
-- Task: 1.5 — CI module job — state: implemented; local checks passed; first CI run and the supervisor's manual test
-  (a PR that breaks a module test must fail CI) pending
+- Task: 1.5 — CI module job — state: CI green on PR #19; manual test passed (2026-11-14, PR #20, run by the agent on
+  the supervisor's request); waiting for the merge
 - Branch / PR: `feat/ci-module-job` — PR to `develop` (see the task report)
 - Repository: https://github.com/akramnemri/odoo-search-lost-demand (public, default branch `develop`)
 
@@ -116,7 +116,11 @@ Updated: 2026-11-14 by agent session 5 (Task 1.5 implemented, waiting for CI and
   `module` (pull + build, `shop up --no-kibana`, `shop test module --es`; logs printed on failure). Real compose stack,
   not service containers (supervisor, 2026-11-14). Odoo 19 exits non-zero when a test fails
   (`odoo/service/server.py::preload_registries`, `rc += 1`); `shop test module` also checks the summary line.
-  Locally: `shop test module --es` 13 tests in 108 s
+  Locally: `shop test module --es` 13 tests in 108 s. First CI run failed: BuildKit did not tag the Odoo base image, so
+  `shop up` reported it missing (the job now pulls it by name from the Dockerfile); SonarCloud S8541/S8544 on `uv`
+  calls (all now `--locked --no-build`). Then green: `module` 3 min 16 s (13 tests in 76 s). Manual test, draft PR #20
+  (closed, not merged): a wrong assertion made `module` fail ("1 failed … of 13 tests", `test_healthy_cluster`, run
+  43536647116); the revert passed (run 43537104351)
 
 ## Latest results
 - none (no evaluation yet)
@@ -185,8 +189,8 @@ Updated: 2026-11-14 by agent session 5 (Task 1.5 implemented, waiting for CI and
 - A local shop owner for interview #1 (Task 1.6) — start looking early
 
 ## Next step (exact)
-- Supervisor: Task 1.5 manual test (a PR that breaks a module test fails CI, the fix passes), then review the PR of
-  `feat/ci-module-job`; decide whether `compose` and `module` become required checks on `develop` and `main`
+- Supervisor: review and merge PR #19 (Task 1.5; CI green, manual test passed); decide whether `compose` and `module`
+  become required checks on `develop` and `main` (repository ruleset, applied by the agent with `gh` on approval)
 - Supervisor (PyCharm, optional, while the trial lasts): screenshots 01–05 and 08 (`docs/setup/PYCHARM.md` §7); apply
   for the JetBrains student license
 - Then Task 1.7 (milestone note, promotion, tag `m1-stack`); Task 1.6 (interview) in parallel
