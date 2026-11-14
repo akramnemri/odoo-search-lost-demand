@@ -13,6 +13,7 @@ from collections.abc import Callable, Sequence
 from pathlib import Path
 
 from shoptools import __version__, moduletest, odoodb, odoosrc, snapshot, stack
+from shoptools.data import esci
 from shoptools.doctor.expected import VERSIONS_FILE, find_repo_root, load_expected
 from shoptools.doctor.report import SECTIONS, run_doctor
 from shoptools.envfile import PROFILES, init_env
@@ -218,6 +219,31 @@ def _run_test(namespace: argparse.Namespace) -> int:
     return moduletest.run_module_tests(repo_root, with_es=namespace.es, keep_db=namespace.keep_db)
 
 
+def _add_data_arguments(parser: argparse.ArgumentParser) -> None:
+    actions = parser.add_subparsers(dest="data_action", metavar=ACTION_METAVAR, required=True)
+    fetch = actions.add_parser(
+        "fetch", help="download a dataset into data/raw/ with checksums and provenance (asks first)"
+    )
+    fetch.add_argument("dataset", choices=["esci"], help="esci (Task 2.1); rees46 comes in Task 7.1")
+    fetch.add_argument(
+        "--dry-run", action="store_true", help="show files, sizes, disk and time; download nothing"
+    )
+    fetch.add_argument("--yes", action="store_true", help="do not ask before downloading")
+    profile = actions.add_parser(
+        "profile", help="write aggregate statistics of a fetched dataset to results/summary/"
+    )
+    profile.add_argument("dataset", choices=["esci"])
+
+
+def _run_data(namespace: argparse.Namespace) -> int:
+    repo_root = _repo_root("data")
+    if repo_root is None:
+        return 1
+    if namespace.data_action == "fetch":
+        return esci.run_fetch(repo_root, dry_run=namespace.dry_run, yes=namespace.yes)
+    return esci.run_profile(repo_root)
+
+
 def _add_odoo_src_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--force", action="store_true", help="replace an existing .odoo-src/")
     parser.add_argument(
@@ -257,6 +283,7 @@ IMPLEMENTED_COMMANDS: dict[
     "snapshot": (_add_snapshot_arguments, _run_snapshot),
     "test": (_add_test_arguments, _run_test),
     "odoo-src": (_add_odoo_src_arguments, _run_odoo_src),
+    "data": (_add_data_arguments, _run_data),
 }
 
 

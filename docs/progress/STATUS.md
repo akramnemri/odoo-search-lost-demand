@@ -1,13 +1,15 @@
 # STATUS
 
-Updated: 2026-11-14 by agent session 5 (Task 1.7: regression passed, M1 release prepared)
+Updated: 2026-11-14 by agent session 5 (Task 2.1 done: ESCI fetched and profiled, waiting for the manual test)
 
 ## Current position
-- Milestone: M1 — Docker stack, module skeleton, debugging, first interview — release in progress (tag `m1-stack`)
-- M1 order (supervisor, 2026-10-29): 1.1a → 1.1b → 1.4a → 1.2a → 1.2b → 1.3 → 1.4b → 1.5 → 1.7; 1.6 in parallel, not blocking the tag
-- Task: 1.7 — milestone note and promotion — state: regression gate items 1–2 passed (2026-11-14), M1 note and
-  CHANGELOG written; release PR `develop → main` and tag `m1-stack` next. Task 1.6 (interview) still open, not blocking
-- Branch / PR: `chore/m1-release` — PR to `develop`, then the release PR `develop → main` (merge commit)
+- Milestone: M2 — Datasets, evaluation protocol, catalog import — in progress. M1 released 2026-11-14 (PR #22,
+  merge commit f3926a1, tag `m1-stack`)
+- M2 order: 2.1 → 2.2 → 2.3 → 2.4 (split 2.4a/2.4b proposed, to confirm) → 2.5 → 2.6. Task 1.6 (interview) still
+  open, in parallel
+- Task: 2.1 — ESCI acquisition — state: implemented, ESCI fetched and verified, profile written; waiting for the
+  supervisor's manual test. Task 2.2 (protocol) approved 2026-11-14, PR #24 open (ESCI counts added)
+- Branch / PR: `feat/esci-fetch` — PR #23 to `develop`; `chore/evaluation-protocol` — PR #24
 - Repository: https://github.com/akramnemri/odoo-search-lost-demand (public, default branch `develop`)
 
 ## Milestone 0 exit check (2026-10-28)
@@ -39,7 +41,11 @@ Updated: 2026-11-14 by agent session 5 (Task 1.7: regression passed, M1 release 
   supervisor from a normal terminal (`docs/setup/TROUBLESHOOTING.md`)
 
 ## Data state
-- ESCI: not yet (≈ 1.1 GB via Git LFS, Apache-2.0)
+- ESCI: in `data/raw/esci/` (1,161,827,075 bytes, Apache-2.0, `amazon-science/esci-data@7916cdf`), size and SHA-256
+  verified against the pins, recorded in `data/manifest.toml` (2026-11-14; the download took 86 min at 0.1–0.5 MB/s).
+  Profile `results/summary/esci-profile.md`: `us`/`small_version = 1` = 20,888 train + 8,956 test queries, 601,354
+  judgments (median 16 per query), 482,105 distinct judged products; all small_version cells: 48,300 queries,
+  1,118,011 judgments (matches ESCI's published figures). Profile: 8 s, peak 277 MiB working set
 - REES46: not yet (13.67 GB; usage rules in ADR-012)
 - Odoo source copy: `.odoo-src/odoo/` from `odoo:19.0-20261015` (Odoo `19.0.post20261015`), 38,948 files, 409 MB,
   translations (`*.po`) excluded, 19 font symlinks skipped; copied in 320 s; provenance in `.odoo-src/SOURCE.toml`
@@ -120,13 +126,22 @@ Updated: 2026-11-14 by agent session 5 (Task 1.7: regression passed, M1 release 
   calls (all now `--locked --no-build`). Then green: `module` 3 min 16 s (13 tests in 76 s). Manual test, draft PR #20
   (closed, not merged): a wrong assertion made `module` fail ("1 failed … of 13 tests", `test_healthy_cluster`, run
   43536647116); the revert passed (run 43537104351)
-- 1.7 (in progress) — regression gate items 1–2 on `develop` 290ccef, 2026-11-14, in an isolated worktree with its own
+- Doctor fix — merged 2026-11-14 (PR #25, 0e71571): `stack.project_name` honours `COMPOSE_PROJECT_NAME`
+  (environment, then `.env`), so the doctor recognises our containers under another project name
+- 1.7 — released 2026-11-14 (PR #21 7a95a54, release PR #22 f3926a1, tag `m1-stack`) — regression gate items 1–2 on `develop` 290ccef, 2026-11-14, in an isolated worktree with its own
   `.env` and Compose project `odoo-search-lost-demand-regress` (empty volumes, removed afterwards with `down -v`,
   supervisor-approved; the shop database untouched): clean start healthy in 93 s; license basic; `shop db create` 89 s;
   module install 7 s (19.0.0.1.0); `shop test module --es` 13 passed in 97 s; snapshot restore 38 s. Doctor on the
   regress stack: 3 port FAILs only because the doctor ignores `COMPOSE_PROJECT_NAME`; on the real stack afterwards
   50 OK, 0 WARN, 0 FAIL. Guest checkout not repeated (last checked in 1.2a). `docs/report/notes/M1.md`,
   `docs/progress/CHANGELOG.md`
+- 2.1 (in progress) — `shop data fetch esci [--dry-run] [--yes]` (`tools/shoptools/data/`): files from the repository's
+  Git LFS storage (media.githubusercontent.com) and raw files at the pinned commit, no git clone in `data/`; resumable
+  `.part` + Range, size and SHA-256 checked against the pin before the rename; `data/manifest.toml` written atomically
+  (sorted, first download date kept). `shop data profile esci` → `results/summary/esci-profile.md` (aggregates only,
+  column batches). Doctor section `data` (was a placeholder): size, Parquet markers, LFS pointer detection, manifest;
+  WARN before the fetch. New dependency `pyarrow==26.0.0` in a default `data` uv group. detect-secrets flags SHA-256
+  values: marked `pragma: allowlist secret` (pins, manifest lines, tests)
 
 ## Latest results
 - none (no evaluation yet)
@@ -202,12 +217,11 @@ Updated: 2026-11-14 by agent session 5 (Task 1.7: regression passed, M1 release 
 - A local shop owner for interview #1 (Task 1.6) — start looking early
 
 ## Next step (exact)
-- Supervisor: review the `chore/m1-release` PR and the release PR `develop → main` (merge commit); then the tag
-  `m1-stack` on the merge commit (agent or supervisor)
+- Supervisor: manual test of Task 2.1 (PR #23); then merge PR #23 and PR #24, and the agent tags `protocol-v1`
+- Then Task 2.3a (query sets, qrels, catalog extraction, test-typo set; go given 2026-11-14), then 2.3b (enrichment,
+  hidden and out-of-stock sets, report)
 - Supervisor: JetBrains student license; optional PyCharm screenshots 01–05 and 08 (`docs/setup/PYCHARM.md` §7); the
-  screenshots listed in `docs/report/notes/M1.md`
-- Then **M2** kickoff (datasets, evaluation protocol, catalog import): read the M2 section first; Task 1.6 (interview)
-  in parallel
+  screenshots listed in `docs/report/notes/M1.md`; Task 1.6 (interview) in parallel
 - Agent note: PyCharm rewrites `.run/*.run.xml` from its in-memory copy and can undo committed changes (it dropped
   `--addons-path` and turned "debug just my code" on again on 2026-11-13): check `git diff .run` before committing
 - Agent note: Odoo `call_kw` takes the record ids as the first argument of non-`@api.model` methods
