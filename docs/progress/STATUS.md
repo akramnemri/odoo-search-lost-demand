@@ -1,13 +1,13 @@
 # STATUS
 
-Updated: 2026-11-14 by agent session 5 (Task 1.4b merged; PyCharm follow-ups and the one-off container fix)
+Updated: 2026-11-14 by agent session 5 (Task 1.5 implemented, waiting for CI and the supervisor's manual test)
 
 ## Current position
 - Milestone: M1 — Docker stack, module skeleton, debugging, first interview — in progress
 - M1 order (supervisor, 2026-10-29): 1.1a → 1.1b → 1.4a → 1.2a → 1.2b → 1.3 → 1.4b → 1.5 → 1.7; 1.6 in parallel, not blocking the tag
-- Task: 1.4b follow-ups while the PyCharm Pro trial lasts (supervisor, 2026-11-14): test configuration run, optional
-  screenshots, and a fix found on the way (`shop` tools misread services when one-off containers exist)
-- Branch / PR: `fix/compose-ps-oneoff` — PR to `develop` (see the task report)
+- Task: 1.5 — CI module job — state: implemented; local checks passed; first CI run and the supervisor's manual test
+  (a PR that breaks a module test must fail CI) pending
+- Branch / PR: `feat/ci-module-job` — PR to `develop` (see the task report)
 - Repository: https://github.com/akramnemri/odoo-search-lost-demand (public, default branch `develop`)
 
 ## Milestone 0 exit check (2026-10-28)
@@ -106,11 +106,17 @@ Updated: 2026-11-14 by agent session 5 (Task 1.4b merged; PyCharm follow-ups and
   Odoo reloads the server when a paused request passes 120 s, `odoo/service/server.py`, `ThreadedServer.process_limit`),
   `--max-cron-threads=0`
 
-- 1.4b follow-up (2026-11-14): PyCharm `Odoo module tests` run passed (10 tests, 0 failed, exit code 0). Then
+- 1.4b follow-up — merged 2026-11-14 (PR #18, 7661b5f): PyCharm `Odoo module tests` run passed (10 tests, 0 failed, exit code 0). Then
   `shop test module` refused to start ("service odoo is not running and healthy") although `odoo-1` was healthy:
   `parse_ps` kept one container per service and PyCharm's exited `docker compose run` helpers (service `odoo`, label
   `com.docker.compose.oneoff=True`) replaced it. `parse_ps` now skips one-off containers (`shop status`, doctor and
   `shop test module` all use it)
+
+- 1.5 (in progress) — CI jobs `compose` (`shop env init --profile lowmem`, `docker compose config --quiet`) and
+  `module` (pull + build, `shop up --no-kibana`, `shop test module --es`; logs printed on failure). Real compose stack,
+  not service containers (supervisor, 2026-11-14). Odoo 19 exits non-zero when a test fails
+  (`odoo/service/server.py::preload_registries`, `rc += 1`); `shop test module` also checks the summary line.
+  Locally: `shop test module --es` 13 tests in 108 s
 
 ## Latest results
 - none (no evaluation yet)
@@ -165,7 +171,7 @@ Updated: 2026-11-14 by agent session 5 (Task 1.4b merged; PyCharm follow-ups and
 - Docker memory 8.3 GB is at the low edge of `standard` and shared with another project's containers
 - XML-RPC/JSON-RPC: deprecated in Odoo 19, removal planned in Odoo 22 (`.odoo-src/odoo/addons/rpc/controllers/__init__.py`);
   the tools use JSON-2 only (`POST /json/2/<model>/<method>`, bearer API key)
-- Free disk 37.5 GB (2026-11-06 evening, 45.8 GB that morning; cause not found: `docker system df` shows 14.7 GB of
+- Free disk 26.6 GB on 2026-11-14 after the supervisor freed space (2.2 GB that morning: doctor FAIL). Before: 37.5 GB (2026-11-06 evening, 45.8 GB that morning; cause not found: `docker system df` shows 14.7 GB of
   images, 13.1 GB reclaimable, and 4.3 GB build cache, shared with the other project), below the 50 GB the doctor
   recommends; datasets (ESCI 1.1 GB, REES46 13.7 GB) come in M2/M7. Never prune without the supervisor
 - `shop test module` takes about 85–90 s (fresh `shop_test` with `website_sale` and its dependencies) and runs a second
@@ -179,10 +185,11 @@ Updated: 2026-11-14 by agent session 5 (Task 1.4b merged; PyCharm follow-ups and
 - A local shop owner for interview #1 (Task 1.6) — start looking early
 
 ## Next step (exact)
-- Supervisor: review the PR of `fix/compose-ps-oneoff`; optional PyCharm screenshots 01–05 and 08
-  (`docs/setup/PYCHARM.md` §7) while the trial lasts; apply for the JetBrains student license (the trial ends
-  2026-11-14 or 15: PyCharm showed 2 days left on 2026-11-13)
-- Then **Task 1.5** (CI module job)
+- Supervisor: Task 1.5 manual test (a PR that breaks a module test fails CI, the fix passes), then review the PR of
+  `feat/ci-module-job`; decide whether `compose` and `module` become required checks on `develop` and `main`
+- Supervisor (PyCharm, optional, while the trial lasts): screenshots 01–05 and 08 (`docs/setup/PYCHARM.md` §7); apply
+  for the JetBrains student license
+- Then Task 1.7 (milestone note, promotion, tag `m1-stack`); Task 1.6 (interview) in parallel
 - Agent note: PyCharm rewrites `.run/*.run.xml` from its in-memory copy and can undo committed changes (it dropped
   `--addons-path` and turned "debug just my code" on again on 2026-11-13): check `git diff .run` before committing
 - Agent note: Odoo `call_kw` takes the record ids as the first argument of non-`@api.model` methods

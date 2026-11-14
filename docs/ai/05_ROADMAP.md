@@ -197,8 +197,8 @@ Task 1.2 was split (supervisor decision, 2026-10-29) into 1.2a (database) and 1.
 - Manual: set a breakpoint in the module settings controller, open the page, PyCharm stops; step into an Odoo core method.
 
 ### Task 1.5 — CI module job
-- CI jobs `compose` (config validation) and `module` (build image, PostgreSQL + small-heap Elasticsearch services,
-  install the module on a fresh database, run unit + `es` tests).
+- CI jobs `compose` (config validation) and `module` (build image, the real compose stack without Kibana with the
+  low-memory profile, install the module on a fresh database, run unit + `es` tests; decision 2026-11-14, `03` §12).
 - Manual: open a PR that breaks a module test → CI fails; fix → passes.
 
 ### Task 1.6 — Shop-owner interview #1 [HUMAN]
