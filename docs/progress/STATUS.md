@@ -1,13 +1,13 @@
 # STATUS
 
-Updated: 2026-11-14 by agent session 5 (Task 1.5 manual test passed, PR #19 waiting for the merge)
+Updated: 2026-11-14 by agent session 5 (Task 1.7: regression passed, M1 release prepared)
 
 ## Current position
-- Milestone: M1 — Docker stack, module skeleton, debugging, first interview — in progress
+- Milestone: M1 — Docker stack, module skeleton, debugging, first interview — release in progress (tag `m1-stack`)
 - M1 order (supervisor, 2026-10-29): 1.1a → 1.1b → 1.4a → 1.2a → 1.2b → 1.3 → 1.4b → 1.5 → 1.7; 1.6 in parallel, not blocking the tag
-- Task: 1.5 — CI module job — state: CI green on PR #19; manual test passed (2026-11-14, PR #20, run by the agent on
-  the supervisor's request); waiting for the merge
-- Branch / PR: `feat/ci-module-job` — PR to `develop` (see the task report)
+- Task: 1.7 — milestone note and promotion — state: regression gate items 1–2 passed (2026-11-14), M1 note and
+  CHANGELOG written; release PR `develop → main` and tag `m1-stack` next. Task 1.6 (interview) still open, not blocking
+- Branch / PR: `chore/m1-release` — PR to `develop`, then the release PR `develop → main` (merge commit)
 - Repository: https://github.com/akramnemri/odoo-search-lost-demand (public, default branch `develop`)
 
 ## Milestone 0 exit check (2026-10-28)
@@ -19,9 +19,8 @@ Updated: 2026-11-14 by agent session 5 (Task 1.5 manual test passed, PR #19 wait
 - `main` still holds only the prompt pack: the first promotion `develop` → `main` is Task 1.7 (tag `m1-stack`)
 
 ## Environment
-- Doctor: 48 OK, 2 WARN, 0 FAIL, 4 SKIP — run on 2026-11-06 (evening) with the stack up; WARN = free disk 37.5 GB
-  (< 50 GB recommended; 45.8 GB the same morning, cause not identified) and module not installed in `shop` yet
-  (installed by the 1.3 manual test)
+- Doctor: 50 OK, 0 WARN, 0 FAIL, 4 SKIP — 2026-11-14 with the stack up (free disk 72 GB after the supervisor freed
+  space)
 - Stack: `uv run shop up|down|status|logs`; `compose.yaml` (project `odoo-search-lost-demand`); clean start from empty
   volumes healthy in 94 s; `shop up` from stopped 66–82 s; images pulled 2026-10-29 (2.34 GB compressed)
 - Memory measured 2026-10-29 (no data yet), table in `01_ARCHITECTURE.md` §5.3: standard stack ≈ 3.9 GiB peak
@@ -112,7 +111,7 @@ Updated: 2026-11-14 by agent session 5 (Task 1.5 manual test passed, PR #19 wait
   `com.docker.compose.oneoff=True`) replaced it. `parse_ps` now skips one-off containers (`shop status`, doctor and
   `shop test module` all use it)
 
-- 1.5 (in progress) — CI jobs `compose` (`shop env init --profile lowmem`, `docker compose config --quiet`) and
+- 1.5 — merged 2026-11-14 (PR #19, 290ccef) — CI jobs `compose` (`shop env init --profile lowmem`, `docker compose config --quiet`) and
   `module` (pull + build, `shop up --no-kibana`, `shop test module --es`; logs printed on failure). Real compose stack,
   not service containers (supervisor, 2026-11-14). Odoo 19 exits non-zero when a test fails
   (`odoo/service/server.py::preload_registries`, `rc += 1`); `shop test module` also checks the summary line.
@@ -121,6 +120,13 @@ Updated: 2026-11-14 by agent session 5 (Task 1.5 manual test passed, PR #19 wait
   calls (all now `--locked --no-build`). Then green: `module` 3 min 16 s (13 tests in 76 s). Manual test, draft PR #20
   (closed, not merged): a wrong assertion made `module` fail ("1 failed … of 13 tests", `test_healthy_cluster`, run
   43536647116); the revert passed (run 43537104351)
+- 1.7 (in progress) — regression gate items 1–2 on `develop` 290ccef, 2026-11-14, in an isolated worktree with its own
+  `.env` and Compose project `odoo-search-lost-demand-regress` (empty volumes, removed afterwards with `down -v`,
+  supervisor-approved; the shop database untouched): clean start healthy in 93 s; license basic; `shop db create` 89 s;
+  module install 7 s (19.0.0.1.0); `shop test module --es` 13 passed in 97 s; snapshot restore 38 s. Doctor on the
+  regress stack: 3 port FAILs only because the doctor ignores `COMPOSE_PROJECT_NAME`; on the real stack afterwards
+  50 OK, 0 WARN, 0 FAIL. Guest checkout not repeated (last checked in 1.2a). `docs/report/notes/M1.md`,
+  `docs/progress/CHANGELOG.md`
 
 ## Latest results
 - none (no evaluation yet)
@@ -134,8 +140,9 @@ Updated: 2026-11-14 by agent session 5 (Task 1.5 manual test passed, PR #19 wait
 - Tooling: uv project `shoptools` (uv_build, `module-root = "tools"`), argparse CLI, pre-commit (ruff, pre-commit-hooks,
   detect-secrets), doctor on the standard library only
 - GitHub (applied by the agent with `gh`, supervisor-approved): default branch `develop`; ruleset "protect main and
-  develop" (PR required, 0 approvals, required checks `lint`, `tools (ubuntu-24.04)`, `tools (windows-2025)`, no
-  force-push, no deletion); squash + merge commits, no rebase; head branches auto-deleted
+  develop" (PR required, 0 approvals, required checks `lint`, `tools (ubuntu-24.04)`, `tools (windows-2025)`, and
+  since 2026-11-14 `compose` and `module` (supervisor), no force-push, no deletion); squash + merge commits, no rebase;
+  head branches auto-deleted
 - Team: solo developer for now (supervisor, 2026-10-28); the specification lists a co-author who does not open PRs
 - No GitHub issues or project board for now
 - ADR-008, ADR-013 still Proposed (final after Tasks 4.2, 2.2). ADR-014 Accepted 2026-11-13 (Task 1.4b)
@@ -146,7 +153,9 @@ Updated: 2026-11-14 by agent session 5 (Task 1.5 manual test passed, PR #19 wait
   `docker create` + `docker cp` (no leftover container, exclusion at the source, symlinks skipped on Windows)
 - Odoo image: client set pinned and hash-locked (`--require-hashes`, wheels only, `--no-deps`) after two SonarCloud
   findings on PR #8 (docker:S8541, docker:S8544); `typing-extensions` 4.16.0 shadows Ubuntu's 4.10.0 in `/usr/local`
-- SonarCloud runs on PRs (added outside the agent, first seen on PR #8); not a required check
+- SonarCloud runs on PRs (added outside the agent, first seen on PR #8); not a required check. CI `uv` calls use
+  `--locked --no-build` (githubactions:S8541/S8544, PR #19)
+- CI `module` job runs the real compose stack without Kibana, not service containers (supervisor, 2026-11-14)
 - `shop up` never pulls images: missing images stop it with the `docker compose pull` command (no surprise downloads)
 - `stop_grace_period`: Elasticsearch 60 s, PostgreSQL 30 s (Elasticsearch was killed with exit 137 at Docker's default 10 s)
 - Task 1.2 split into 1.2a (database) and 1.2b (snapshots) (supervisor, 2026-10-29). Company and website "Lost Demand
@@ -175,9 +184,13 @@ Updated: 2026-11-14 by agent session 5 (Task 1.5 manual test passed, PR #19 wait
 - Docker memory 8.3 GB is at the low edge of `standard` and shared with another project's containers
 - XML-RPC/JSON-RPC: deprecated in Odoo 19, removal planned in Odoo 22 (`.odoo-src/odoo/addons/rpc/controllers/__init__.py`);
   the tools use JSON-2 only (`POST /json/2/<model>/<method>`, bearer API key)
-- Free disk 26.6 GB on 2026-11-14 after the supervisor freed space (2.2 GB that morning: doctor FAIL). Before: 37.5 GB (2026-11-06 evening, 45.8 GB that morning; cause not found: `docker system df` shows 14.7 GB of
-  images, 13.1 GB reclaimable, and 4.3 GB build cache, shared with the other project), below the 50 GB the doctor
-  recommends; datasets (ESCI 1.1 GB, REES46 13.7 GB) come in M2/M7. Never prune without the supervisor
+- Free disk: 72 GB on 2026-11-14 after the supervisor freed space (2.2 GB that morning: doctor FAIL; 37.5 GB on
+  2026-11-06). Docker images 18.9 GB (14.7 GB unused, mostly other projects). Datasets (ESCI 1.1 GB, REES46 13.7 GB)
+  come in M2/M7. Never prune without the supervisor
+- The doctor reads the Compose project name from `compose.yaml` and ignores `COMPOSE_PROJECT_NAME`: with a second
+  project (the isolated regression run) its port checks fail. Small follow-up, not blocking
+- The supervisor's kind cluster (`mlops-lab-*`, `kind-registry`, another project) restarts with Docker Desktop; the agent
+  stopped it on request (2026-11-14), never removed
 - `shop test module` takes about 85–90 s (fresh `shop_test` with `website_sale` and its dependencies) and runs a second
   Odoo process in the `odoo` container next to the development server
 - Kibana and Elasticsearch memory under real dashboard and indexing load is not measured yet (M4, M7, M8)
@@ -189,11 +202,12 @@ Updated: 2026-11-14 by agent session 5 (Task 1.5 manual test passed, PR #19 wait
 - A local shop owner for interview #1 (Task 1.6) — start looking early
 
 ## Next step (exact)
-- Supervisor: review and merge PR #19 (Task 1.5; CI green, manual test passed); decide whether `compose` and `module`
-  become required checks on `develop` and `main` (repository ruleset, applied by the agent with `gh` on approval)
-- Supervisor (PyCharm, optional, while the trial lasts): screenshots 01–05 and 08 (`docs/setup/PYCHARM.md` §7); apply
-  for the JetBrains student license
-- Then Task 1.7 (milestone note, promotion, tag `m1-stack`); Task 1.6 (interview) in parallel
+- Supervisor: review the `chore/m1-release` PR and the release PR `develop → main` (merge commit); then the tag
+  `m1-stack` on the merge commit (agent or supervisor)
+- Supervisor: JetBrains student license; optional PyCharm screenshots 01–05 and 08 (`docs/setup/PYCHARM.md` §7); the
+  screenshots listed in `docs/report/notes/M1.md`
+- Then **M2** kickoff (datasets, evaluation protocol, catalog import): read the M2 section first; Task 1.6 (interview)
+  in parallel
 - Agent note: PyCharm rewrites `.run/*.run.xml` from its in-memory copy and can undo committed changes (it dropped
   `--addons-path` and turned "debug just my code" on again on 2026-11-13): check `git diff .run` before committing
 - Agent note: Odoo `call_kw` takes the record ids as the first argument of non-`@api.model` methods
