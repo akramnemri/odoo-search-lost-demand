@@ -2,7 +2,7 @@
 
 Status: **APPROVED by the supervisor on 2026-11-14** (decisions D1–D11, §11). The academic supervisor's approval is
 the supervisor's call (D11) and is recorded below if obtained. The ESCI counts in §2 are data facts filled from the
-profile, not decisions. The approved version is **pre-registered** with the git tag `protocol-v1` (§9). It changes only
+profile (filled 2026-11-14), not decisions. The approved version is **pre-registered** with the git tag `protocol-v1` (§9). It changes only
 through a new version with an ADR line (ADR-013).
 
 Sources: the specification's §11 (`docs/sources/project-specification.pdf`, 25 October 2026),
@@ -28,9 +28,11 @@ A target that is missed is reported as missed, with the reason. Negative results
   Apache-2.0. Sizes and SHA-256 pinned in `docs/setup/versions.toml`, recorded in `data/manifest.toml` by
   `uv run shop data fetch esci` (Task 2.1).
 - Only `product_locale = us` and `small_version = 1` (the queries with the most complete judgments).
-- Counts available for sampling, from `results/summary/esci-profile.md`: **pending the ESCI profile** (download in
-  progress on 2026-11-14) — `us`/`small_version = 1` queries in the *train* and *test* splits, judgments per query,
-  distinct judged products.
+- Counts available for sampling, from `results/summary/esci-profile.md` (Task 2.1, 2026-11-14): `us`/`small_version = 1`
+  has **20,888 train** and **8,956 test** queries, 601,354 judgments (min 8, median 16, max 188 per query; mean ≈ 20),
+  482,105 distinct judged products. Label shares in that pool: E 43–44 %, S 35 %, C 4.5 %, I 17 %.
+  So 300 dev + 700 test queries are 1.4 % and 7.8 % of their pools, and the catalog (§3) is about
+  1,000 × 20 ≈ 20k judgments, a little fewer distinct products after overlaps.
 - Synthetic enrichment (category, price, stock, vendor) is seeded and labelled synthetic wherever it appears (`04` §4);
   it never changes the relevance labels.
 
@@ -46,7 +48,7 @@ Same inputs + seed → byte-identical outputs (hash test, Task 2.3).
 | **dev** | 300 queries drawn uniformly from the ESCI *train* split (`us`, `small_version = 1`) | All relevance tuning (Task 3.5), the synonym list, the detection thresholds |
 | **test** | 700 queries drawn uniformly from the ESCI *test* split, **after removing** any query whose normalized text (§6 normalization) equals a dev query's | Reported NDCG, **run once**, after the freeze (Task 8.1) |
 | **test-typo** | The 700 test queries, each with one seeded typo (§6.3), same judgments | Typo robustness (FR2) |
-| **catalog** | Union of all products judged (any label) for the dev + test queries | The shop's products (expected 20–23k; exact count recorded by Task 2.3) |
+| **catalog** | Union of all products judged (any label) for the dev + test queries | The shop's products (about 20k from the profile; exact count recorded by Task 2.3) |
 | **qrels** | (query id, product id, label, gain) for dev + test | NDCG |
 | **traffic pool** | dev + test queries | Virtual shoppers (Locust) |
 
@@ -126,8 +128,8 @@ lost-demand job over a window covering the run, report exported, hidden set reve
 
 ### 6.1 Metric
 
-- **Gains:** E = 1.0, S = 0.1, C = 0.01, I = 0 (the ESCI benchmark convention; checked against the ESCI repository in
-  Task 2.3 and cited).
+- **Gains:** E = 1.0, S = 0.1, C = 0.01, I = 0, the ESCI benchmark convention: `ranking/train.py` (`esci_label2gain`)
+  and the `trec_eval` NDCG mapping in `ranking/prepare_trec_eval_files.py` at the pinned commit (checked 2026-11-14).
 - **NDCG@10:** `DCG@10 = Σ_{i=1..10} gain_i / log2(i + 1)`; `IDCG@10` from the ideal ordering of the query's judged
   products; NDCG@10 = DCG@10 / IDCG@10 (queries with IDCG = 0 are excluded and counted). Unjudged results count as 0.
 - Also reported: **judged@10** (share of top-10 results that are judged) and **condensed NDCG@10** (unjudged results
