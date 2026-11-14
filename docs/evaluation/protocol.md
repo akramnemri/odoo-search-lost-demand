@@ -1,8 +1,9 @@
 # Evaluation protocol v1
 
-Status: **DRAFT, not approved** (Task 2.2). Approval by the supervisor (and the academic supervisor if the supervisor
-asks for it) is recorded at the end; the approved version is then **pre-registered** (§9). Until then no evaluation
-number is produced. After approval this document changes only through a new version with an ADR line (ADR-013).
+Status: **APPROVED by the supervisor on 2026-11-14** (decisions D1–D11, §11). The academic supervisor's approval is
+the supervisor's call (D11) and is recorded below if obtained. The ESCI counts in §2 are data facts filled from the
+profile, not decisions. The approved version is **pre-registered** with the git tag `protocol-v1` (§9). It changes only
+through a new version with an ADR line (ADR-013).
 
 Sources: the specification's §11 (`docs/sources/project-specification.pdf`, 25 October 2026),
 `docs/ai/04_DATA_SEARCH_EVALUATION.md` §3, §4, §8, §9, §11, §12, ADR-006, ADR-012, ADR-013.
@@ -241,4 +242,5 @@ runs, all reported.
 
 | Date | Approved by | Decisions | Notes |
 |---|---|---|---|
-| — | — | — | pending |
+| 2026-11-14 | The supervisor (student developer) | D1–D11, all as recommended | After the review that added §5.3 campaigns, §6.3–6.5, E7, §9 |
+| — | Academic supervisor | — | Not asked yet; to be obtained by the supervisor if required (D11) |

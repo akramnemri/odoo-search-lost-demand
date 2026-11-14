@@ -39,7 +39,8 @@ data/
 
 Goal: a catalog of ~20,000 products (spec) in which **every judged product of every evaluation query exists**, so NDCG is fair.
 
-Proposed construction (default; approved in Task 2.2):
+Construction (approved 2026-11-14; the binding version, with two hidden sets, the test-typo set and duplicate
+removal, is `docs/evaluation/protocol.md` §3–4):
 
 1. Keep `product_locale = us` and `small_version = 1` (queries with the most complete judgments).
 2. Sample with a fixed seed:
@@ -238,7 +239,7 @@ campaign uses a window covering its run).
 | Signal | Definition (default) |
 |---|---|
 | Zero-result query | `count(search, result_count = 0, query_normalized = q) ≥ 3` **and** distinct sessions ≥ 2 |
-| Unsatisfied query (needs approval) | Searches with results but no click/add-to-cart carrying the same `search.id` within 120 s: count ≥ 5, unsatisfied rate ≥ 0.6, distinct sessions ≥ 2 |
+| Unsatisfied query (approved 2026-11-14) | Searches with results but no click/add-to-cart carrying the same `search.id` within 120 s: count ≥ 5, unsatisfied rate ≥ 0.6, distinct sessions ≥ 2 |
 | Out-of-stock demand | Per product: `score = 1·views + 2·clicks + 5·add_to_cart` ≥ 10 with distinct sessions ≥ 2, **and** current Odoo stock ≤ 0 |
 
 Implementation notes: aggregations (`terms`/`composite` with `cardinality` sub-aggregations); for the unsatisfied signal,
@@ -282,6 +283,9 @@ Default filter on dashboards 1–6: `source: shop and not traffic: (eval or prob
 | 7 | Volume (REES46) | Events per hour by type; top categories; total stored events (filter `source: rees46`) |
 
 ## 11. Evaluation protocol (spec section 11)
+
+The approved, binding protocol is `docs/evaluation/protocol.md` (v1, 2026-11-14, tag `protocol-v1`); this section is
+its summary. Where they differ, the protocol wins.
 
 Every campaign: restore the baseline snapshot, record `run.json`, keep raw outputs in `results/<run-id>/`,
 write the summary to `results/summary/`, and report in `docs/evaluation/results.md`.
