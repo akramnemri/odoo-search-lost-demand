@@ -584,7 +584,10 @@ def run_build_slice(
         step(3, f"qrels: {len(qrels):,} judgments of {len(product_ids):,} products")
         if dry_run:
             write(f"Dry run: nothing written. A real run writes {', '.join(OUTPUT_FILES)} and {MANIFEST_NAME}\n")
-            write(f"  into {PROCESSED_DIR.as_posix()}/, and {REPORT_FILE.as_posix()}.\n")
+            write(
+                f"  into {PROCESSED_DIR.as_posix()}/, and {REPORT_FILE.as_posix()} and "
+                f"{ENRICHMENT_REPORT_FILE.as_posix()}.\n"
+            )
             return 0
         typos = build_test_typos(selection.test, config)
         catalog = read_catalog(repo_root / esci.RAW_DIR / esci.PRODUCTS, config.locale, product_ids)

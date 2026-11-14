@@ -125,9 +125,8 @@ def test_prices_are_bounded_whole_dollars_ending_in_99(rules: en.CategoryRules) 
     assert min(prices) >= 299
     assert max(prices) <= 99_999
     assert 2_000 < sorted(prices)[1000] < 4_500  # median near the category's $30
-    assert en.draw_price_cents(category, random.Random(7), 2, 999) == en.draw_price_cents(
-        category, random.Random(7), 2, 999
-    )
+    first, again = (en.draw_price_cents(category, random.Random(7), 2, 999) for _ in range(2))
+    assert first == again
 
 
 def test_stock_is_within_bounds() -> None:

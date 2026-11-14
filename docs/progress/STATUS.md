@@ -1,16 +1,16 @@
 # STATUS
 
-Updated: 2026-11-14 by agent session 6 — Task 2.3b implemented, waiting for the supervisor's manual test
+Updated: 2026-11-14 by agent session 6 — Task 2.3b manual test passed (run by the agent on the supervisor's request)
 
 ## Current position
 - Milestone: M2 — Datasets, evaluation protocol, catalog import — in progress. M1 released 2026-11-14 (PR #22,
   merge commit f3926a1, tag `m1-stack`)
 - M2 order: 2.1 ✓ → 2.2 ✓ → 2.3a ✓ → 2.3b → 2.4 (split 2.4a/2.4b proposed, to confirm) → 2.5 → 2.6. Task 1.6
   (interview) still open, in parallel
-- Task: **2.3b — slice builder, part b (enrichment, hidden sets, out-of-stock set)** — state: **implemented,
-  automated checks passed, waiting for the supervisor's manual test**; go 2026-11-14 with hidden-set option **B2**
+- Task: **2.3b — slice builder, part b (enrichment, hidden sets, out-of-stock set)** — state: **manual test
+  passed 2026-11-14** (run by the agent; merge on green CI authorised by the supervisor); go 2026-11-14 with hidden-set option **B2**
   (protocol v1.1, see "Decisions"). 2.3a merged 2026-11-14 (PR #26, 506ae13); protocol tagged `protocol-v1`
-- Branch / PR: `feat/slice-enrichment` (from `develop` 506ae13)
+- Branch / PR: `feat/slice-enrichment` (from `develop` 506ae13) — PR #27 to `develop`
 - Local checkout: on `feat/slice-enrichment`; no other worktree; ESCI in `data/raw/esci/` (3 files, verified)
 - Repository: https://github.com/akramnemri/odoo-search-lost-demand (public, default branch `develop`)
 
@@ -172,7 +172,12 @@ Updated: 2026-11-14 by agent session 6 — Task 2.3b implemented, waiting for th
   is deleted first and written last. Fix during the task: pyarrow pre-buffers a whole row group (ESCI files have one),
   1.57 GiB peak; `pre_buffer=False` + 8 MiB buffered stream → 639 MiB, same output hashes. 40 new tests (325 total)
 
-- 2.3b — implemented 2026-11-14 on `feat/slice-enrichment`, manual test pending — step 5 of `shop data build-slice`:
+- 2.3b — PR #27; manual test passed 2026-11-14, run by the agent at the supervisor's request: dry run, two real
+  builds with identical SHA-256 for all 10 outputs (also equal to the build before the SonarCloud fixes; committed
+  reports unchanged); 18 random products reviewed: prices, stock and vendor terms plausible, categories right for
+  about 13 of 18 (misses from ambiguous bullet-point words: barstools → Beauty, a pillow → Electronics, a jersey →
+  Party, a plant pot → Kitchen). SonarCloud's gate failed on the first push (3 findings: a lambda in a loop,
+  `dict.fromkeys`, a self-comparing test assertion); fixed, hashes unchanged — step 5 of `shop data build-slice`:
   `enrichment.py` (keyword categories from `categories.toml`, 22 + Other, keyword lists written from dev products
   only, 92.5 % coverage on dev; log-normal prices per category in cents ending .99; log-uniform stock 3–150; vendor
   from a hash of the normalized brand; vendor terms; HTML-free descriptions capped at 2,000 characters),
@@ -267,9 +272,11 @@ Updated: 2026-11-14 by agent session 6 — Task 2.3b implemented, waiting for th
 - A local shop owner for interview #1 (Task 1.6) — start looking early
 
 ## Next step (exact)
-- **Supervisor: manual test of Task 2.3b** (PR to `develop` from `feat/slice-enrichment`): run
-  `uv run shop data build-slice` twice and compare the 10 SHA-256; read `results/summary/enrichment-report.md`
-  (are categories, prices and stock plausible?) and `docs/evaluation/protocol.md` §4 and "Changes" (v1.1)
+- **Agent: merge PR #27** (squash) once the required checks and SonarCloud are green on the fix commit
+  (supervisor's instruction, 2026-11-14)
+- Follow-up (before M9 facets, optional): keyword categories are right for roughly 3 of 4 products; ambiguous
+  bullet-point words cause most misses. Tuning them (dev products only) changes the catalog hashes, so do it before
+  Task 2.4's baseline snapshot or not at all
 - After the merge (supervisor's call): annotated tag `protocol-v1.1` on the merge commit, before any detection run
   (pre-registration, protocol §9); academic supervisor's approval of v1.1 if required (D11)
 - Then Task 2.4 (catalog importer; the split 2.4a/2.4b is still to confirm)

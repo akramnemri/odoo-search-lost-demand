@@ -51,11 +51,12 @@ def exact_targets(judgments: Iterable[tuple[int, str, str]]) -> dict[int, set[st
 
 def query_strata(targets: dict[int, set[str]], category_of: dict[str, str], order: Sequence[str]) -> dict[int, str]:
     rank = {name: position for position, name in enumerate(order)}
-    strata = {}
-    for query_id, products in targets.items():
-        counts = Counter(category_of[product_id] for product_id in products)
-        strata[query_id] = min(counts, key=lambda name: (-counts[name], rank[name]))
-    return strata
+    return {query_id: _majority_category(products, category_of, rank) for query_id, products in targets.items()}
+
+
+def _majority_category(products: set[str], category_of: dict[str, str], rank: dict[str, int]) -> str:
+    counts = Counter(category_of[product_id] for product_id in products)
+    return min(counts, key=lambda name: (-counts[name], rank[name]))
 
 
 def allocate(available: dict[str, int], total: int, order: Sequence[str]) -> dict[str, int]:
@@ -63,7 +64,7 @@ def allocate(available: dict[str, int], total: int, order: Sequence[str]) -> dic
     pool = sum(available.values())
     total = min(total, pool)
     if pool == 0:
-        return {name: 0 for name in available}
+        return dict.fromkeys(available, 0)
     quotas = {name: total * count / pool for name, count in available.items()}
     shares = {name: math.floor(quota) for name, quota in quotas.items()}
     rank = {name: position for position, name in enumerate(order)}
