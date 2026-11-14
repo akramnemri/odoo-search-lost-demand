@@ -256,7 +256,47 @@ def test_project_name_comes_from_compose_yaml(tmp_path: Path) -> None:
 
 
 def test_project_name_without_compose_name_follows_compose_rules() -> None:
-    assert project_name(Path("C:/work/Odoo-Search Lost.Demand")) == "odoo-searchlostdemand"
+    assert project_name(Path("C:/work/Odoo-Search Lost.Demand"), environ={}) == "odoo-searchlostdemand"
+
+
+def test_project_name_follows_compose_precedence(tmp_path: Path) -> None:
+    # Compose's order: COMPOSE_PROJECT_NAME in the environment, then in .env, then `name:` in compose.yaml.
+    # The M1 regression run used another project name; the doctor must recognise those containers as ours.
+    (tmp_path / "compose.yaml").write_text("name: odoo-search-lost-demand\nservices: {}\n", encoding="utf-8")
+    assert project_name(tmp_path, environ={}) == "odoo-search-lost-demand"
+
+    env_lines = ["ODOO_DB_NAME=shop", "COMPOSE_PROJECT_NAME=From-Dotenv"]
+    (tmp_path / ".env").write_text("\n".join(env_lines) + "\n", encoding="utf-8")
+    assert project_name(tmp_path, environ={}) == "from-dotenv"
+
+    assert project_name(tmp_path, environ={"COMPOSE_PROJECT_NAME": "odoo-search-lost-demand-regress"}) == (
+        "odoo-search-lost-demand-regress"
+    )
+    assert project_name(tmp_path, environ={"COMPOSE_PROJECT_NAME": "  "}) == "from-dotenv"  # blank is ignored
+
+
+def test_ports_used_by_a_project_named_in_the_environment_are_ours(
+    monkeypatch: pytest.MonkeyPatch, context: DoctorContext, fake_system: FakeSystem
+) -> None:
+    (context.repo_root / "compose.yaml").write_text(
+        "name: odoo-search-lost-demand\nservices: {}\n", encoding="utf-8"
+    )
+    monkeypatch.setenv("COMPOSE_PROJECT_NAME", "odoo-search-lost-demand-regress")
+    fake_system.busy_ports = {8069}
+    fake_system.respond(
+        "docker",
+        "ps",
+        "--filter",
+        "label=com.docker.compose.project=odoo-search-lost-demand-regress",
+        "--format",
+        "{{.Ports}}",
+        stdout="127.0.0.1:8069->8069/tcp",
+    )
+
+    port = by_name(check_ports(context))["port 8069"]
+
+    assert port.status is Status.OK
+    assert "odoo-search-lost-demand-regress" in port.found
 
 
 # --- repo ---
