@@ -162,7 +162,8 @@ def test_dev_and_test_are_disjoint_by_id_and_by_normalized_text(tmp_path: Path) 
     manifest = build(tmp_path)
     dev, test = read(tmp_path, sb.DEV_FILE), read(tmp_path, sb.TEST_FILE)
 
-    assert len(dev) == 3 and len(test) == 4
+    assert len(dev) == 3
+    assert len(test) == 4
     assert {row["query_id"] for row in dev} <= set(range(1, 13))  # train split only, never the noise queries
     assert {row["query_id"] for row in test} <= set(range(101, 117))
     dev_texts = {normalize_query(row["query"]) for row in dev}
@@ -230,7 +231,8 @@ def test_query_without_an_eligible_word_stays_unchanged() -> None:
 
     rows = sb.build_test_typos(queries, config)
 
-    assert rows[0].operation is None and rows[0].query == "tv 4k"
+    assert rows[0].operation is None
+    assert rows[0].query == "tv 4k"
     assert rows[1].operation is not None
 
 
@@ -239,7 +241,8 @@ def test_report_has_aggregates_but_no_query_text(tmp_path: Path) -> None:
     report = (tmp_path / sb.REPORT_FILE).read_text(encoding="utf-8")
 
     assert "removed because their normalized text equals a dev query's: **3**" in report
-    assert "running" not in report.lower() and "gadget" not in report
+    assert "running" not in report.lower()
+    assert "gadget" not in report
     for output in manifest["outputs"].values():
         assert output["sha256"][:16] in report
 
@@ -308,9 +311,10 @@ def test_config_hash_ignores_comments_and_spacing(tmp_path: Path) -> None:
 
 
 def test_derived_streams_are_independent_and_repeatable() -> None:
-    assert sb.derived_rng(1, "dev-queries").random() == sb.derived_rng(1, "dev-queries").random()
-    assert sb.derived_rng(1, "dev-queries").random() != sb.derived_rng(1, "test-queries").random()
-    assert sb.derived_rng(1, "dev-queries").random() != sb.derived_rng(2, "dev-queries").random()
+    first, again = (sb.derived_rng(1, "dev-queries").random() for _ in range(2))
+    assert first == again
+    assert first != sb.derived_rng(1, "test-queries").random()
+    assert first != sb.derived_rng(2, "dev-queries").random()
 
 
 def test_project_configuration_follows_the_protocol() -> None:

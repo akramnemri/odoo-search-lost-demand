@@ -1,14 +1,14 @@
 # STATUS
 
-Updated: 2026-11-14 by agent session 6 — Task 2.3a implemented, waiting for the supervisor's manual test
+Updated: 2026-11-14 by agent session 6 — Task 2.3a manual test passed (run by the agent on the supervisor's request)
 
 ## Current position
 - Milestone: M2 — Datasets, evaluation protocol, catalog import — in progress. M1 released 2026-11-14 (PR #22,
   merge commit f3926a1, tag `m1-stack`)
 - M2 order: 2.1 ✓ → 2.2 ✓ → 2.3a → 2.3b → 2.4 (split 2.4a/2.4b proposed, to confirm) → 2.5 → 2.6. Task 1.6
   (interview) still open, in parallel
-- Task: **2.3a — slice builder, part a** — state: **implemented, automated checks passed, waiting for the
-  supervisor's manual test** (go given 2026-11-14). Tasks 2.1 and 2.2 merged 2026-11-14; protocol tagged `protocol-v1`
+- Task: **2.3a — slice builder, part a** — state: **manual test passed 2026-11-14** (run by the agent on the
+  supervisor's request; merge on green CI authorised by the supervisor). Tasks 2.1 and 2.2 merged 2026-11-14; protocol tagged `protocol-v1`
 - Branch / PR: `feat/slice-query-sets` (from `develop` 5689f1e) — draft PR #26 to `develop`
 - Local checkout: on `feat/slice-query-sets`; no other worktree; ESCI in `data/raw/esci/` (3 files, verified)
 - Repository: https://github.com/akramnemri/odoo-search-lost-demand (public, default branch `develop`)
@@ -155,7 +155,12 @@ Updated: 2026-11-14 by agent session 6 — Task 2.3a implemented, waiting for th
   correction, dev/test duplicate removal, E7 resilience, interview ratings, pre-registration. ADR-013 Accepted.
   Academic supervisor's approval: not asked yet (the supervisor's call, D11)
 
-- 2.3a — implemented 2026-11-14 on `feat/slice-query-sets` (draft PR #26), manual test pending —
+- 2.3a — PR #26; manual test passed 2026-11-14, run by the agent at the supervisor's request: dry run, two real
+  builds with identical output SHA-256 (also equal to `sha256sum` and the manifest; the committed report unchanged),
+  and 11 protocol checks recomputed from the raw ESCI file without the builder's code (sizes, splits, texts, dev/test
+  disjoint by id and normalized text, qrels = all judgments, gains, catalog = judged products, titles, typo
+  coverage), all PASS; 15 random typo rows look plausible. SonarCloud's gate failed on the first push (7 new
+  findings: redundant exception, typo-map complexity, composite test assertions); fixed, output hashes unchanged —
   `shop data build-slice [--dry-run]` (`tools/shoptools/data/slice_builder.py`, config `slice.toml`), shared
   `normalize_query` (`normalize.py`, 04 §8.1) and typo model (`typos.py`, protocol §6.3, reused by Locust in M5).
   Seed streams = SHA-256(`<seed>:<label>`) → `random.Random`. Inputs checked against the pinned SHA-256; the manifest
@@ -240,10 +245,10 @@ Updated: 2026-11-14 by agent session 6 — Task 2.3a implemented, waiting for th
 - A local shop owner for interview #1 (Task 1.6) — start looking early
 
 ## Next step (exact)
-- **Supervisor: manual test of Task 2.3a** (PR #26): `uv run shop data build-slice --dry-run`, then
-  `uv run shop data build-slice` twice and compare the printed SHA-256 (also with
-  `results/summary/slice-report.md`); read the report; open a few rows of `data/processed/queries-test-typo.parquet`.
-  When it passes and CI is green: mark PR #26 ready and merge (squash), or ask the agent to
+- **Agent: merge PR #26** (squash) once CI and SonarCloud are green on the fix commit (supervisor's instruction,
+  2026-11-14), then `develop` locally
+- Observation for 2.3b/M5 (not a protocol deviation): the typo position is uniform over the word's letters, so
+  first-letter typos ("poll" → "opll") occur; real typos are rarer there. The shopper model may weight positions
 - Then Task 2.3b (enrichment: categories `categories.toml`, synthetic price/stock/vendor; hidden-dev, hidden-test,
   out-of-stock sets, stratified, E-targets only; `results/summary/enrichment-report.md`)
 - Supervisor: JetBrains student license; optional PyCharm screenshots 01–05 and 08 (`docs/setup/PYCHARM.md` §7); the

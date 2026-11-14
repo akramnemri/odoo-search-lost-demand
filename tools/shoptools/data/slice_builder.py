@@ -117,7 +117,7 @@ def load_config(path: Path) -> SliceConfig:
             min_word_letters=int(parsed["typos"]["min_word_letters"]),
             parsed=parsed,
         )
-    except (OSError, tomllib.TOMLDecodeError, KeyError, TypeError, ValueError) as error:
+    except (OSError, KeyError, TypeError, ValueError) as error:  # tomllib.TOMLDecodeError is a ValueError
         raise SliceError(f"slice configuration {path} is not valid: {error}") from error
     if set(config.gains) != set(LABELS):
         raise SliceError(f"[gains] must give exactly the labels {LABELS}, found {sorted(config.gains)}")
@@ -258,7 +258,7 @@ def read_qrels(examples: Path, config: SliceConfig, selection: Selection) -> lis
     unjudged = set(query_set) - {query_id for query_id, _ in judgments}
     if unjudged:
         raise SliceError(f"{len(unjudged)} selected queries have no judgment, e.g. {min(unjudged)}")
-    return [judgments[key] for key in sorted(judgments)]
+    return [judgment for _, judgment in sorted(judgments.items())]  # keys are unique: only they are compared
 
 
 @dataclass(frozen=True)

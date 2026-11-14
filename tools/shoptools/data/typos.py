@@ -32,19 +32,16 @@ def _keyboard_neighbours() -> dict[str, str]:
     Row r + 1 is shifted right by about half a key, so key i of row r touches keys i - 1 and i of row r + 1,
     and key i of row r + 1 touches keys i and i + 1 of row r ("s" touches "w", "e", "z", "x").
     """
+    pairs: list[tuple[str, str]] = []
+    for row in QWERTY_ROWS:
+        pairs += zip(row, row[1:], strict=False)  # left and right
+    for upper, lower in zip(QWERTY_ROWS, QWERTY_ROWS[1:], strict=False):
+        pairs += zip(upper, lower, strict=False)  # key i above key i ("s" above "x")
+        pairs += zip(upper[1:], lower, strict=False)  # key i + 1 above key i ("d" above "x")
     neighbours: dict[str, set[str]] = {key: set() for row in QWERTY_ROWS for key in row}
-    for row_index, row in enumerate(QWERTY_ROWS):
-        for i, key in enumerate(row):
-            if i > 0:
-                neighbours[key].add(row[i - 1])
-            if i + 1 < len(row):
-                neighbours[key].add(row[i + 1])
-            if row_index + 1 < len(QWERTY_ROWS):
-                below = QWERTY_ROWS[row_index + 1]
-                for j in (i - 1, i):
-                    if 0 <= j < len(below):
-                        neighbours[key].add(below[j])
-                        neighbours[below[j]].add(key)
+    for a, b in pairs:
+        neighbours[a].add(b)
+        neighbours[b].add(a)
     return {key: "".join(sorted(keys)) for key, keys in neighbours.items()}
 
 
