@@ -1,16 +1,17 @@
 # STATUS
 
-Updated: 2026-11-14 by agent session 6 — Task 2.3a manual test passed (run by the agent on the supervisor's request)
+Updated: 2026-11-14 by agent session 6 — 2.3a merged (PR #26); Task 2.3b in progress (go 2026-11-14, option B2)
 
 ## Current position
 - Milestone: M2 — Datasets, evaluation protocol, catalog import — in progress. M1 released 2026-11-14 (PR #22,
   merge commit f3926a1, tag `m1-stack`)
-- M2 order: 2.1 ✓ → 2.2 ✓ → 2.3a → 2.3b → 2.4 (split 2.4a/2.4b proposed, to confirm) → 2.5 → 2.6. Task 1.6
+- M2 order: 2.1 ✓ → 2.2 ✓ → 2.3a ✓ → 2.3b → 2.4 (split 2.4a/2.4b proposed, to confirm) → 2.5 → 2.6. Task 1.6
   (interview) still open, in parallel
-- Task: **2.3a — slice builder, part a** — state: **manual test passed 2026-11-14** (run by the agent on the
-  supervisor's request; merge on green CI authorised by the supervisor). Tasks 2.1 and 2.2 merged 2026-11-14; protocol tagged `protocol-v1`
-- Branch / PR: `feat/slice-query-sets` (from `develop` 5689f1e) — draft PR #26 to `develop`
-- Local checkout: on `feat/slice-query-sets`; no other worktree; ESCI in `data/raw/esci/` (3 files, verified)
+- Task: **2.3b — slice builder, part b (enrichment, hidden sets, out-of-stock set)** — state: **in progress**, go
+  given 2026-11-14 with hidden-set option **B2** (query-level hiding, see "Decisions"). 2.3a merged 2026-11-14
+  (PR #26, 506ae13); protocol tagged `protocol-v1`
+- Branch / PR: `feat/slice-enrichment` (from `develop` 506ae13)
+- Local checkout: on `feat/slice-enrichment`; no other worktree; ESCI in `data/raw/esci/` (3 files, verified)
 - Repository: https://github.com/akramnemri/odoo-search-lost-demand (public, default branch `develop`)
 
 ## Milestone 0 exit check (2026-10-28)
@@ -155,7 +156,8 @@ Updated: 2026-11-14 by agent session 6 — Task 2.3a manual test passed (run by 
   correction, dev/test duplicate removal, E7 resilience, interview ratings, pre-registration. ADR-013 Accepted.
   Academic supervisor's approval: not asked yet (the supervisor's call, D11)
 
-- 2.3a — PR #26; manual test passed 2026-11-14, run by the agent at the supervisor's request: dry run, two real
+- 2.3a — merged 2026-11-14 (PR #26, 506ae13, squash, by the agent on the supervisor's instruction after all
+  required checks and the SonarCloud gate were green); manual test passed 2026-11-14, run by the agent at the supervisor's request: dry run, two real
   builds with identical output SHA-256 (also equal to `sha256sum` and the manifest; the committed report unchanged),
   and 11 protocol checks recomputed from the raw ESCI file without the builder's code (sizes, splits, texts, dev/test
   disjoint by id and normalized text, qrels = all judgments, gains, catalog = judged products, titles, typo
@@ -189,6 +191,12 @@ Updated: 2026-11-14 by agent session 6 — Task 2.3a manual test passed (run by 
 - Evaluation protocol v1 is binding (`docs/evaluation/protocol.md`, tag `protocol-v1`); `04` §3, §8, §11 point to it.
   Unsatisfied-query signal approved. Seed `20261025` with one derived stream per random step
 - Task 2.3 split into 2.3a and 2.3b (supervisor, 2026-11-14)
+- Hidden sets: **option B2** (supervisor, 2026-11-14) — protocol v1.1, a deviation from v1 §4 and from the
+  specification's "hide 20 % of the catalog". Measured on the slice: hiding single E-targets (v1) empties only 52–71
+  of 1,000 queries and ~3 % of hidden products sit in such a query (8,786 of 8,824 E-targets are E for one query;
+  median 7 E per query), so recall ≈ 3 % by construction. B2 hides **all** E products of 20 % of each set's queries
+  (hidden-test: 140 test queries, ≈ 6.5 % of the catalog; hidden-dev: 60 dev queries, ≈ 2.7 %). The out-of-stock
+  set is drawn among E-targets of non-hidden queries. Academic supervisor's approval may be needed (D11)
 - Personal Kibana user gets the built-in `editor` role (not read-only) because dashboards are built in the UI in
   Task 4.5; `01_ARCHITECTURE.md` §5.2 updated — approved by the supervisor 2026-10-29
 - `.odoo-src/` layout `.odoo-src/odoo/...` and translations (`*.po`) excluded by default, `--with-translations` to
@@ -245,12 +253,9 @@ Updated: 2026-11-14 by agent session 6 — Task 2.3a manual test passed (run by 
 - A local shop owner for interview #1 (Task 1.6) — start looking early
 
 ## Next step (exact)
-- **Agent: merge PR #26** (squash) once CI and SonarCloud are green on the fix commit (supervisor's instruction,
-  2026-11-14), then `develop` locally
+- **Agent: implement Task 2.3b** on `feat/slice-enrichment` (go 2026-11-14, option B2)
 - Observation for 2.3b/M5 (not a protocol deviation): the typo position is uniform over the word's letters, so
   first-letter typos ("poll" → "opll") occur; real typos are rarer there. The shopper model may weight positions
-- Then Task 2.3b (enrichment: categories `categories.toml`, synthetic price/stock/vendor; hidden-dev, hidden-test,
-  out-of-stock sets, stratified, E-targets only; `results/summary/enrichment-report.md`)
 - Supervisor: JetBrains student license; optional PyCharm screenshots 01–05 and 08 (`docs/setup/PYCHARM.md` §7); the
   screenshots listed in `docs/report/notes/M1.md`; Task 1.6 (interview) in parallel
 - Agent note: PyCharm rewrites `.run/*.run.xml` from its in-memory copy and can undo committed changes (it dropped
