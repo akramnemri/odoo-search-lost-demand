@@ -12,13 +12,21 @@ dependencies = []
 [project.scripts]
 shop = "shoptools.cli:main"
 
-# Other groups (data, load, eval, semantic) are added by the task that first needs them.
+# Other groups (load, eval, semantic) are added by the task that first needs them.
 [dependency-groups]
 dev = [
   "pre-commit==4.7.0",
   "pytest==9.2.0",
   "ruff==0.17.3",
 ]
+# Reading the ESCI Parquet files (Task 2.1); docs/setup/VERSIONS.md §3.
+data = [
+  "pyarrow==26.0.0",
+]
+
+[tool.uv]
+# `uv sync` installs both on the laptop and in CI; the data tools and their tests need pyarrow.
+default-groups = ["dev", "data"]
 
 [build-system]
 requires = ["uv_build>=0.13.6,<0.14"]

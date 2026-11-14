@@ -43,8 +43,8 @@ Latest versions on 2026-10-28, all compatible with Python 3.12 (from PyPI `requi
 | pre-commit | 4.7.0 | dev | Hooks |
 | pytest | 9.2.0 | dev | Tests |
 | elasticsearch | 9.5.1 | main | Tools talk to Elasticsearch |
-| pandas | 3.1.0 | data | Small tabular work |
-| pyarrow | 26.0.0 | data | Parquet streaming (ESCI) |
+| pandas | 3.1.0 | data | Small tabular work (not added yet: only when a task needs it) |
+| pyarrow | 26.0.0 | data | Parquet streaming (ESCI). In `pyproject.toml` since Task 2.1; `data` is a default uv group, so `uv sync` installs it (laptop and CI) |
 | locust | 2.47.0 | load | Virtual shoppers |
 | sentence-transformers | 6.2.0 | semantic | FR13 only (Could) |
 
