@@ -1,15 +1,15 @@
 # STATUS
 
-Updated: 2026-11-14 by agent session 5 (M1 released; Task 2.1 implemented, ESCI download running)
+Updated: 2026-11-14 by agent session 5 (Task 2.1 done: ESCI fetched and profiled, waiting for the manual test)
 
 ## Current position
 - Milestone: M2 — Datasets, evaluation protocol, catalog import — in progress. M1 released 2026-11-14 (PR #22,
   merge commit f3926a1, tag `m1-stack`)
 - M2 order: 2.1 → 2.2 → 2.3 → 2.4 (split 2.4a/2.4b proposed, to confirm) → 2.5 → 2.6. Task 1.6 (interview) still
   open, in parallel
-- Task: 2.1 — ESCI acquisition — state: code, tests and docs done; the 1.16 GB download runs at ~0.1 MB/s (started
-  2026-11-14 15:15); profile and doctor `data` check after it, then the supervisor's manual test
-- Branch / PR: `feat/esci-fetch` — draft PR to `develop` (see the task report)
+- Task: 2.1 — ESCI acquisition — state: implemented, ESCI fetched and verified, profile written; waiting for the
+  supervisor's manual test. Task 2.2 (protocol) approved 2026-11-14, PR #24 open (ESCI counts added)
+- Branch / PR: `feat/esci-fetch` — PR #23 to `develop`; `chore/evaluation-protocol` — PR #24
 - Repository: https://github.com/akramnemri/odoo-search-lost-demand (public, default branch `develop`)
 
 ## Milestone 0 exit check (2026-10-28)
@@ -41,8 +41,11 @@ Updated: 2026-11-14 by agent session 5 (M1 released; Task 2.1 implemented, ESCI 
   supervisor from a normal terminal (`docs/setup/TROUBLESHOOTING.md`)
 
 ## Data state
-- ESCI: download in progress into `data/raw/esci/` (1.16 GB, Apache-2.0, `amazon-science/esci-data@7916cdf`;
-  sizes and SHA-256 pinned in `docs/setup/versions.toml`); provenance in `data/manifest.toml` once verified
+- ESCI: in `data/raw/esci/` (1,161,827,075 bytes, Apache-2.0, `amazon-science/esci-data@7916cdf`), size and SHA-256
+  verified against the pins, recorded in `data/manifest.toml` (2026-11-14; the download took 86 min at 0.1–0.5 MB/s).
+  Profile `results/summary/esci-profile.md`: `us`/`small_version = 1` = 20,888 train + 8,956 test queries, 601,354
+  judgments (median 16 per query), 482,105 distinct judged products; all small_version cells: 48,300 queries,
+  1,118,011 judgments (matches ESCI's published figures). Profile: 8 s, peak 277 MiB working set
 - REES46: not yet (13.67 GB; usage rules in ADR-012)
 - Odoo source copy: `.odoo-src/odoo/` from `odoo:19.0-20261015` (Odoo `19.0.post20261015`), 38,948 files, 409 MB,
   translations (`*.po`) excluded, 19 font symlinks skipped; copied in 320 s; provenance in `.odoo-src/SOURCE.toml`
@@ -123,6 +126,8 @@ Updated: 2026-11-14 by agent session 5 (M1 released; Task 2.1 implemented, ESCI 
   calls (all now `--locked --no-build`). Then green: `module` 3 min 16 s (13 tests in 76 s). Manual test, draft PR #20
   (closed, not merged): a wrong assertion made `module` fail ("1 failed … of 13 tests", `test_healthy_cluster`, run
   43536647116); the revert passed (run 43537104351)
+- Doctor fix — merged 2026-11-14 (PR #25, 0e71571): `stack.project_name` honours `COMPOSE_PROJECT_NAME`
+  (environment, then `.env`), so the doctor recognises our containers under another project name
 - 1.7 — released 2026-11-14 (PR #21 7a95a54, release PR #22 f3926a1, tag `m1-stack`) — regression gate items 1–2 on `develop` 290ccef, 2026-11-14, in an isolated worktree with its own
   `.env` and Compose project `odoo-search-lost-demand-regress` (empty volumes, removed afterwards with `down -v`,
   supervisor-approved; the shop database untouched): clean start healthy in 93 s; license basic; `shop db create` 89 s;
@@ -212,10 +217,9 @@ Updated: 2026-11-14 by agent session 5 (M1 released; Task 2.1 implemented, ESCI 
 - A local shop owner for interview #1 (Task 1.6) — start looking early
 
 ## Next step (exact)
-- Agent: when the ESCI download finishes (`local/logs/esci-fetch.log`; if it stopped, `uv run shop data fetch esci`
-  resumes), run `uv run shop data profile esci` and `uv run shop doctor --section data`, commit the profile and the
-  manifest, mark the PR ready; then the supervisor's manual test of 2.1
-- Then Task 2.2 (evaluation protocol v1, supervisor approval)
+- Supervisor: manual test of Task 2.1 (PR #23); then merge PR #23 and PR #24, and the agent tags `protocol-v1`
+- Then Task 2.3a (query sets, qrels, catalog extraction, test-typo set; go given 2026-11-14), then 2.3b (enrichment,
+  hidden and out-of-stock sets, report)
 - Supervisor: JetBrains student license; optional PyCharm screenshots 01–05 and 08 (`docs/setup/PYCHARM.md` §7); the
   screenshots listed in `docs/report/notes/M1.md`; Task 1.6 (interview) in parallel
 - Agent note: PyCharm rewrites `.run/*.run.xml` from its in-memory copy and can undo committed changes (it dropped
