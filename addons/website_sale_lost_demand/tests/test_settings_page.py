@@ -45,7 +45,7 @@ class TestSettingsStatus(TransactionCase):
             settings = self._settings(self.admin)
             self.assertTrue(settings.lost_demand_es_reachable)
             self.assertEqual(settings.lost_demand_es_message, "Reachable")
-            self.assertEqual(settings.lost_demand_es_version, "9.5.5")
+            self.assertEqual(settings.lost_demand_es_version, "9.5.4")
             self.assertEqual(settings.lost_demand_es_license, "basic (active)")
             self.assertEqual(settings.lost_demand_es_health, "green")
             self.assertEqual(settings.lost_demand_es_circuit, "closed")
