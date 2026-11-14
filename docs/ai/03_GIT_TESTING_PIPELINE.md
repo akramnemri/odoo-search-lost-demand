@@ -237,8 +237,10 @@ Do not promote to `main` because only the latest feature passes.
 - **lint** — pre-commit (ruff, file checks, secret scan).
 - **tools** — `uv sync --locked`, pytest for `tools/` and the module's `services/` (uses small synthetic fixtures only).
 - **compose** — `docker compose config -q` on the real compose file.
-- **module** — build the Odoo image, start PostgreSQL and a small-heap Elasticsearch as service containers, install the
-  module on a fresh database and run its tests (unit + `es` integration).
+- **module** — build the Odoo image, start the real `compose.yaml` stack without Kibana (`shop env init --profile lowmem`,
+  `shop up --no-kibana`: PostgreSQL, small-heap Elasticsearch, es-setup, Odoo), install the module on a fresh database and
+  run its tests (`shop test module --es`: unit + `es` integration). The real stack rather than separate service
+  containers, so CI checks the same Elasticsearch users and roles as the laptop (supervisor decision, 2026-11-14).
 - Later: Kibana saved-objects import check; REES46 mapping on the fixture.
 
 Datasets are never downloaded in CI. Fixtures are synthetic and tiny (a few dozen products, queries and events in the
