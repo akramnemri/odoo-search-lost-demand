@@ -102,6 +102,7 @@ Each decision gets an ADR in `docs/decisions/ADR-XXX-short-title.md` during Mile
 | 015 | Git: `feat/*` → `develop` → `main`, where `main` is always demo-ready and each accepted milestone is tagged | Protects supervisor meetings and the defense demo | — |
 | 016 | Semantic search (FR13, Could): a small embedding service + `dense_vector`/kNN; hybrid fusion done in the module (RRF and linear retrievers are Enterprise-only) | Free license; laptop CPU | If FR13 is cut |
 | 017 | No Kafka, Spark, Hadoop or cloud services | Spec: not needed at this volume on one machine | — |
+| 019 | Catalog import through Odoo's JSON-2 API as the integration user, batches of 200, idempotent by `default_code` | Public integration path; access rights apply; no code in the container | Full import measured > 30 min |
 
 ---
 

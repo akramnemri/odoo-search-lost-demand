@@ -120,7 +120,14 @@ def parse_result(stdout: str) -> dict[str, object]:
 
 
 # Models the host tools create records in (catalog import, Task 2.4), checked once the database exists.
-WRITE_MODELS = ("product.template", "product.supplierinfo")
+WRITE_MODELS = (
+    "product.template",
+    "product.supplierinfo",
+    "product.public.category",
+    "product.category",
+    "res.partner",
+    "stock.quant",
+)
 
 
 def json2_call(
@@ -130,8 +137,13 @@ def json2_call(
     method: str,
     body: dict[str, object],
     base_url: str = stack.ODOO_URL,
+    timeout: float = JSON2_TIMEOUT_SECONDS,
 ) -> object:
-    """One authenticated JSON-2 call (`POST /json/2/<model>/<method>`); returns the decoded result."""
+    """One authenticated JSON-2 call (`POST /json/2/<model>/<method>`); returns the decoded result.
+
+    On an HTTP error the message of Odoo's error body (`odoo/http.py::serialize_exception`) is kept, so an
+    access or validation error says what Odoo refused.
+    """
     request = urllib.request.Request(
         f"{base_url}/json/2/{model}/{method}",
         data=json.dumps(body).encode("utf-8"),
@@ -143,12 +155,25 @@ def json2_call(
         method="POST",
     )
     try:
-        with urllib.request.urlopen(request, timeout=JSON2_TIMEOUT_SECONDS) as response:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
             return json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as error:
-        raise SetupError(f"JSON-2 call refused: HTTP {error.code} {error.reason}") from error
+        detail = _error_message(error)
+        raise SetupError(
+            f"JSON-2 call {model}.{method} refused: HTTP {error.code} {error.reason}"
+            + (f": {detail}" if detail else "")
+        ) from error
     except (urllib.error.URLError, TimeoutError, ValueError) as error:
         raise SetupError(f"JSON-2 call failed at {base_url}: {error}") from error
+
+
+def _error_message(error: urllib.error.HTTPError) -> str:
+    try:
+        body = json.loads(error.read().decode("utf-8"))
+    except (OSError, ValueError):
+        return ""
+    message = body.get("message") if isinstance(body, dict) else None
+    return " ".join(str(message).split())[:300] if message else ""
 
 
 def check_json2(db_name: str, api_key: str, base_url: str = stack.ODOO_URL) -> dict[str, object]:
