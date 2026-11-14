@@ -1,9 +1,12 @@
-# Evaluation protocol v1
+# Evaluation protocol v1.1
 
-Status: **APPROVED by the supervisor on 2026-11-14** (decisions D1–D11, §11). The academic supervisor's approval is
-the supervisor's call (D11) and is recorded below if obtained. The ESCI counts in §2 are data facts filled from the
-profile (filled 2026-11-14), not decisions. The approved version is **pre-registered** with the git tag `protocol-v1` (§9). It changes only
-through a new version with an ADR line (ADR-013).
+Status: **v1 APPROVED by the supervisor on 2026-11-14** (decisions D1–D11, §11), pre-registered with the git tag
+`protocol-v1` (§9). **v1.1** (2026-11-14, supervisor, decision D12) changes only how the hidden sets and the
+out-of-stock set are drawn (§4); the reason and the measurements are in "Changes" at the end. The academic
+supervisor's approval is the supervisor's call (D11) and is recorded below if obtained; v1.1 departs from the
+specification's wording "hide 20 % of the catalog", so it may need that approval. The ESCI counts in §2 are data facts
+filled from the profile (filled 2026-11-14), not decisions. The protocol changes only through a new version with an ADR
+line (ADR-013).
 
 Sources: the specification's §11 (`docs/sources/project-specification.pdf`, 25 October 2026),
 `docs/ai/04_DATA_SEARCH_EVALUATION.md` §3, §4, §8, §9, §11, §12, ADR-006, ADR-012, ADR-013.
@@ -13,7 +16,7 @@ Sources: the specification's §11 (`docs/sources/project-specification.pdf`, 25 
 | # | What | How (summary) | Target (specification §11) |
 |---|---|---|---|
 | E1 | Search quality | NDCG@10 on English ESCI test queries: Odoo's default search, plain Elasticsearch, tuned Elasticsearch | Tuned search scores highest of the three |
-| E2 | Lost-demand detection | Hide 20 % of the catalog, let virtual shoppers keep searching, check whether the report finds the hidden products | ≥ 80 % of hidden products flagged |
+| E2 | Lost-demand detection | Hide every Exact product of 20 % of the evaluation queries (v1.1, §4; the specification says "20 % of the catalog"), let virtual shoppers keep searching, check whether the report finds the hidden products | ≥ 80 % of hidden products flagged |
 | E3 | Search speed | Locust, 50 virtual shoppers | Page < 1 s for 95 % of requests; Elasticsearch query < 100 ms (p95) |
 | E4 | Freshness | Delay from event to Kibana; product change to search | Event < 10 s; product change < 60 s |
 | E5 | Volume | REES46 replay | ≥ 10 million events; dashboards load in < 5 s |
@@ -60,17 +63,22 @@ Same inputs + seed → byte-identical outputs (hash test, Task 2.3).
 - **Synonyms** (FR2, Task 3.6): the starter synonym list is built only from dev queries and general vocabulary, never
   from test queries; it is frozen with the configuration and its size is reported.
 
-## 4. Hidden sets and out-of-stock set
+## 4. Hidden sets and out-of-stock set (v1.1)
 
-- Two **disjoint** hidden sets, each 20 % of the catalog size, stratified by category, drawn only among products that
-  are the **Exact (E)** match of at least one traffic-pool query (otherwise no shopper would ever look for them):
-  - **hidden-dev** — for choosing the signal thresholds (§5.3);
-  - **hidden-test** — for the reported detection result.
-  If the E-targets are too few for two disjoint 20 % sets, hidden-dev is reduced (it only serves tuning) and the sizes
-  are recorded.
-- **Out-of-stock set:** 10 % of the products in neither hidden set start with zero stock (default), for FR3 and the
-  out-of-stock signal.
-- All sets are written by the slice builder (Task 2.3) and recorded with their hashes.
+- A hidden set is made of **hidden queries**: for each chosen query, **every** product that is its Exact (E) match is
+  hidden. Demand is lost when the shop has nothing that matches what was asked for; one missing product among several
+  exact matches loses nothing (see "Changes").
+- Two **disjoint** hidden sets, each built from 20 % of its own query set, stratified by category (the category of a
+  query is the most frequent category of its E products; proportional shares, largest remainder):
+  - **hidden-test** — from the **test** queries (140 of 700), for the reported detection result;
+  - **hidden-dev** — from the **dev** queries (60 of 300), for choosing the signal thresholds (§5.3). A dev query that
+    shares an E product with hidden-test is not drawn, so no product is in both sets.
+- Measured on the slice (Task 2.3b, `results/summary/enrichment-report.md`): hidden-test 1,081 products (5.4 % of the
+  catalog), hidden-dev 508 (2.6 %); every hidden query has all its E products hidden.
+- **Out-of-stock set:** 10 % of the products in neither hidden set start with zero stock, drawn among the E products
+  of queries that are not hidden (products nobody searches for could never show the out-of-stock signal), for FR3
+  and the out-of-stock signal.
+- All sets are written by the slice builder (Task 2.3b) and recorded with their hashes.
 
 ## 5. Lost-demand detection (E2)
 
@@ -221,6 +229,8 @@ runs, all reported.
 - The vocabulary-mismatch subset is found by a word-overlap rule, which misses some synonyms and includes some
   non-synonyms.
 - Prices, stock, categories and vendors are synthetic.
+- Hidden queries (v1.1) assume a shopper is satisfied by any Exact product. Hidden-test covers 5.4 % of the catalog,
+  not the specification's 20 %, and 14 % of the traffic pool's queries target hidden products during campaign D3.
 - One laptop: speed numbers depend on the machine and the RAM profile, which are recorded.
 - REES46 is replayed from 2019 data at high speed; it tests volume, not shopper behaviour.
 
@@ -239,10 +249,34 @@ runs, all reported.
 | D9 | Resilience run (E7) and structured interview ratings | Yes |
 | D10 | Pre-registration tag `protocol-v1` | Yes |
 | D11 | Who approves | The supervisor; the academic supervisor too if required |
+| D12 (v1.1) | Hidden sets by query (all E products of 20 % of each set's queries), out-of-stock set among searched products | Option B2, chosen by the supervisor 2026-11-14 (options in "Changes") |
 
 ## Approval
 
 | Date | Approved by | Decisions | Notes |
 |---|---|---|---|
 | 2026-11-14 | The supervisor (student developer) | D1–D11, all as recommended | After the review that added §5.3 campaigns, §6.3–6.5, E7, §9 |
-| — | Academic supervisor | — | Not asked yet; to be obtained by the supervisor if required (D11) |
+| 2026-11-14 | The supervisor (student developer) | D12 (v1.1), option B2 | Before any detection result; see "Changes" |
+| — | Academic supervisor | — | Not asked yet; to be obtained by the supervisor if required (D11); v1.1 departs from the specification's "20 % of the catalog" |
+
+## Changes
+
+### v1 → v1.1 (2026-11-14, Task 2.3b, before any detection run)
+
+**What v1 said:** two hidden sets of 20 % of the catalog each, drawn product by product among the E-targets of the
+traffic pool; out-of-stock set drawn among all products in neither hidden set.
+
+**Why it could not work (measured on the 2.3a slice, 2026-11-14):** the catalog has 19,869 products and 8,824
+E-targets; 8,786 of them are the E match of exactly **one** query, and a query has a median of 7 E products. Hiding
+3,974 E-targets at random (three draws) left only 52–71 of the 1,000 queries with no E product at all, and only about
+**3 %** of the hidden products were the target of such a query. Every other query still shows exact matches, the
+shopper clicks one, and neither the zero-result nor the unsatisfied signal can fire: recall would be about 3 % whatever
+the system does, the same trap §5.1 describes for the zero-result signal alone. In the same draws the two hidden sets
+used 7,948 of the 8,824 E-targets, so the out-of-stock set (drawn among all remaining products) would hold about 88
+products anyone searches for.
+
+**Options considered:** A — keep v1 (recall ≈ 3 % by construction); B1 — hide all E products of test queries until
+20 % of the catalog is hidden (≈ 441 of 700 test queries; ≈ 44 % of the traffic pool searching for missing products);
+**B2 — hide all E products of 20 % of each set's queries** (≈ 6.5 % of the catalog for hidden-test). The supervisor
+chose **B2**: it keeps the specification's target (≥ 80 % of hidden products flagged) and a plausible share of lost
+searches, and changes the hidden share of the catalog (5.4 % instead of 20 %), which is reported (§10).

@@ -7,10 +7,11 @@ from pathlib import Path
 import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
-from conftest import edit_distance
+from conftest import REPO_ROOT, edit_distance
 
-from shoptools.data import esci
+from shoptools.data import esci, shop_catalog
 from shoptools.data import slice_builder as sb
+from shoptools.data.enrichment import load_category_rules
 from shoptools.data.normalize import normalize_query
 from shoptools.doctor.expected import VERSIONS_FILE
 
@@ -32,8 +33,51 @@ I = 0.0
 
 [typos]
 min_word_letters = 4
+
+[enrichment]
+categories_file = "categories.toml"
+price = {{ min_dollars = 2, max_dollars = 999 }}
+stock = {{ min = 3, max = 150 }}
+vendors = 4
+vendor_price_share = {{ min = 0.55, max = 0.75 }}
+vendor_min_qty = {{ min = 1, max = 10 }}
+vendor_lead_days = {{ min = 2, max = 14 }}
+description_max_chars = 200
+
+[hidden]
+query_share = {hidden_share}
+
+[out_of_stock]
+share = 0.1
+"""
+CATEGORIES = """
+[[category]]
+name = "Shoes"
+price_median = 50.0
+price_sigma = 0.5
+keywords = ["shoe", "running shoe"]
+
+[[category]]
+name = "Devices"
+price_median = 20.0
+price_sigma = 0.5
+keywords = ["gadget"]
+
+[other]
+name = "Other"
+price_median = 10.0
+price_sigma = 0.5
 """
 LABEL_CYCLE = "ESCIES"
+
+
+def config_text(seed: int, hidden_share: float = 0.2) -> str:
+    return CONFIG.format(seed=seed, hidden_share=hidden_share)
+
+
+def product_word(product_id: str) -> str:
+    """Titles that the test category rules can place: T* products are shoes, P* and U* gadgets, X* nothing."""
+    return {"T": "running shoes", "P": "gadget", "U": "gadget"}.get(product_id[0], "title")
 
 
 def synthetic_esci() -> tuple[dict[str, list], dict[str, list]]:
@@ -87,7 +131,9 @@ def synthetic_esci() -> tuple[dict[str, list], dict[str, list]]:
     locales = ["us"] * (len(judged) + len(extra)) + ["es"]
     products = {
         "product_id": product_ids,
-        "product_title": [f"title {pid} {loc}" for pid, loc in zip(product_ids, locales, strict=True)],
+        "product_title": [
+            f"{product_word(pid)} {pid} {loc}" for pid, loc in zip(product_ids, locales, strict=True)
+        ],
         "product_description": [None if n % 4 == 0 else f"description {n}" for n in range(len(product_ids))],
         "product_bullet_point": ["  " if n % 5 == 0 else f"bullet {n}" for n in range(len(product_ids))],
         "product_brand": [f"brand {n % 7}" for n in range(len(product_ids))],
@@ -97,7 +143,12 @@ def synthetic_esci() -> tuple[dict[str, list], dict[str, list]]:
     return examples, products
 
 
-def write_repo(root: Path, seed: int = 20261025, products_override: dict[str, list] | None = None) -> Path:
+def write_repo(
+    root: Path,
+    seed: int = 20261025,
+    products_override: dict[str, list] | None = None,
+    hidden_share: float = 0.2,
+) -> Path:
     examples, products = synthetic_esci()
     raw = root / esci.RAW_DIR
     raw.mkdir(parents=True)
@@ -113,7 +164,8 @@ def write_repo(root: Path, seed: int = 20261025, products_override: dict[str, li
     (root / VERSIONS_FILE).parent.mkdir(parents=True, exist_ok=True)
     (root / VERSIONS_FILE).write_text("\n".join(blocks), encoding="utf-8")
     config = root / "slice.toml"
-    config.write_text(CONFIG.format(seed=seed), encoding="utf-8")
+    config.write_text(config_text(seed, hidden_share), encoding="utf-8")
+    (root / "categories.toml").write_text(CATEGORIES, encoding="utf-8")
     return config
 
 
@@ -243,8 +295,8 @@ def test_report_has_aggregates_but_no_query_text(tmp_path: Path) -> None:
     assert "removed because their normalized text equals a dev query's: **3**" in report
     assert "running" not in report.lower()
     assert "gadget" not in report
-    for output in manifest["outputs"].values():
-        assert output["sha256"][:16] in report
+    for name in sb.SLICE_OUTPUT_FILES:
+        assert manifest["outputs"][name]["sha256"][:16] in report
 
 
 def test_dry_run_writes_nothing(tmp_path: Path) -> None:
@@ -289,10 +341,10 @@ def test_a_rerun_replaces_the_previous_outputs(tmp_path: Path) -> None:
 
 def test_config_rules(tmp_path: Path) -> None:
     path = tmp_path / "slice.toml"
-    path.write_text(CONFIG.format(seed=1).replace('split = "test"', 'split = "train"'), encoding="utf-8")
+    path.write_text(config_text(1).replace('split = "test"', 'split = "train"'), encoding="utf-8")
     with pytest.raises(sb.SliceError, match="different ESCI splits"):
         sb.load_config(path)
-    path.write_text(CONFIG.format(seed=1).replace("I = 0.0\n", ""), encoding="utf-8")
+    path.write_text(config_text(1).replace("I = 0.0\n", ""), encoding="utf-8")
     with pytest.raises(sb.SliceError, match="exactly the labels"):
         sb.load_config(path)
     path.write_text("[slice]\nseed = 1\n", encoding="utf-8")
@@ -302,9 +354,9 @@ def test_config_rules(tmp_path: Path) -> None:
 
 def test_config_hash_ignores_comments_and_spacing(tmp_path: Path) -> None:
     plain, commented = tmp_path / "a.toml", tmp_path / "b.toml"
-    plain.write_text(CONFIG.format(seed=1), encoding="utf-8")
+    plain.write_text(config_text(1), encoding="utf-8")
     commented.write_text(
-        "# a comment\n" + CONFIG.format(seed=1).replace("seed = 1", "seed   =   1  # base"), "utf-8"
+        "# a comment\n" + config_text(1).replace("seed = 1", "seed   =   1  # base"), "utf-8"
     )
 
     assert sb.load_config(plain).sha256 == sb.load_config(commented).sha256
@@ -330,3 +382,122 @@ def test_project_configuration_follows_the_protocol() -> None:
     )
     assert config.gains == {"E": 1.0, "S": 0.1, "C": 0.01, "I": 0.0}
     assert config.min_word_letters == 4
+    # Protocol v1.1 §4, option B2 (supervisor, 2026-11-14).
+    assert config.shop.hidden_query_share == 0.2
+    assert config.shop.out_of_stock_share == 0.1
+    rules = load_category_rules(REPO_ROOT / config.shop.categories_file)
+    assert 15 <= len(rules.categories) <= 25
+
+
+# --- Task 2.3b: shop catalog --------------------------------------------------------------------------------
+
+
+def exact_by_query(root: Path) -> dict[int, set[str]]:
+    targets: dict[int, set[str]] = {}
+    for row in read(root, sb.QRELS_FILE):
+        if row["esci_label"] == "E":
+            targets.setdefault(row["query_id"], set()).add(row["product_id"])
+    return targets
+
+
+def test_shop_catalog_does_not_change_the_slice_outputs(tmp_path: Path) -> None:
+    config = write_repo(tmp_path / "a", hidden_share=0.2)
+    assert sb.run_build_slice(tmp_path / "a", config_path=config, write=quiet) == 0
+    config = write_repo(tmp_path / "b", hidden_share=0.5)
+    assert sb.run_build_slice(tmp_path / "b", config_path=config, write=quiet) == 0
+    first, second = (
+        json.loads((tmp_path / name / sb.PROCESSED_DIR / sb.MANIFEST_NAME).read_text(encoding="utf-8"))
+        for name in ("a", "b")
+    )
+
+    for name in sb.SLICE_OUTPUT_FILES:
+        assert first["outputs"][name] == second["outputs"][name]
+    assert first["outputs"][shop_catalog.HIDDEN_TEST_FILE] != second["outputs"][shop_catalog.HIDDEN_TEST_FILE]
+
+
+def test_products_carry_every_catalog_product_with_synthetic_fields(tmp_path: Path) -> None:
+    manifest = build(tmp_path)
+    catalog = read(tmp_path, sb.CATALOG_FILE)
+    products = read(tmp_path, shop_catalog.PRODUCTS_FILE)
+
+    assert [row["product_id"] for row in products] == [row["product_id"] for row in catalog]
+    assert [row["name"] for row in products] == [row["product_title"] for row in catalog]
+    assert {row["category"] for row in products if row["product_id"].startswith("T")} == {"Shoes"}
+    assert {row["category"] for row in products if row["product_id"].startswith(("P", "U"))} == {"Devices"}
+    for row in products:
+        assert row["list_price_cents"] % 100 == 99
+        assert 299 <= row["list_price_cents"] <= 99_999
+        assert 0.54 <= row["vendor_price_cents"] / row["list_price_cents"] <= 0.76
+        assert 1 <= row["vendor_id"] <= 4
+        assert len(row["description"]) <= 200
+    assert manifest["synthetic_fields"][shop_catalog.PRODUCTS_FILE] == list(shop_catalog.SYNTHETIC_FIELDS)
+    assert len(read(tmp_path, shop_catalog.VENDORS_FILE)) == 4
+
+
+def test_hidden_sets_hide_every_exact_product_of_their_queries(tmp_path: Path) -> None:
+    build(tmp_path)
+    targets = exact_by_query(tmp_path)
+    dev = {row["query_id"] for row in read(tmp_path, sb.DEV_FILE)}
+    test = {row["query_id"] for row in read(tmp_path, sb.TEST_FILE)}
+    hidden = {}
+    for name, own in ((shop_catalog.HIDDEN_TEST_FILE, test), (shop_catalog.HIDDEN_DEV_FILE, dev)):
+        rows = read(tmp_path, name)
+        queries = {row["query_id"] for row in rows}
+        assert len(queries) == round(0.2 * len(own))  # 1 of 4 test queries, 1 of 3 dev queries
+        assert queries <= own
+        for query_id in queries:
+            assert {row["product_id"] for row in rows if row["query_id"] == query_id} == targets[query_id]
+        hidden[name] = {row["product_id"] for row in rows}
+
+    assert not hidden[shop_catalog.HIDDEN_TEST_FILE] & hidden[shop_catalog.HIDDEN_DEV_FILE]
+
+
+def test_out_of_stock_products_have_zero_stock_and_are_searched_targets(tmp_path: Path) -> None:
+    manifest = build(tmp_path)
+    targets = exact_by_query(tmp_path)
+    hidden_rows = read(tmp_path, shop_catalog.HIDDEN_TEST_FILE) + read(tmp_path, shop_catalog.HIDDEN_DEV_FILE)
+    hidden_queries = {row["query_id"] for row in hidden_rows}
+    hidden_products = {row["product_id"] for row in hidden_rows}
+    out_of_stock = {row["product_id"] for row in read(tmp_path, shop_catalog.OUT_OF_STOCK_FILE)}
+    searched = {
+        p for query_id, products in targets.items() if query_id not in hidden_queries for p in products
+    }
+
+    assert out_of_stock
+    assert out_of_stock <= searched - hidden_products
+    products = read(tmp_path, shop_catalog.PRODUCTS_FILE)
+    assert {row["product_id"] for row in products if row["stock_qty"] == 0} == out_of_stock
+    assert all(3 <= row["stock_qty"] <= 150 for row in products if row["product_id"] not in out_of_stock)
+    wanted = round(0.1 * (len(products) - len(hidden_products)))
+    assert len(out_of_stock) == min(wanted, len(searched - hidden_products))
+    assert manifest["counts"]["shop_catalog"]["out_of_stock"]["products"] == len(out_of_stock)
+
+
+def test_enrichment_report_is_labelled_synthetic_and_has_no_text(tmp_path: Path) -> None:
+    manifest = build(tmp_path)
+    report = (tmp_path / sb.ENRICHMENT_REPORT_FILE).read_text(encoding="utf-8")
+
+    assert "**Synthetic data.**" in report
+    assert "running" not in report.lower()
+    assert "gadget" not in report.lower()
+    for name in shop_catalog.OUTPUT_FILES:
+        assert manifest["outputs"][name]["sha256"][:16] in report
+    assert "products in both hidden sets: 0 (must be 0)" in report
+
+
+def test_bad_category_rules_fail_cleanly(tmp_path: Path) -> None:
+    config = write_repo(tmp_path)
+    (tmp_path / "categories.toml").write_text("[[category]]\nname = 'x'\n", encoding="utf-8")
+
+    assert sb.run_build_slice(tmp_path, config_path=config, write=quiet) == 1
+    assert not (tmp_path / sb.PROCESSED_DIR / sb.MANIFEST_NAME).exists()
+
+
+def test_shop_settings_rules(tmp_path: Path) -> None:
+    path = tmp_path / "slice.toml"
+    path.write_text(config_text(1, hidden_share=1.5), encoding="utf-8")
+    with pytest.raises(sb.SliceError, match="hidden.query_share"):
+        sb.load_config(path)
+    path.write_text(config_text(1).replace("max = 0.75", "max = 1.2"), encoding="utf-8")
+    with pytest.raises(sb.SliceError, match="vendor_price_share"):
+        sb.load_config(path)

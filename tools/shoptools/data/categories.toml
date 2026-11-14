@@ -1,0 +1,193 @@
+# Synthetic shop categories for the ESCI catalog slice (Task 2.3b, docs/ai/04_DATA_SEARCH_EVALUATION.md §4).
+# ESCI has no categories: these are keyword rules, SYNTHETIC like prices, stock and vendors.
+#
+# Matching (tools/shoptools/data/enrichment.py, assign_category): title and bullet points are normalized, split into
+# words of letters and digits, and folded to a simple singular ("shoes" -> "shoe", "boxes" -> "box"). A keyword
+# (or a phrase of several words) scores 3 per category when it appears in the title and 1 when it appears only in the
+# bullet points. The best score wins; a tie goes to the category listed first. No keyword at all -> "Other".
+#
+# Price: log-normal per category, median `price_median` (USD) and spread `price_sigma`, bounded by [prices] in
+# slice.toml, ending in .99. Rough orders of magnitude for a small online shop, not market data.
+#
+# The keyword lists were written by reading only the titles of products judged for DEV queries (never test queries).
+# Words that mean different things in different categories ("case", "light", "cover", "switch") appear only inside
+# phrases. Order matters for ties: specific categories come before broad ones.
+
+[[category]]
+name = "Video Games"
+price_median = 35.0
+price_sigma = 0.6
+keywords = ["nintendo", "playstation", "ps4", "ps5", "xbox", "video game", "gaming controller", "game controller", "joy con", "steam deck", "gamecube", "wii"]
+
+[[category]]
+name = "Electronics"
+price_median = 30.0
+price_sigma = 0.9
+keywords = [
+  "phone case", "iphone", "samsung", "galaxy", "ipad", "tablet", "laptop", "computer", "keyboard", "mouse", "usb",
+  "cable", "charger", "charging", "bluetooth", "headphone", "earbud", "earphone", "headset", "speaker", "camera",
+  "tv", "television", "monitor", "screen protector", "hdmi", "router", "wifi", "adapter", "power bank", "battery",
+  "smart watch", "smartwatch", "apple watch", "fitbit", "projector", "microphone", "remote control", "alexa", "echo dot",
+  "kindle", "electronic", "sd card", "ssd", "hard drive", "flash drive", "printer", "webcam", "airpod", "gps", "radio",
+  "ring light", "drone", "stylus", "macbook", "chromebook", "pixel", "android", "otterbox",
+]
+
+[[category]]
+name = "Shoes"
+price_median = 50.0
+price_sigma = 0.6
+keywords = ["shoe", "sneaker", "boot", "sandal", "slipper", "heel", "loafer", "flip flop", "clog", "oxford", "croc", "running shoe", "insole", "moccasin", "cleat", "slide"]
+
+[[category]]
+name = "Jewelry & Watches"
+price_median = 30.0
+price_sigma = 1.0
+keywords = ["ring", "necklace", "bracelet", "earring", "pendant", "diamond", "engagement", "jewelry", "anklet", "charm", "wedding band", "watch", "stud", "sterling", "gemstone", "locket", "brooch"]
+
+[[category]]
+name = "Baby"
+price_median = 20.0
+price_sigma = 0.8
+keywords = ["baby", "infant", "toddler", "newborn", "diaper", "stroller", "pacifier", "crib", "bib", "onesie", "nursery", "teether", "car seat", "breast pump", "sippy"]
+
+[[category]]
+name = "Pet Supplies"
+price_median = 18.0
+price_sigma = 0.8
+keywords = ["dog", "cat", "pet", "puppy", "kitten", "leash", "collar", "aquarium", "litter", "bird", "fish tank", "chew", "kennel", "harness", "hamster", "reptile"]
+
+[[category]]
+name = "Clothing"
+price_median = 25.0
+price_sigma = 0.6
+keywords = [
+  "shirt", "t shirt", "tee", "dress", "hoodie", "sweatshirt", "sweater", "jacket", "coat", "pant", "jean", "short",
+  "legging", "sock", "underwear", "bra", "pajama", "costume", "skirt", "blouse", "tank top", "cardigan", "vest",
+  "romper", "jumpsuit", "swimsuit", "bikini", "boxer", "brief", "polo", "pullover", "tunic", "lingerie", "robe",
+  "sleeve", "fleece", "jogger", "overall", "uniform", "suit", "tie",
+]
+
+[[category]]
+name = "Bags & Accessories"
+price_median = 30.0
+price_sigma = 0.8
+keywords = ["bag", "backpack", "purse", "wallet", "handbag", "tote", "luggage", "suitcase", "hat", "cap", "beanie", "sunglasses", "belt", "scarf", "glove", "umbrella", "crossbody", "keychain", "fanny pack", "clutch", "wristlet"]
+
+[[category]]
+name = "Beauty & Personal Care"
+price_median = 15.0
+price_sigma = 0.8
+keywords = [
+  "makeup", "lipstick", "lip", "mascara", "eyeliner", "eyeshadow", "foundation", "concealer", "nail", "perfume", "parfum",
+  "eau", "cologne", "fragrance", "shampoo", "conditioner", "hair", "skin", "lotion", "serum", "moisturizer", "trimmer",
+  "razor", "shaver", "toothbrush", "toothpaste", "deodorant", "lash", "eyelash", "brow", "face mask", "facial", "beard",
+  "wig", "sunscreen", "cream", "cosmetic", "beauty", "body wash", "soap", "curling iron", "straightener", "hair dryer", "edt", "edp", "toilette",
+]
+
+[[category]]
+name = "Toys & Games"
+price_median = 22.0
+price_sigma = 0.8
+keywords = ["toy", "lego", "doll", "puzzle", "board game", "card game", "plush", "stuffed animal", "playset", "action figure", "barbie", "hot wheels", "nerf", "slime", "building block", "pokemon", "funko", "rc car", "kite", "playhouse", "figure", "figurine", "anime", "model kit", "science kit"]
+
+[[category]]
+name = "Kitchen & Dining"
+price_median = 22.0
+price_sigma = 0.8
+keywords = [
+  "kitchen", "cookware", "pan", "pot", "skillet", "knife", "mug", "cup", "plate", "bowl", "coffee maker", "blender",
+  "utensil", "spatula", "water bottle", "tumbler", "food storage", "container", "cutting board", "baking", "oven",
+  "air fryer", "toaster", "kettle", "dinnerware", "silverware", "fork", "spoon", "wine glass", "pressure cooker",
+  "instant pot", "lunch box", "measuring", "strainer", "grater", "can opener", "microwave", "refrigerator", "dish",
+]
+
+[[category]]
+name = "Bedding & Bath"
+price_median = 30.0
+price_sigma = 0.7
+keywords = ["sheet", "bedding", "duvet", "comforter", "pillowcase", "pillow", "blanket", "quilt", "mattress", "towel", "bath mat", "shower curtain", "bathrobe", "bed", "shower", "bathroom", "toilet", "bath"]
+
+[[category]]
+name = "Home Decor & Furniture"
+price_median = 35.0
+price_sigma = 0.9
+keywords = [
+  "chair", "table", "desk", "sofa", "couch", "shelf", "bookshelf", "dresser", "cabinet", "rug", "curtain", "lamp",
+  "mirror", "decor", "decoration", "wall art", "picture frame", "frame", "vase", "candle", "clock", "furniture",
+  "ottoman", "stool", "nightstand", "bookcase", "throw", "cushion", "wallpaper", "poster", "sign", "living room",
+  "bedroom", "home decor", "storage bin", "basket", "hook", "organizer",
+]
+
+[[category]]
+name = "Health & Household"
+price_median = 15.0
+price_sigma = 0.8
+keywords = [
+  "vitamin", "supplement", "protein", "probiotic", "mask", "cleaner", "cleaning", "detergent", "vacuum", "paper towel",
+  "toilet paper", "trash", "garbage", "first aid", "thermometer", "medicine", "pain relief", "massage", "massager",
+  "humidifier", "air purifier", "filter", "disinfectant", "wipe", "laundry", "sponge", "mop", "broom",
+  "brace", "compression", "heating pad", "blood pressure", "pill", "capsule", "gummy", "air freshener",
+]
+
+[[category]]
+name = "Sports & Outdoors"
+price_median = 28.0
+price_sigma = 0.9
+keywords = [
+  "bike", "bicycle", "cycling", "fitness", "yoga", "gym", "workout", "exercise", "camping", "tent", "fishing", "golf",
+  "hiking", "dumbbell", "kettlebell", "kayak", "sleeping bag", "basketball", "football", "soccer", "baseball",
+  "tennis", "volleyball", "hockey", "skateboard", "scooter", "helmet", "treadmill", "resistance band", "jump rope",
+  "hunting", "archery", "swim", "ski", "snowboard", "surf", "paddle", "pickleball", "boxing", "athletic", "sport", "swimming", "snorkel", "diving", "airsoft",
+]
+
+[[category]]
+name = "Garden & Patio"
+price_median = 28.0
+price_sigma = 0.9
+keywords = ["garden", "plant", "planter", "grill", "patio", "lawn", "hose", "seed", "mower", "gardening", "pot plant", "fertilizer", "bird feeder", "outdoor furniture", "solar light", "fire pit", "pool", "sprinkler", "weed", "flower pot", "trellis", "greenhouse"]
+
+[[category]]
+name = "Tools & Home Improvement"
+price_median = 25.0
+price_sigma = 0.9
+keywords = [
+  "tool", "drill", "screwdriver", "wrench", "saw", "light bulb", "led bulb", "bulb", "faucet", "drain", "adhesive",
+  "tape", "hardware", "paint", "ladder", "screw", "nail gun", "hammer", "plier", "socket", "flashlight", "extension cord",
+  "outlet", "light switch", "door lock", "doorbell", "smoke detector", "glue", "caulk", "sink", "shower head",
+  "ceiling fan", "fan", "heater", "generator", "level", "toolbox", "sander", "welding", "pipe", "valve", "hinge",
+]
+
+[[category]]
+name = "Automotive"
+price_median = 22.0
+price_sigma = 0.9
+keywords = ["car", "auto", "truck", "vehicle", "tire", "wiper", "motorcycle", "seat cover", "dash cam", "windshield", "headlight", "jeep", "rv", "trailer", "engine", "brake", "steering wheel", "license plate", "car seat cover", "chevy", "ford", "toyota", "honda", "dodge", "automotive"]
+
+[[category]]
+name = "Office & School"
+price_median = 12.0
+price_sigma = 0.8
+keywords = ["pen", "pencil", "notebook", "paper", "marker", "stapler", "ink", "toner", "binder", "envelope", "school supply", "office", "highlighter", "folder", "planner", "calendar", "label", "sticky note", "whiteboard", "eraser", "calculator", "journal", "sticker", "notepad", "file", "clipboard", "desk organizer"]
+
+[[category]]
+name = "Arts, Crafts & Party"
+price_median = 12.0
+price_sigma = 0.8
+keywords = ["party", "birthday", "balloon", "craft", "yarn", "sewing", "glitter", "paint brush", "canvas", "crochet", "knitting", "bead", "ribbon", "wrapping paper", "gift wrap", "banner", "confetti", "christmas", "halloween", "wedding decoration", "baby shower", "cake topper", "art supply", "acrylic paint", "embroidery", "fabric"]
+
+[[category]]
+name = "Books & Media"
+price_median = 15.0
+price_sigma = 0.6
+keywords = ["book", "novel", "paperback", "hardcover", "dvd", "blu ray", "vinyl", "cd", "audiobook", "edition", "volume", "comic", "manga", "cookbook", "workbook", "coloring book", "memoir", "biography"]
+
+[[category]]
+name = "Grocery"
+price_median = 12.0
+price_sigma = 0.7
+keywords = ["coffee", "tea", "snack", "candy", "chocolate", "cookie", "chip", "sauce", "spice", "seasoning", "gum", "k cup", "organic", "food", "drink", "juice", "cereal", "nut", "jerky", "honey", "syrup", "flour", "sugar", "salt", "pasta", "rice", "creamer", "water enhancer", "protein bar", "granola"]
+
+[other]
+name = "Other"
+price_median = 20.0
+price_sigma = 0.9
