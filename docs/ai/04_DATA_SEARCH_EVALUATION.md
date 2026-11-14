@@ -96,6 +96,13 @@ price → list price; vendor → partner + vendor pricelist line; stock → on-h
 all products published at import (the hidden set is applied only during the detection campaign).
 The importer writes `data/processed/odoo_id_map.parquet` (ESCI product ID ↔ Odoo template ID) for Locust and evaluation.
 
+Implementation (Task 2.4a, ADR-019): `uv run shop import catalog [--limit N] [--dry-run] [--batch-size N]`
+(`tools/shoptools/catalog_import.py`) through the JSON-2 API as the integration user. Products: `type='consu'` +
+`is_storable=True`, published, **no customer tax** (supervisor, 2026-11-14; the generic chart would add 15 %),
+`description_sale` (plain text) and `description_ecommerce` (escaped HTML), both read by Odoo's own shop search;
+one vendor price line each. Public categories are top level; internal categories sit under "Shop catalog". Vendors are
+companies found again by `ref` "synthetic-vendor-NN". Re-runs create and write nothing. Stock: Task 2.4b.
+
 ## 5. Product index design
 
 Index `shop-products-v<N>`, alias `shop-products`, 1 shard, 0 replicas, refresh interval 1 s. Starting mapping

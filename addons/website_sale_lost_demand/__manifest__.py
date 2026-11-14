@@ -7,8 +7,9 @@ fallback to Odoo's own search; searches, clicks, carts and purchases become rest
 
 Task 1.3 (skeleton): Elasticsearch connection settings from the environment, read-only cluster status in
 Website settings, circuit breaker, security group.
+Task 2.4a: product brand (filled by the catalog importer).
     """,
-    "version": "19.0.0.1.0",
+    "version": "19.0.0.2.0",
     "category": "Website/Website",
     "author": "Lost Demand Project",
     "license": "LGPL-3",
@@ -19,6 +20,7 @@ Website settings, circuit breaker, security group.
         "security/website_sale_lost_demand_groups.xml",
         "security/ir.model.access.csv",
         "views/res_config_settings_views.xml",
+        "views/product_template_views.xml",
     ],
     "installable": True,
     "application": False,
