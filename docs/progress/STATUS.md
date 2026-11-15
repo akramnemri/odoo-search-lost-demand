@@ -1,19 +1,18 @@
 # STATUS
 
-Updated: 2026-11-14 by agent session 6 — Task 2.4a implemented, waiting for the supervisor's manual test
+Updated: 2026-11-15 by agent session 6 — 2.4a merged (PR #28); Task 2.4b in progress
 
 ## Current position
 - Milestone: M2 — Datasets, evaluation protocol, catalog import — in progress. M1 released 2026-11-14 (PR #22,
   merge commit f3926a1, tag `m1-stack`)
-- M2 order: 2.1 ✓ → 2.2 ✓ → 2.3a ✓ → 2.3b ✓ → 2.4a → 2.4b → 2.5 → 2.6. Task 1.6 (interview) still open, in
+- M2 order: 2.1 ✓ → 2.2 ✓ → 2.3a ✓ → 2.3b ✓ → 2.4a ✓ → 2.4b → 2.5 → 2.6. Task 1.6 (interview) still open, in
   parallel
-- Task: **2.4a — catalog importer, part a** (module `brand` field; categories, vendors, published products with
-  vendor prices; id map) — state: **implemented, automated checks passed, waiting for the supervisor's
-  manual test**; go 2026-11-14 with all three recommendations (split 2.4a/2.4b,
-  JSON-2 API with ADR-019, no sales tax on imported products). 2.3b merged 2026-11-14 (PR #27, 27640d6); protocol
-  tags `protocol-v1` (5689f1e) and `protocol-v1.1` (27640d6)
-- Branch / PR: `feat/catalog-import` (from `develop` 27640d6)
-- Local checkout: on `feat/catalog-import`; no other worktree; ESCI in `data/raw/esci/` (3 files, verified)
+- Task: **2.4b — catalog importer, part b** (stock by inventory adjustment, product cost, full import, `shop import
+  verify`, timing record, snapshot `baseline-catalog`) — state: **in progress**, go 2026-11-15 (product cost =
+  synthetic vendor price). 2.4a merged 2026-11-14 (PR #28, 53b3958); protocol tags `protocol-v1` (5689f1e) and
+  `protocol-v1.1` (27640d6)
+- Branch / PR: `feat/catalog-stock` (from `develop` 53b3958)
+- Local checkout: on `feat/catalog-stock`; no other worktree; ESCI in `data/raw/esci/` (3 files, verified)
 - Repository: https://github.com/akramnemri/odoo-search-lost-demand (public, default branch `develop`)
 
 ## Milestone 0 exit check (2026-10-28)
@@ -195,7 +194,13 @@ Updated: 2026-11-14 by agent session 6 — Task 2.4a implemented, waiting for th
   no HTML parser on plain text, step 23 s → 8 s, same hashes. 41 new tests (366 total). Independent check on the
   real outputs (pyarrow only): 11 rules PASS
 
-- 2.4a — implemented 2026-11-14 on `feat/catalog-import`, manual test pending — module 19.0.0.2.0 (`brand` on
+- 2.4a — merged 2026-11-14 (PR #28, 53b3958, squash, by the agent on the supervisor's instruction after all checks
+  and the SonarCloud gate were green). Manual test passed 2026-11-14, run by the agent at the supervisor's request:
+  built-in browser — `/shop?search=windex` (2 results, prices, descriptions), a product page ($36.99, no tax, Add to
+  cart, category in the breadcrumb), a category page; backend over JSON-2 — `brand` stored and on the form, 2,000
+  published, 0 with a tax, 1,809 with a brand (191 brandless in the source), 2,000 vendor lines, 20 vendors, 23 + 23
+  categories; the only other referenced product is Odoo's unpublished "Standard delivery"; re-run 0 created, 0
+  updated. No product images (ESCI has none). SonarCloud: gate OK, 4 code smells left for 2.4b — module 19.0.0.2.0 (`brand` on
   `product.template`, on the form after the category; 2 new Odoo tests, `shop test module --es` 15 passed in 164 s);
   `uv run shop import catalog [--limit N] [--dry-run] [--batch-size N]` (`tools/shoptools/catalog_import.py`,
   ADR-019): JSON-2 as the integration user, lookups by `default_code`/`ref`/name with `active_test=False`, only
@@ -295,17 +300,14 @@ Updated: 2026-11-14 by agent session 6 — Task 2.4a implemented, waiting for th
 - A local shop owner for interview #1 (Task 1.6) — start looking early
 
 ## Next step (exact)
-- **Supervisor: manual test of Task 2.4a** (PR from `feat/catalog-import`; 2,000 products are already imported):
-  open the shop (`/shop`), search, open a product and its category; in the backend open a product (Brand field,
-  vendor line, no tax) and *Contacts* (Synthetic Vendor NN); optionally run `uv run shop import catalog --limit 2000`
-  again (it must report 0 created, 0 updated). Expect "out of stock" behaviour until 2.4b
+- **Agent: implement Task 2.4b** on `feat/catalog-stock` (go 2026-11-15, with product cost = vendor price)
 - Agent note: `odoo module upgrade -c /etc/odoo/odoo.conf -d shop website_sale_lost_demand` inside the `odoo`
   container (`MSYS_NO_PATHCONV=1` in Git Bash), then `docker compose restart odoo`, upgrades the module in `shop`
 - Follow-up (before M9 facets, optional): keyword categories are right for roughly 3 of 4 products; ambiguous
-  bullet-point words cause most misses. Tuning them (dev products only) changes the catalog hashes, so do it before
-  Task 2.4's baseline snapshot or not at all
+  bullet-point words cause most misses. Tuning them (dev products only) changes the catalog hashes and the hidden
+  sets' strata: rebuild the slice, re-run the import and re-save `baseline-catalog`, all before any campaign
 - Supervisor: academic supervisor's approval of protocol v1.1 if required (D11)
-- Then Task 2.4b (stock by inventory adjustment, full import, 10-product check, timing, snapshot `baseline-catalog`)
+- Then Task 2.5 (baseline observations with Odoo's native search)
 - Observation for 2.3b/M5 (not a protocol deviation): the typo position is uniform over the word's letters, so
   first-letter typos ("poll" → "opll") occur; real typos are rarer there. The shopper model may weight positions
 - Supervisor: JetBrains student license; optional PyCharm screenshots 01–05 and 08 (`docs/setup/PYCHARM.md` §7); the
