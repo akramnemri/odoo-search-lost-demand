@@ -1,18 +1,18 @@
 # STATUS
 
-Updated: 2026-11-15 by agent session 6 — Task 2.4b implemented (full catalog in `shop`, snapshot `baseline-catalog`)
+Updated: 2026-11-15 by agent session 6 — 2.4b merged (PR #29); stock-availability follow-up in progress
 
 ## Current position
 - Milestone: M2 — Datasets, evaluation protocol, catalog import — in progress. M1 released 2026-11-14 (PR #22,
   merge commit f3926a1, tag `m1-stack`)
-- M2 order: 2.1 ✓ → 2.2 ✓ → 2.3a ✓ → 2.3b ✓ → 2.4a ✓ → 2.4b → 2.5 → 2.6. Task 1.6 (interview) still open, in
+- M2 order: 2.1 ✓ → 2.2 ✓ → 2.3a ✓ → 2.3b ✓ → 2.4a ✓ → 2.4b ✓ (+ availability follow-up) → 2.5 → 2.6. Task 1.6 (interview) still open, in
   parallel
-- Task: **2.4b — catalog importer, part b** (stock by inventory adjustment, product cost, full import, `shop import
-  verify`, timing record, snapshot `baseline-catalog`) — state: **implemented, automated checks passed, waiting
-  for the supervisor's manual test**; go 2026-11-15 (product cost = synthetic vendor price). 2.4a merged 2026-11-14 (PR #28, 53b3958); protocol tags `protocol-v1` (5689f1e) and
+- Task: **2.4b follow-up — stock availability in the shop** (importer sets "show availability" and "no order when
+  out of stock" on every product; re-import; re-save `baseline-catalog`) — state: **in progress** (supervisor,
+  2026-11-15). 2.4b merged 2026-11-15 (PR #29, cb00eaa); protocol tags `protocol-v1` (5689f1e) and
   `protocol-v1.1` (27640d6)
-- Branch / PR: `feat/catalog-stock` (from `develop` 53b3958)
-- Local checkout: on `feat/catalog-stock`; no other worktree; ESCI in `data/raw/esci/` (3 files, verified)
+- Branch / PR: `feat/catalog-availability` (from `develop` cb00eaa)
+- Local checkout: on `feat/catalog-availability`; no other worktree; ESCI in `data/raw/esci/` (3 files, verified)
 - Repository: https://github.com/akramnemri/odoo-search-lost-demand (public, default branch `develop`)
 
 ## Milestone 0 exit check (2026-10-28)
@@ -215,7 +215,12 @@ Updated: 2026-11-15 by agent session 6 — Task 2.4b implemented (full catalog i
   HTML sanitizer stores `'` and `"` unescaped, so 7 of 200 products were rewritten on every run; quotes are no longer
   escaped and HTML descriptions are compared by their decoded text. 12 new tool tests (378 total)
 
-- 2.4b — implemented 2026-11-15 on `feat/catalog-stock`, manual test pending — `shop import catalog` adds cost
+- 2.4b — merged 2026-11-15 (PR #29, cb00eaa, squash, by the agent on the supervisor's instruction after all checks
+  and the SonarCloud gate were green, 0 open findings). Manual test passed 2026-11-15, run by the agent at the
+  supervisor's request: built-in browser — "running shoes" 93 results with category filters, the Shoes filter
+  (4 pages), a product page with Add to cart; backend over JSON-2 — Nike Air Max 95 price, cost, stock 13 and brand
+  equal the source, one done inventory move of 13 into WH/Stock; `shop import verify` 10/10 and 50/50 (seed 7); full
+  re-run 35 s with nothing created, updated or adjusted — `shop import catalog` adds cost
   (`standard_price` = vendor price) and stock by a real inventory adjustment per batch (`stock.quant.create` in
   `inventory_mode`, then `action_apply_inventory`; only products whose quantity differs; a conflict answer stops the
   run); `uv run shop import verify [--sample N] [--seed S]` (seeded stream `import-check`, all fields + stock);
@@ -315,14 +320,10 @@ Updated: 2026-11-15 by agent session 6 — Task 2.4b implemented (full catalog i
 - A local shop owner for interview #1 (Task 1.6) — start looking early
 
 ## Next step (exact)
-- **Supervisor: manual test of Task 2.4b** (PR from `feat/catalog-stock`; the full catalog is already imported and
-  saved as `baseline-catalog`): browse the shop (search, a category, a product); in the backend open a product
-  (cost, *On Hand* quantity) and *Inventory > Moves History* (inventory adjustments); run `uv run shop import verify`
-  and, optionally, `uv run shop import catalog` again (0 created, 0 updated, 0 adjusted, about 40 s)
-- **Decision for the supervisor (before M3/FR3):** out-of-stock products currently look like any other product and
-  can still be ordered (Odoo defaults `allow_out_of_stock_order=True`, `show_availability=False`). Options: let the
-  importer set "show availability" and "no order when out of stock" on every product, or decide it in M3 with FR3. If
-  the importer changes, re-run it and re-save `baseline-catalog` before any campaign
+- **Agent: stock availability follow-up** on `feat/catalog-availability` (supervisor, 2026-11-15: set it in the
+  importer now)
+- Follow-up (small): every real import rewrites `results/summary/catalog-import.md`, so a no-op re-run replaces the
+  committed full-import record; write it only when something was created, updated or adjusted
 - Agent note: `odoo module upgrade -c /etc/odoo/odoo.conf -d shop website_sale_lost_demand` inside the `odoo`
   container (`MSYS_NO_PATHCONV=1` in Git Bash), then `docker compose restart odoo`, upgrades the module in `shop`
 - Follow-up (before M9 facets, optional): keyword categories are right for roughly 3 of 4 products; ambiguous
