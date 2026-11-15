@@ -101,7 +101,15 @@ Implementation (Task 2.4a, ADR-019): `uv run shop import catalog [--limit N] [--
 `is_storable=True`, published, **no customer tax** (supervisor, 2026-11-14; the generic chart would add 15 %),
 `description_sale` (plain text) and `description_ecommerce` (escaped HTML), both read by Odoo's own shop search;
 one vendor price line each. Public categories are top level; internal categories sit under "Shop catalog". Vendors are
-companies found again by `ref` "synthetic-vendor-NN". Re-runs create and write nothing. Stock: Task 2.4b.
+companies found again by `ref` "synthetic-vendor-NN". Re-runs create and write nothing.
+
+Task 2.4b: cost (`standard_price`) = the synthetic vendor price (supervisor, 2026-11-15; periodic valuation, so no
+journal entries). Stock through a real inventory adjustment in the warehouse's stock location (`stock.quant.create` in
+`inventory_mode`, then `action_apply_inventory`: one stock move per product), only for products whose on-hand quantity
+differs, so a re-run moves nothing; a "conflict" answer from Odoo stops the run. `uv run shop import verify [--sample N]
+[--seed S]` compares seeded random products (stream `import-check`) with their source rows, stock included; each real
+import writes `results/summary/catalog-import.md` (counts and timing). The full import is saved as the snapshot
+`baseline-catalog`, the state every campaign restores (protocol §8).
 
 ## 5. Product index design
 

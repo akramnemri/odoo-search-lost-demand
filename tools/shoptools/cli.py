@@ -298,12 +298,25 @@ def _add_import_arguments(parser: argparse.ArgumentParser) -> None:
         default=catalog_import.BATCH_SIZE,
         help=f"products per JSON-2 call (default {catalog_import.BATCH_SIZE})",
     )
+    verify = targets.add_parser(
+        "verify",
+        help="compare random imported products with their source rows (all fields, stock); read-only",
+    )
+    verify.add_argument(
+        "--sample",
+        type=_positive_int,
+        default=catalog_import.VERIFY_SAMPLE,
+        help=f"how many products (default {catalog_import.VERIFY_SAMPLE})",
+    )
+    verify.add_argument("--seed", type=int, help="base seed of the draw (default: the seed of slice.toml)")
 
 
 def _run_import(namespace: argparse.Namespace) -> int:
     repo_root = _repo_root("import")
     if repo_root is None:
         return 1
+    if namespace.import_target == "verify":
+        return catalog_import.run_verify(repo_root, sample=namespace.sample, seed=namespace.seed)
     return catalog_import.run_import(
         repo_root, limit=namespace.limit, dry_run=namespace.dry_run, batch_size=namespace.batch_size
     )

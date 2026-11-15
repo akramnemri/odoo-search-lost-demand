@@ -40,3 +40,12 @@ with the downloads.
 The same command also builds the shop catalog (Task 2.3b): `products.parquet` with **synthetic** category, price,
 stock and vendor, `vendors.parquet`, the hidden sets `hidden-test.parquet` and `hidden-dev.parquet` and
 `out-of-stock.parquet`; aggregates in `results/summary/enrichment-report.md`. About 15–30 s and under 0.8 GiB in total.
+
+## Catalog import into Odoo (Tasks 2.4a, 2.4b)
+
+1. `uv run shop import catalog --dry-run`: compares `processed/products.parquet` with the shop database; writes nothing.
+2. `uv run shop import catalog` (`--limit N` for a first try): categories, vendors, products and their stock (an
+   inventory adjustment) through Odoo's JSON-2 API; writes `processed/odoo_id_map.parquet` and
+   `results/summary/catalog-import.md`. A re-run changes nothing; a stopped run resumes.
+3. `uv run shop import verify`: compares 10 seeded random products with their source rows, stock included.
+4. `uv run shop snapshot save baseline-catalog`: the state every evaluation campaign restores.
