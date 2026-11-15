@@ -1,6 +1,6 @@
 # STATUS
 
-Updated: 2026-11-15 by agent session 6 — availability follow-up merged (PR #30); Task 2.5 in progress
+Updated: 2026-11-15 by agent session 6 — Task 2.5 implemented, waiting for the supervisor's manual test
 
 ## Current position
 - Milestone: M2 — Datasets, evaluation protocol, catalog import — in progress. M1 released 2026-11-14 (PR #22,
@@ -8,8 +8,8 @@ Updated: 2026-11-15 by agent session 6 — availability follow-up merged (PR #30
 - M2 order: 2.1 ✓ → 2.2 ✓ → 2.3a ✓ → 2.3b ✓ → 2.4a ✓ → 2.4b ✓ (+ availability follow-up ✓) → 2.5 → 2.6. Task 1.6
   (interview) still open, in parallel
 - Task: **2.5 — baseline observations** (20 hand-picked dev-derived queries + all 300 dev queries through Odoo's
-  native `/shop` search; `uv run shop eval baseline-search`; `docs/report/notes/baseline-search.md`) — state: **in
-  progress**, go 2026-11-15 with the 300-dev-query measurement. Availability follow-up merged 2026-11-15 (PR #30,
+  native `/shop` search; `uv run shop eval baseline-search`; `docs/report/notes/baseline-search.md`) — state: **implemented,
+  automated checks passed, waiting for the manual test**; go 2026-11-15 with the 300-dev-query measurement. Availability follow-up merged 2026-11-15 (PR #30,
   6ac56a6); protocol tags `protocol-v1` (5689f1e) and `protocol-v1.1` (27640d6)
 - Branch / PR: `feat/baseline-search` (from `develop` 6ac56a6)
 - Local checkout: on `feat/baseline-search`; no other worktree; ESCI in `data/raw/esci/` (3 files, verified)
@@ -246,9 +246,22 @@ Updated: 2026-11-15 by agent session 6 — availability follow-up merged (PR #30
   sample), update 122 s, second run 66 s with 0 changes and the record untouched, `shop import verify` 10/10; built-in
   browser: an out-of-stock product shows "Out of Stock" with Add to cart hidden, an in-stock one (13) keeps Add to
   cart, one with 4 units shows "4 Units in stock". `baseline-catalog` re-saved. 3 new tool tests (390 total)
+- 2.5 — implemented 2026-11-15 on `feat/baseline-search`, manual test pending — `uv run shop eval baseline-search
+  [--no-dev]` (`tools/shoptools/eval/baseline_search.py`): real `/shop?search=` pages (http mode), result count,
+  Odoo's similar-word fallback, page-1 products mapped to ESCI ids; 20 hand-picked queries with controls
+  (`docs/report/notes/baseline-queries.toml`, typo / vocabulary / plural / brand / long, dev data only, test queries
+  and test-judged products refused by the script) + all 300 dev queries; run folder with `run.json`; generated table
+  `results/summary/baseline-search.md`; note `docs/report/notes/baseline-search.md` (how Odoo 19 search works, with
+  code references; findings; screenshot list; limits). Published run from a clean checkout at 5bb9e2f (a first run
+  on uncommitted code was discarded; the table keeps a "-dirty" mark when that happens). 14 new tool tests (404)
 
 ## Latest results
-- none (no evaluation yet)
+- **Baseline, Odoo's native shop search, dev queries** (run `baseline-search-20261115T022019Z`, commit 5bb9e2f,
+  `results/summary/baseline-search.md`): of 300 dev queries, **73 (24 %) show no result** although every wanted
+  product is in the shop (15 % for 1–2 words, 23 % for 3–4, 33 % for 5+, 46 % with a negation word); Odoo's
+  similar-word fallback changed 2 queries; 188 (63 %) show an exact product on page 1 (optimistic: median 4 results
+  in our judged-only catalog). Hand-picked: 17 of 20 find nothing while their controls find the product. Dev data
+  only; not a test-set result
 
 ## Decisions since last milestone
 - Repository `odoo-search-lost-demand`, public; code license LGPL-3.0-only (`LICENSE` + `COPYING`)
@@ -335,7 +348,10 @@ Updated: 2026-11-15 by agent session 6 — availability follow-up merged (PR #30
 - A local shop owner for interview #1 (Task 1.6) — start looking early
 
 ## Next step (exact)
-- **Agent: implement Task 2.5** on `feat/baseline-search` (go 2026-11-15, with the 300-dev-query measurement)
+- **Supervisor: manual test of Task 2.5** (PR from `feat/baseline-search`): read
+  `docs/report/notes/baseline-search.md` and `results/summary/baseline-search.md`; try 2–3 queries of the table in the
+  shop; optionally run `uv run shop eval baseline-search --no-dev` (about 20 s); take the 6 screenshots listed in the
+  note
 - Idea for M4/M6 (not decided): Odoo's "Get notified when back in stock" form on out-of-stock pages is an explicit
   lost-demand signal (a shopper asking for a missing product); consider it as an extra event
 - Agent note: `odoo module upgrade -c /etc/odoo/odoo.conf -d shop website_sale_lost_demand` inside the `odoo`
