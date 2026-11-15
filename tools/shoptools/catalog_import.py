@@ -13,7 +13,9 @@ What it creates or updates (Odoo 19.0 fields, read in .odoo-src/odoo/addons):
   (plain text) and `description_ecommerce` (HTML) -- Odoo's own shop search reads both (website_sale
   `_get_website_sale_search_fields`) --, list price, cost (`standard_price`) = the synthetic vendor price
   (supervisor, 2026-11-15), **no customer tax** (supervisor, 2026-11-14: the shop shows the synthetic
-  prices as they are), and exactly one vendor price line `product.supplierinfo`;
+  prices as they are), exactly one vendor price line `product.supplierinfo`, and stock availability shown
+  in the shop with no order when out of stock (`show_availability=True`, `allow_out_of_stock_order=False`,
+  website_sale_stock; supervisor, 2026-11-15: Odoo then marks sold-out products and refuses them in carts);
 - stock on hand in the warehouse's stock location through a real **inventory adjustment** (Task 2.4b):
   `stock.quant.create` in `inventory_mode` with `inventory_quantity`, then `action_apply_inventory`, which
   creates and completes one stock move per product (stock/models/stock_quant.py, `create` and
@@ -25,7 +27,7 @@ records included), creates only what is missing and writes only what differs. A 
 and moves nothing; a run stopped in the middle resumes where it stopped.
 
 Outputs: `data/processed/odoo_id_map.parquet` (ESCI product id, template id, variant id) for Locust and
-evaluation; `results/summary/catalog-import.md`, the record of a real run (counts and timing).
+evaluation; `results/summary/catalog-import.md`, the record of the last real run that changed something.
 """
 
 from __future__ import annotations
@@ -159,8 +161,9 @@ def _create(
     return ids
 
 
-def _write(call: Call, model: str, record_id: int, vals: dict[str, Any]) -> None:
-    call(model, "write", {"ids": [record_id], "vals": vals})
+def _write(call: Call, model: str, record_ids: int | list[int], vals: dict[str, Any]) -> None:
+    ids = record_ids if isinstance(record_ids, list) else [record_ids]
+    call(model, "write", {"ids": ids, "vals": vals})
 
 
 def _many2one_id(value: Any) -> int | None:
@@ -266,6 +269,8 @@ PRODUCT_FIELDS = (
     "type",
     "is_storable",
     "is_published",
+    "show_availability",
+    "allow_out_of_stock_order",
     "categ_id",
     "public_categ_ids",
     "taxes_id",
@@ -302,6 +307,8 @@ def product_values(row: dict[str, Any], public_id: int, internal_id: int) -> dic
         "type": "consu",
         "is_storable": True,
         "is_published": True,
+        "show_availability": True,
+        "allow_out_of_stock_order": False,
         "categ_id": internal_id,
         "public_categ_ids": [public_id],
         "taxes_id": [],
@@ -385,6 +392,8 @@ def import_batch(
     sellers = _sellers_by_template(call, [record["id"] for record in existing.values()])
 
     to_create = []
+    # Identical changes (a new field set the same way on every product) go out as one write per batch.
+    writes: dict[str, tuple[dict[str, Any], list[int]]] = {}
     for row in rows:
         wanted = product_values(row, public[row["category"]], internal[row["category"]])
         seller = seller_values(row, partner_of[row["vendor_id"]])
@@ -403,12 +412,14 @@ def import_batch(
             ]  # replace whatever lines exist by the one wanted
         if changes:
             counts.updated += 1
-            if not dry_run:
-                _write(call, TEMPLATE, record["id"], changes)
+            key = json.dumps(changes, sort_keys=True)
+            writes.setdefault(key, (changes, []))[1].append(record["id"])
         else:
             counts.unchanged += 1
     counts.created += len(to_create)
     if not dry_run:
+        for changes, ids in writes.values():
+            _write(call, TEMPLATE, ids, changes)
         _create(call, TEMPLATE, to_create)
     return counts
 
@@ -592,7 +603,15 @@ def run_import(
         return 1
     seconds = time.monotonic() - started
     _summary(result, len(products), total, dry_run, seconds, write)
-    if not dry_run:
+    changed = (
+        result.categories.created
+        + result.vendors.created
+        + result.vendors.updated
+        + result.products.created
+        + result.products.updated
+        + result.stock.updated
+    )
+    if not dry_run and changed:  # a run that changes nothing keeps the record of the last one that did
         _write_report(repo_root, result, len(products), total, limit, batch_size, seconds)
         write(f"Record of this run: {REPORT_FILE.as_posix()}\n")
     return 0
@@ -640,7 +659,7 @@ def _write_report(
     lines = [
         "# Catalog import: record of a real run",
         "",
-        "Written by `uv run shop import catalog` (Tasks 2.4a, 2.4b; ADR-019) after every real run.",
+        "Written by `uv run shop import catalog` (Tasks 2.4a-b, ADR-019) after a run that changed something.",
         "Timings depend on the machine and on what Odoo had to do: a first import creates products and",
         "stock moves, a re-run only compares. The data is SYNTHETIC except the ESCI texts (docs/ai/04 §4).",
         "",

@@ -528,3 +528,48 @@ def test_a_real_run_writes_its_record(tmp_path: Path) -> None:
     lines: list[str] = []
     assert ci.run_import(tmp_path, dry_run=True, call=odoo, write=lines.append) == 0
     assert (tmp_path / ci.REPORT_FILE).read_text(encoding="utf-8") == report  # a dry run leaves no record
+
+
+# --- 2.4b follow-up: stock availability in the shop, grouped writes, record only on change -----------------
+
+
+def test_products_show_availability_and_refuse_orders_when_out_of_stock(tmp_path: Path) -> None:
+    write_inputs(tmp_path)
+    odoo = FakeOdoo()
+
+    assert run(tmp_path, odoo) == 0
+    for product in odoo.products().values():
+        assert product["show_availability"] is True
+        assert product["allow_out_of_stock_order"] is False
+
+
+def test_the_same_change_on_many_products_is_one_write_per_batch(tmp_path: Path) -> None:
+    write_inputs(tmp_path, count=8)
+    odoo = FakeOdoo()
+    assert run(tmp_path, odoo, batch_size=4) == 0
+    for product in odoo.products().values():  # as before the follow-up: Odoo's defaults
+        product["show_availability"] = False
+        product["allow_out_of_stock_order"] = True
+    odoo.calls.clear()
+
+    assert run(tmp_path, odoo, batch_size=4) == 0
+    writes = [body for _, method, body in odoo.calls if method == "write"]
+    assert len(writes) == 2  # 2 batches of 4
+    assert all(
+        body["vals"] == {"show_availability": True, "allow_out_of_stock_order": False} for body in writes
+    )
+    assert sorted(i for body in writes for i in body["ids"]) == sorted(
+        p["id"] for p in odoo.products().values()
+    )
+
+
+def test_a_run_that_changes_nothing_keeps_the_last_record(tmp_path: Path) -> None:
+    write_inputs(tmp_path, count=8)
+    odoo = FakeOdoo()
+    assert run(tmp_path, odoo) == 0
+    record = (tmp_path / ci.REPORT_FILE).read_text(encoding="utf-8")
+    lines: list[str] = []
+
+    assert ci.run_import(tmp_path, call=odoo, write=lines.append) == 0
+    assert (tmp_path / ci.REPORT_FILE).read_text(encoding="utf-8") == record
+    assert not any("Record of this run" in line for line in lines)
