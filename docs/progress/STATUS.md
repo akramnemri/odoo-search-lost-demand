@@ -1,6 +1,6 @@
 # STATUS
 
-Updated: 2026-11-15 by agent session 6 — 2.4a merged (PR #28); Task 2.4b in progress
+Updated: 2026-11-15 by agent session 6 — Task 2.4b implemented (full catalog in `shop`, snapshot `baseline-catalog`)
 
 ## Current position
 - Milestone: M2 — Datasets, evaluation protocol, catalog import — in progress. M1 released 2026-11-14 (PR #22,
@@ -8,8 +8,8 @@ Updated: 2026-11-15 by agent session 6 — 2.4a merged (PR #28); Task 2.4b in pr
 - M2 order: 2.1 ✓ → 2.2 ✓ → 2.3a ✓ → 2.3b ✓ → 2.4a ✓ → 2.4b → 2.5 → 2.6. Task 1.6 (interview) still open, in
   parallel
 - Task: **2.4b — catalog importer, part b** (stock by inventory adjustment, product cost, full import, `shop import
-  verify`, timing record, snapshot `baseline-catalog`) — state: **in progress**, go 2026-11-15 (product cost =
-  synthetic vendor price). 2.4a merged 2026-11-14 (PR #28, 53b3958); protocol tags `protocol-v1` (5689f1e) and
+  verify`, timing record, snapshot `baseline-catalog`) — state: **implemented, automated checks passed, waiting
+  for the supervisor's manual test**; go 2026-11-15 (product cost = synthetic vendor price). 2.4a merged 2026-11-14 (PR #28, 53b3958); protocol tags `protocol-v1` (5689f1e) and
   `protocol-v1.1` (27640d6)
 - Branch / PR: `feat/catalog-stock` (from `develop` 53b3958)
 - Local checkout: on `feat/catalog-stock`; no other worktree; ESCI in `data/raw/esci/` (3 files, verified)
@@ -62,12 +62,15 @@ Updated: 2026-11-15 by agent session 6 — 2.4a merged (PR #28); Task 2.4b in pr
 - Odoo database: `shop`, recreated 2026-11-06 by `shop db reset` in 87 s (supervisor-approved, to give the integration
   user the "Products / Create" group); 86 modules, no demo data, company and website "Lost Demand Demo Shop", USD,
   generic chart of accounts, en_US, Demo payment provider (test), guest checkout on; integration user
-  `shop_integration` with a JSON-2 API key in `.env`; 0 sale orders. **Catalog (Task 2.4a, 2026-11-14): the
-  first 2,000 products** of `products.parquet` (by ESCI id), 23 public + 23 internal categories under "Shop
-  catalog", 20 synthetic vendors; all published, no tax, one vendor price line each; **stock 0** (stock is 2.4b)
-- Snapshots (`local/snapshots/`): `baseline-empty` (2026-11-06, 6.9 MB: 1 product, module not installed);
-  `after-1-2a-manual-test` (2026-11-06, older: its integration user cannot create products); `before-2-4a`
-  (2026-11-14, 19.8 MB: module 19.0.0.1.0 installed, no catalog — the state just before Task 2.4a)
+  `shop_integration` with a JSON-2 API key in `.env`; 0 sale orders. **Full catalog (Tasks 2.4a–b, 2026-11-15):
+  19,869 products** (all of `products.parquet`), published, no tax, cost = vendor price, one vendor price line each;
+  23 public + 23 internal categories under "Shop catalog"; 20 synthetic vendors; **stock**: 18,041 products in stock
+  (3–150 units, 18,041 done inventory moves and quants in WH/Stock), 1,828 at 0 (the out-of-stock set); 0 journal
+  entries (periodic valuation). Odoo defaults kept: `allow_out_of_stock_order=True`, `show_availability=False`
+- Snapshots (`local/snapshots/`): **`baseline-catalog`** (2026-11-15, 31.9 MB, saved in 8 s: the full catalog
+  above — **the baseline every campaign restores**, protocol §8); `before-2-4a` (2026-11-14, 19.8 MB: module
+  19.0.0.1.0, no catalog); `baseline-empty` (2026-11-06, 6.9 MB: 1 product, module not installed);
+  `after-1-2a-manual-test` (2026-11-06, older: its integration user cannot create products)
 - Module `website_sale_lost_demand` **19.0.0.2.0** in `shop` (upgraded 2026-11-14 with `odoo module upgrade`, then
   `docker compose restart odoo`); 19.0.0.1.0 was installed from Apps on 2026-11-06 (browser re-test of 1.3);
   snapshot `baseline-empty` is the state without it. `shop` also holds an archived throwaway user `ld_tester`
@@ -212,6 +215,18 @@ Updated: 2026-11-15 by agent session 6 — 2.4a merged (PR #28); Task 2.4b in pr
   HTML sanitizer stores `'` and `"` unescaped, so 7 of 200 products were rewritten on every run; quotes are no longer
   escaped and HTML descriptions are compared by their decoded text. 12 new tool tests (378 total)
 
+- 2.4b — implemented 2026-11-15 on `feat/catalog-stock`, manual test pending — `shop import catalog` adds cost
+  (`standard_price` = vendor price) and stock by a real inventory adjustment per batch (`stock.quant.create` in
+  `inventory_mode`, then `action_apply_inventory`; only products whose quantity differs; a conflict answer stops the
+  run); `uv run shop import verify [--sample N] [--seed S]` (seeded stream `import-check`, all fields + stock);
+  `results/summary/catalog-import.md` per real run (committed: the full import's record); SonarCloud's 4 code smells
+  from 2.4a fixed (model-name constants, `product_changes` split); `snapshot.git_sha` made public. Real runs on
+  `shop`: the 2,000 existing products updated with cost + stock in 151 s (individual writes: 75 ms per product);
+  1,000 new products with stock ≈ 31 ms per product; **full import 442 s** (16,869 created, 15,287 stock
+  adjustments, 21.9 ms per product, batch median 5.0 s, max 7.4 s); **second full run 40 s, 0 created, 0 updated,
+  0 adjusted**; `shop import verify` 10 of 10 match; counts in Odoo match (18,041 in stock = moves = quants, 1,828 at
+  0, cost on all, tax on none, 0 journal entries); snapshot `baseline-catalog` 31.9 MB. 9 new tool tests (387 total)
+
 ## Latest results
 - none (no evaluation yet)
 
@@ -300,7 +315,14 @@ Updated: 2026-11-15 by agent session 6 — 2.4a merged (PR #28); Task 2.4b in pr
 - A local shop owner for interview #1 (Task 1.6) — start looking early
 
 ## Next step (exact)
-- **Agent: implement Task 2.4b** on `feat/catalog-stock` (go 2026-11-15, with product cost = vendor price)
+- **Supervisor: manual test of Task 2.4b** (PR from `feat/catalog-stock`; the full catalog is already imported and
+  saved as `baseline-catalog`): browse the shop (search, a category, a product); in the backend open a product
+  (cost, *On Hand* quantity) and *Inventory > Moves History* (inventory adjustments); run `uv run shop import verify`
+  and, optionally, `uv run shop import catalog` again (0 created, 0 updated, 0 adjusted, about 40 s)
+- **Decision for the supervisor (before M3/FR3):** out-of-stock products currently look like any other product and
+  can still be ordered (Odoo defaults `allow_out_of_stock_order=True`, `show_availability=False`). Options: let the
+  importer set "show availability" and "no order when out of stock" on every product, or decide it in M3 with FR3. If
+  the importer changes, re-run it and re-save `baseline-catalog` before any campaign
 - Agent note: `odoo module upgrade -c /etc/odoo/odoo.conf -d shop website_sale_lost_demand` inside the `odoo`
   container (`MSYS_NO_PATHCONV=1` in Git Bash), then `docker compose restart odoo`, upgrades the module in `shop`
 - Follow-up (before M9 facets, optional): keyword categories are right for roughly 3 of 4 products; ambiguous

@@ -25,7 +25,10 @@ products per `create` call, after one `search_read` per batch to find what exist
 minutes, the supervisor is asked before anything else is done (an in-container ORM script would then be considered).
 
 ## Consequences
-Every product write goes through HTTP and a transaction per call; timing is measured and recorded (Task 2.4a, 2.4b).
+Every product write goes through HTTP and a transaction per call; timing is measured and recorded (Task 2.4a, 2.4b;
+`results/summary/catalog-import.md`). Measured on the development laptop: product creation about 8 ms per product;
+creation with its stock adjustment about 31 ms per product (one inventory move each); a re-run that changes nothing
+about 2 ms per product. All well under the switch condition.
 The integration user needs create rights on products, vendor prices, both category models, partners and stock
 quants; `shop db create` checks them (`odoodb.WRITE_MODELS`).
 
