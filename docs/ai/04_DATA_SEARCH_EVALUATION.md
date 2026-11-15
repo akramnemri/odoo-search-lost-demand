@@ -108,8 +108,14 @@ journal entries). Stock through a real inventory adjustment in the warehouse's s
 `inventory_mode`, then `action_apply_inventory`: one stock move per product), only for products whose on-hand quantity
 differs, so a re-run moves nothing; a "conflict" answer from Odoo stops the run. `uv run shop import verify [--sample N]
 [--seed S]` compares seeded random products (stream `import-check`) with their source rows, stock included; each real
-import writes `results/summary/catalog-import.md` (counts and timing). The full import is saved as the snapshot
-`baseline-catalog`, the state every campaign restores (protocol §8).
+import that changes something writes `results/summary/catalog-import.md` (counts and timing). The full import is
+saved as the snapshot `baseline-catalog`, the state every campaign restores (protocol §8).
+
+Shop availability (supervisor, 2026-11-15): every product has `show_availability=True` and
+`allow_out_of_stock_order=False` (website_sale_stock). An out-of-stock product stays published and findable, shows
+"Out of Stock" and cannot be added to a cart; at or below 5 units the page shows "N Units in stock". Consequence for
+the events (M4) and the out-of-stock signal (protocol §5.1): out-of-stock products get views and clicks but never an
+add-to-cart.
 
 ## 5. Product index design
 
