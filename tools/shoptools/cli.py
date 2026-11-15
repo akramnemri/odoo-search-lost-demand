@@ -17,6 +17,7 @@ from shoptools.data import esci, slice_builder
 from shoptools.doctor.expected import VERSIONS_FILE, find_repo_root, load_expected
 from shoptools.doctor.report import SECTIONS, run_doctor
 from shoptools.envfile import PROFILES, init_env
+from shoptools.eval import baseline_search
 
 ACTION_METAVAR = "<action>"
 
@@ -37,7 +38,7 @@ PLANNED_COMMANDS: dict[str, tuple[str, str]] = {
     "import": ("import the catalog into Odoo", "2.4"),
     "index": ("rebuild or check the product index", "3.1"),
     "probe": ("measure freshness of products and events", "3.2"),
-    "eval": ("run evaluation campaigns (NDCG, detection, speed)", "3.4"),
+    "eval": ("run evaluation campaigns (baseline search; later NDCG, detection, speed)", "2.5"),
     "kibana": ("import or export Kibana saved objects", "4.5"),
     "shoppers": ("run Locust virtual shoppers", "5.3"),
     "scenario": ("run scripted end-to-end scenarios", "6.4"),
@@ -322,6 +323,24 @@ def _run_import(namespace: argparse.Namespace) -> int:
     )
 
 
+def _add_eval_arguments(parser: argparse.ArgumentParser) -> None:
+    kinds = parser.add_subparsers(dest="eval_kind", metavar="<kind>", required=True)
+    baseline = kinds.add_parser(
+        "baseline-search",
+        help="Odoo's own shop search on the hand-picked and all dev queries (Task 2.5; read-only)",
+    )
+    baseline.add_argument(
+        "--no-dev", action="store_true", help="only the hand-picked queries (skip the 300 dev queries)"
+    )
+
+
+def _run_eval(namespace: argparse.Namespace) -> int:
+    repo_root = _repo_root("eval")
+    if repo_root is None:
+        return 1
+    return baseline_search.run_baseline_search(repo_root, with_dev=not namespace.no_dev)
+
+
 # command -> (function adding its arguments, function running it)
 IMPLEMENTED_COMMANDS: dict[
     str, tuple[Callable[[argparse.ArgumentParser], None], Callable[[argparse.Namespace], int]]
@@ -339,6 +358,7 @@ IMPLEMENTED_COMMANDS: dict[
     "odoo-src": (_add_odoo_src_arguments, _run_odoo_src),
     "data": (_add_data_arguments, _run_data),
     "import": (_add_import_arguments, _run_import),
+    "eval": (_add_eval_arguments, _run_eval),
 }
 
 
