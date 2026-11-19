@@ -1,18 +1,19 @@
 # STATUS
 
-Updated: 2026-11-15 by agent session 6 — Task 2.5 implemented, waiting for the supervisor's manual test
+Updated: 2026-11-19 by agent session 7 — Task 2.6 (M2 release): regression gate passed, task PR open
 
 ## Current position
-- Milestone: M2 — Datasets, evaluation protocol, catalog import — in progress. M1 released 2026-11-14 (PR #22,
-  merge commit f3926a1, tag `m1-stack`)
-- M2 order: 2.1 ✓ → 2.2 ✓ → 2.3a ✓ → 2.3b ✓ → 2.4a ✓ → 2.4b ✓ (+ availability follow-up ✓) → 2.5 → 2.6. Task 1.6
+- Milestone: M2 — Datasets, evaluation protocol, catalog import — **release in progress**. M1 released 2026-11-14
+  (PR #22, merge commit f3926a1, tag `m1-stack`)
+- M2 order: 2.1 ✓ → 2.2 ✓ → 2.3a ✓ → 2.3b ✓ → 2.4a ✓ → 2.4b ✓ (+ availability follow-up ✓) → 2.5 ✓ → 2.6. Task 1.6
   (interview) still open, in parallel
-- Task: **2.5 — baseline observations** (20 hand-picked dev-derived queries + all 300 dev queries through Odoo's
-  native `/shop` search; `uv run shop eval baseline-search`; `docs/report/notes/baseline-search.md`) — state: **implemented,
-  automated checks passed, waiting for the manual test**; go 2026-11-15 with the 300-dev-query measurement. Availability follow-up merged 2026-11-15 (PR #30,
-  6ac56a6); protocol tags `protocol-v1` (5689f1e) and `protocol-v1.1` (27640d6)
-- Branch / PR: `feat/baseline-search` (from `develop` 6ac56a6)
-- Local checkout: on `feat/baseline-search`; no other worktree; ESCI in `data/raw/esci/` (3 files, verified)
+- Task: **2.6 — milestone note and promotion** (`docs/report/notes/M2.md`, `CHANGELOG.md`, regression gate items 1–3
+  + full-catalog baseline reproduction, SonarCloud fixes of 2.5, `--no-dev` keeps the table, `import verify --limit`)
+  — state: **implemented, gate passed, waiting for CI and the supervisor's manual test**; then the release PR
+  `develop → main` and tag `m2-catalog`. Protocol tags `protocol-v1` (5689f1e) and `protocol-v1.1` (27640d6)
+- Branch / PR: `docs/m2-release` (from `develop` d15bebd)
+- Local checkout: on `docs/m2-release`; no other worktree (the regress worktree was removed); ESCI in
+  `data/raw/esci/` (3 files, verified)
 - Repository: https://github.com/akramnemri/odoo-search-lost-demand (public, default branch `develop`)
 
 ## Milestone 0 exit check (2026-10-28)
@@ -24,7 +25,7 @@ Updated: 2026-11-15 by agent session 6 — Task 2.5 implemented, waiting for the
 - `main` still holds only the prompt pack: the first promotion `develop` → `main` is Task 1.7 (tag `m1-stack`)
 
 ## Environment
-- Doctor: 50 OK, 0 WARN, 0 FAIL, 4 SKIP — 2026-11-14 with the stack up (free disk 72 GB after the supervisor freed
+- Doctor: 52 OK, 1 WARN (free disk 35.7 GB), 0 FAIL, 3 SKIP — 2026-11-19 with the stack up (72 GB on 2026-11-14 after the supervisor freed
   space)
 - Stack: `uv run shop up|down|status|logs`; `compose.yaml` (project `odoo-search-lost-demand`); clean start from empty
   volumes healthy in 94 s; `shop up` from stopped 66–82 s; images pulled 2026-10-29 (2.34 GB compressed)
@@ -246,7 +247,26 @@ Updated: 2026-11-15 by agent session 6 — Task 2.5 implemented, waiting for the
   sample), update 122 s, second run 66 s with 0 changes and the record untouched, `shop import verify` 10/10; built-in
   browser: an out-of-stock product shows "Out of Stock" with Add to cart hidden, an in-stock one (13) keeps Add to
   cart, one with 4 units shows "4 Units in stock". `baseline-catalog` re-saved. 3 new tool tests (390 total)
-- 2.5 — implemented 2026-11-15 on `feat/baseline-search`, manual test pending — `uv run shop eval baseline-search
+- 2.6 — implemented 2026-11-19 on `docs/m2-release`, waiting for CI and the manual test — `baseline_search.py`: the
+  5 SonarCloud findings of 2.5 fixed (regex without backtracking, outcome constants, `load_hand_picked` split, plain
+  `if` for length buckets); `--no-dev` writes its run folder only and leaves `results/summary/baseline-search.md`
+  unchanged. `shop import verify --limit N` draws from the first N products like `import catalog --limit N` (the
+  gate found that verify failed 0/10 after a partial import), with a hint when products are missing. 6 new tool
+  tests (410 total). Regression gate items 1–3 on 2026-11-19 in an isolated worktree (Compose project
+  `odoo-search-lost-demand-regress`, `down -v` afterwards, supervisor-approved; the shop database untouched): clean
+  start 387 s (over the 5-minute target; ~17 containers of other projects on the engine, Elasticsearch 2 min 43 s);
+  license basic; doctor 48 OK, 5 WARN (disk 37 GB, cluster yellow, ESCI raw files absent in the worktree), 0 FAIL;
+  `shop db create` 267 s; module install 8 s (19.0.0.2.0); `shop test module --es` 15 passed in 185 s; snapshot
+  save 11 s, restore 113 s then 40 s; `import catalog --limit 500` twice (second: no change); `verify --limit 500`
+  10/10. Extra: full import 682 s, second run 38 s with no change, `verify --sample 50` 50/50; `shop eval
+  baseline-search` on the clean stack: every table row identical to the committed run. Real stack afterwards:
+  healthy in 104 s, doctor 52 OK, 1 WARN (disk), 0 FAIL, 19,869 products published. Details in
+  `docs/report/notes/M2.md`
+- 2.5 — merged 2026-11-15 (PR #31, d15bebd, squash, by the agent on the supervisor's instruction after all checks
+  and the SonarCloud gate were green; 5 code smells left for 2.6). Manual test passed 2026-11-15, run by the agent:
+  note and table consistent; built-in browser — "royal blue bedspreads" no result, "royal blue bedspread" 3 results,
+  "squritle" shows Odoo's "Showing results for"; re-run of the 20 queries (27 s) identical to the committed rows (the
+  `--no-dev` re-run replaced the table, restored by hand; fixed in 2.6) — `uv run shop eval baseline-search
   [--no-dev]` (`tools/shoptools/eval/baseline_search.py`): real `/shop?search=` pages (http mode), result count,
   Odoo's similar-word fallback, page-1 products mapped to ESCI ids; 20 hand-picked queries with controls
   (`docs/report/notes/baseline-queries.toml`, typo / vocabulary / plural / brand / long, dev data only, test queries
@@ -261,7 +281,8 @@ Updated: 2026-11-15 by agent session 6 — Task 2.5 implemented, waiting for the
   product is in the shop (15 % for 1–2 words, 23 % for 3–4, 33 % for 5+, 46 % with a negation word); Odoo's
   similar-word fallback changed 2 queries; 188 (63 %) show an exact product on page 1 (optimistic: median 4 results
   in our judged-only catalog). Hand-picked: 17 of 20 find nothing while their controls find the product. Dev data
-  only; not a test-set result
+  only; not a test-set result. **Reproduced 2026-11-19** from a clean stack and a fresh full import (run
+  `baseline-search-20261119T154209Z`, git bc36eb3): every table row identical
 
 ## Decisions since last milestone
 - Repository `odoo-search-lost-demand`, public; code license LGPL-3.0-only (`LICENSE` + `COPYING`)
@@ -333,13 +354,17 @@ Updated: 2026-11-15 by agent session 6 — Task 2.5 implemented, waiting for the
 - Free disk: 72 GB on 2026-11-14 after the supervisor freed space (2.2 GB that morning: doctor FAIL; 37.5 GB on
   2026-11-06). Docker images 18.9 GB (14.7 GB unused, mostly other projects). Datasets (ESCI 1.1 GB, REES46 13.7 GB)
   come in M2/M7. Never prune without the supervisor
-- The doctor reads the Compose project name from `compose.yaml` and ignores `COMPOSE_PROJECT_NAME`: with a second
-  project (the isolated regression run) its port checks fail. Small follow-up, not blocking
 - The supervisor's kind cluster (`mlops-lab-*`, `kind-registry`, another project) restarts with Docker Desktop; the agent
   stopped it on request (2026-11-14), never removed
 - `shop test module` takes about 85–90 s (fresh `shop_test` with `website_sale` and its dependencies) and runs a second
   Odoo process in the `odoo` container next to the development server
 - Kibana and Elasticsearch memory under real dashboard and indexing load is not measured yet (M4, M7, M8)
+- Clean start 387 s on 2026-11-19 (target < 5 min; 93 s on 2026-11-14) with ~17 containers of other projects running
+  (a kind cluster among them); the timing targets assume a quieter engine. Stop other stacks before timed runs
+- Fresh stack: cluster health yellow — Kibana 9.5 creates `.entity_analytics.watchlists.default` with 1 replica,
+  which a one-node cluster cannot assign. Not blocking; follow-up: set `number_of_replicas: 0` on it in `es-setup`
+  (or an index template) in M3
+- Free disk 35.7 GB on 2026-11-19 after the gate (doctor WARN below 50 GB): enough for M3; never prune without the supervisor
 - The PostgreSQL password was shown once in the agent chat (process list check, before the fix); it never reached
   the repository. Rotate it if the transcript is shared (needs `ALTER USER` on the existing volume)
 
@@ -348,10 +373,12 @@ Updated: 2026-11-15 by agent session 6 — Task 2.5 implemented, waiting for the
 - A local shop owner for interview #1 (Task 1.6) — start looking early
 
 ## Next step (exact)
-- **Supervisor: manual test of Task 2.5** (PR from `feat/baseline-search`): read
-  `docs/report/notes/baseline-search.md` and `results/summary/baseline-search.md`; try 2–3 queries of the table in the
-  shop; optionally run `uv run shop eval baseline-search --no-dev` (about 20 s); take the 6 screenshots listed in the
-  note
+- **Supervisor: manual test of Task 2.6** (PR from `docs/m2-release`): read `docs/report/notes/M2.md` and the
+  `m2-catalog` entry of `docs/progress/CHANGELOG.md`; optionally `uv run shop eval baseline-search --no-dev`
+  (about 30 s) and check that `git status` shows `results/summary/baseline-search.md` unchanged; optionally
+  `uv run shop import verify --limit 500` (10 of 10 on the full shop)
+- Then, on the supervisor's "merge": squash-merge the task PR, open the release PR `develop → main` (merge commit,
+  gate results in the description), and after it merges tag `m2-catalog` on `main`
 - Idea for M4/M6 (not decided): Odoo's "Get notified when back in stock" form on out-of-stock pages is an explicit
   lost-demand signal (a shopper asking for a missing product); consider it as an extra event
 - Agent note: `odoo module upgrade -c /etc/odoo/odoo.conf -d shop website_sale_lost_demand` inside the `odoo`
@@ -360,7 +387,6 @@ Updated: 2026-11-15 by agent session 6 — Task 2.5 implemented, waiting for the
   bullet-point words cause most misses. Tuning them (dev products only) changes the catalog hashes and the hidden
   sets' strata: rebuild the slice, re-run the import and re-save `baseline-catalog`, all before any campaign
 - Supervisor: academic supervisor's approval of protocol v1.1 if required (D11)
-- Then Task 2.6 (milestone note `docs/report/notes/M2.md`, regression gate items 1–3, promotion, tag `m2-catalog`)
 - Observation for 2.3b/M5 (not a protocol deviation): the typo position is uniform over the word's letters, so
   first-letter typos ("poll" → "opll") occur; real typos are rarer there. The shopper model may weight positions
 - Supervisor: JetBrains student license; optional PyCharm screenshots 01–05 and 08 (`docs/setup/PYCHARM.md` §7); the
