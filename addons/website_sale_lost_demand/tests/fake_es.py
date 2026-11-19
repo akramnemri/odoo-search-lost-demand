@@ -1,6 +1,7 @@
 """Fake Elasticsearch service for the Odoo unit tests: same interface as services.es_client.EsService."""
 
 from ..services.es_client import ClusterStatus
+from ..services.product_index import IndexStatus
 
 HEALTHY = ClusterStatus(
     reachable=True,
@@ -22,10 +23,14 @@ DOWN = ClusterStatus(
 class FakeEsService:
     """Answers with a fixed status and counts the calls; no network."""
 
-    def __init__(self, status: ClusterStatus = HEALTHY) -> None:
+    def __init__(self, status: ClusterStatus = HEALTHY, index: IndexStatus | None = None) -> None:
         self.status = status
+        self.index = index or IndexStatus()
         self.calls = 0
 
     def cluster_status(self, refresh: bool = False) -> ClusterStatus:
         self.calls += 1
         return self.status
+
+    def product_index_status(self) -> IndexStatus:
+        return self.index

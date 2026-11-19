@@ -18,16 +18,28 @@ Version `19.0.0.1.0` (Task 1.3) is the skeleton:
 Version `19.0.0.2.0` (Task 2.4a) adds a **Brand** field on products (`product.template.brand`, shown after the
 product category on the product form). Odoo 19.0 Community has none; the catalog importer fills it.
 
+Version `19.0.0.3.0` (Task 3.1) adds the **product index**: every product the shop can sell (active,
+`sale_ok`, published or not) becomes a document in Elasticsearch behind the alias `shop-products`. A full
+rebuild loads a new index `shop-products-v<N+1>`, checks that it holds one document per product, then moves
+the alias in one atomic call; the previous index is kept (delete old ones yourself when no longer needed).
+Run it with `uv run shop index rebuild` or *Settings › Website › Rebuild product index* (administrators);
+`uv run shop index rebuild --check` and the doctor compare the counts. Shop search does not use the index yet
+(Task 3.3), and product changes reach it only through a rebuild until Task 3.2. The module now depends on
+`website_sale_stock` (stock quantities).
+
 ## Layout
 
 | Path | Content |
 |---|---|
 | `services/config.py` | Connection settings from the container environment (below), validated |
-| `services/es_client.py` | `EsClient`: `cluster_status()` for the settings page, `guarded()` for shopper calls |
+| `services/es_client.py` | `EsClient`: `cluster_status()` and `product_index_status()` for the settings page, `admin_client()` for the rebuild, `guarded()` for shopper calls |
 | `services/breaker.py` | Circuit breaker: closed → open after N failures → half-open trial → closed |
+| `services/product_index.py` | Index definition loader, documents, versioned names, rebuild with count check and alias swap |
+| `elastic/products/` | Index settings and analyzers, mapping, synonyms seed (JSON; the index is built from these) |
+| `models/product_index.py` | `lost_demand.product.index`: reads products in batches of 500 and runs the rebuild |
 | `models/res_config_settings.py` | Computed, non-stored status fields on `res.config.settings` |
 | `models/product_template.py`, `views/product_template_views.xml` | The `brand` field and its place on the form |
-| `views/res_config_settings_views.xml` | The status block in the Website app of Settings |
+| `views/res_config_settings_views.xml` | The status block in the Website app of Settings, product index status and rebuild button |
 | `security/` | Groups; `ir.model.access.csv` (header only until the first model, M3) |
 | `tests/` | Odoo tests; `fake_es.py` replaces Elasticsearch; tests tagged `es` use the real cluster |
 

@@ -12,7 +12,7 @@ import sys
 from collections.abc import Callable, Sequence
 from pathlib import Path
 
-from shoptools import __version__, catalog_import, moduletest, odoodb, odoosrc, snapshot, stack
+from shoptools import __version__, catalog_import, index_rebuild, moduletest, odoodb, odoosrc, snapshot, stack
 from shoptools.data import esci, slice_builder
 from shoptools.doctor.expected import VERSIONS_FILE, find_repo_root, load_expected
 from shoptools.doctor.report import SECTIONS, run_doctor
@@ -350,6 +350,26 @@ def _run_eval(namespace: argparse.Namespace) -> int:
     return baseline_search.run_baseline_search(repo_root, with_dev=not namespace.no_dev)
 
 
+def _add_index_arguments(parser: argparse.ArgumentParser) -> None:
+    actions = parser.add_subparsers(dest="index_action", metavar="<action>", required=True)
+    rebuild = actions.add_parser(
+        "rebuild",
+        help="load every product into a new index, check the count, move the alias (a few minutes)",
+    )
+    rebuild.add_argument(
+        "--check",
+        action="store_true",
+        help="only compare the index with Odoo's product count; change nothing",
+    )
+
+
+def _run_index(namespace: argparse.Namespace) -> int:
+    repo_root = _repo_root("index")
+    if repo_root is None:
+        return 1
+    return index_rebuild.run_rebuild(repo_root, check_only=namespace.check)
+
+
 # command -> (function adding its arguments, function running it)
 IMPLEMENTED_COMMANDS: dict[
     str, tuple[Callable[[argparse.ArgumentParser], None], Callable[[argparse.Namespace], int]]
@@ -368,6 +388,7 @@ IMPLEMENTED_COMMANDS: dict[
     "data": (_add_data_arguments, _run_data),
     "import": (_add_import_arguments, _run_import),
     "eval": (_add_eval_arguments, _run_eval),
+    "index": (_add_index_arguments, _run_index),
 }
 
 

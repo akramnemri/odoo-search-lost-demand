@@ -105,6 +105,10 @@ def _healthy_cluster(fake_system: FakeSystem, license_type: str = "basic") -> No
             f"{ELASTICSEARCH_URL}/_cluster/health": _ok({"status": "green"}),
             f"{ELASTICSEARCH_URL}/": _ok({"version": {"number": "9.5.5"}}),
             f"{ELASTICSEARCH_URL}/_license": _ok({"license": {"type": license_type, "status": "active"}}),
+            f"{ELASTICSEARCH_URL}/_alias/shop-products": _ok(
+                {"shop-products-v2": {"aliases": {"shop-products": {}}}}
+            ),
+            f"{ELASTICSEARCH_URL}/shop-products/_count": _ok({"count": 19869}),
         }
     )
 
@@ -116,7 +120,8 @@ def test_healthy_elasticsearch_with_the_tools_user(context: DoctorContext, with_
 
     for name in ("login (shop_tools)", "cluster health", "version", "license"):
         assert results[name].status is Status.OK, name
-    assert results["product index alias"].status is Status.SKIP
+    assert results["product index alias"].status is Status.OK
+    assert results["product index alias"].found == "shop-products -> shop-products-v2, 19,869 documents"
     assert with_env.http_auth[f"{ELASTICSEARCH_URL}/_license"] == ("shop_tools", "tools-value")
 
 
@@ -206,3 +211,29 @@ def test_kibana_not_running_is_a_warning(context: DoctorContext, with_env: FakeS
 
     assert result.status is Status.WARN
     assert "--no-kibana" in result.hint
+
+
+def test_product_index_not_built_yet(context: DoctorContext, with_env: FakeSystem) -> None:
+    _healthy_cluster(with_env)
+    with_env.http[f"{ELASTICSEARCH_URL}/_alias/shop-products"] = HttpResponse(
+        404, json.dumps({"status": 404})
+    )
+
+    result = by_name(check_elastic(context))["product index alias"]
+
+    assert (result.status, result.hint) == (Status.WARN, "uv run shop index rebuild")
+
+
+def test_product_alias_on_two_indices(context: DoctorContext, with_env: FakeSystem) -> None:
+    _healthy_cluster(with_env)
+    with_env.http[f"{ELASTICSEARCH_URL}/_alias/shop-products"] = _ok(
+        {
+            "shop-products-v1": {"aliases": {"shop-products": {}}},
+            "shop-products-v2": {"aliases": {"shop-products": {}}},
+        }
+    )
+
+    result = by_name(check_elastic(context))["product index alias"]
+
+    assert result.status is Status.WARN
+    assert result.found == "on 2 indices: shop-products-v1, shop-products-v2"

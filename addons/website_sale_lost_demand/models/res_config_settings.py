@@ -1,7 +1,8 @@
-"""Read-only Elasticsearch status in Website settings (docs/ai/01_ARCHITECTURE.md §6.2).
+"""Elasticsearch status and the product index in Website settings (docs/ai/01_ARCHITECTURE.md §6.2).
 
 Extends res.config.settings (odoo/addons/base/models/res_config.py, ResConfigSettings) with computed,
 non-stored fields only: nothing is saved by `execute()`/`set_values()`, which are not overridden.
+Task 3.1 adds the product index status (alias, documents vs. products) and the "Rebuild product index" button.
 Access stays the standard one of res.config.settings: Settings administrators (base.group_system) only.
 """
 
@@ -11,6 +12,7 @@ from odoo import api, fields, models
 
 from ..services.config import ConfigError
 from ..services.es_client import ClusterStatus, EsService, shared_service
+from ..services.product_index import PRODUCTS, IndexStatus
 
 
 def get_es_service() -> EsService:
@@ -38,6 +40,18 @@ class ResConfigSettings(models.TransientModel):
     lost_demand_es_checked_at = fields.Datetime(
         string="Status checked at", compute="_compute_lost_demand_es_status"
     )
+
+    lost_demand_index_message = fields.Char(
+        string="Product index status", compute="_compute_lost_demand_index_status"
+    )
+    lost_demand_index_name = fields.Char(string="Index", compute="_compute_lost_demand_index_status")
+    lost_demand_index_documents = fields.Integer(
+        string="Documents", compute="_compute_lost_demand_index_status"
+    )
+    lost_demand_index_products = fields.Integer(
+        string="Products to index", compute="_compute_lost_demand_index_status"
+    )
+    lost_demand_index_in_sync = fields.Boolean(string="In sync", compute="_compute_lost_demand_index_status")
 
     @api.model
     def _lost_demand_es_status(self) -> tuple[ClusterStatus, str]:
@@ -72,3 +86,40 @@ class ResConfigSettings(models.TransientModel):
             settings.lost_demand_es_health = status.health or False
             settings.lost_demand_es_circuit = status.breaker or False
             settings.lost_demand_es_checked_at = checked_at
+
+    def _compute_lost_demand_index_status(self):
+        products = self.env["lost_demand.product.index"]._indexable_count()
+        try:
+            status = get_es_service().product_index_status()
+        except ConfigError as error:
+            status = IndexStatus(error=str(error))
+        in_sync = status.exists and status.documents == products
+        if status.error:
+            message = self.env._("Unknown: %(error)s", error=status.error)
+        elif not status.exists:
+            message = self.env._("No product index yet: rebuild it.")
+        elif in_sync:
+            message = self.env._("In sync: %(alias)s holds one document per product.", alias=PRODUCTS.alias)
+        else:
+            message = self.env._("Out of sync: rebuild the product index.")
+        for settings in self:
+            settings.lost_demand_index_message = message
+            settings.lost_demand_index_name = ", ".join(status.indices) or False
+            settings.lost_demand_index_documents = status.documents or 0
+            settings.lost_demand_index_products = products
+            settings.lost_demand_index_in_sync = in_sync
+
+    def action_lost_demand_rebuild_index(self):
+        """Settings button (administrators only): full rebuild, then a notification and a page reload."""
+        result = self.env["lost_demand.product.index"]._rebuild()
+        return {
+            "type": "ir.actions.client",
+            "tag": "display_notification",
+            "params": {
+                "type": "success",
+                "title": self.env._("Product index rebuilt"),
+                "message": result.summary(),
+                "sticky": False,
+                "next": {"type": "ir.actions.client", "tag": "reload"},
+            },
+        }

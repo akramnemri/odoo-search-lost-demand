@@ -1,1 +1,7 @@
-from . import test_es_integration, test_product_brand, test_settings_page
+from . import (
+    test_es_integration,
+    test_product_brand,
+    test_product_index,
+    test_product_index_es,
+    test_settings_page,
+)
