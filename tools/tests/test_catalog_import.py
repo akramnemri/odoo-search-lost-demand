@@ -512,6 +512,17 @@ def test_verify_reports_missing_products_and_wrong_stock(tmp_path: Path) -> None
     failed = [line for line in lines if "FAIL" in line]
     assert sum("differs: missing" in line for line in failed) == 4
     assert sum("differs: stock" in line for line in failed) == 3  # B0004 has no quant: still 0
+    assert lines[-1].startswith("4 not in Odoo: after `import catalog --limit N`")
+
+
+def test_verify_after_a_partial_import_with_the_same_limit(tmp_path: Path) -> None:
+    write_inputs(tmp_path, count=8)
+    odoo = FakeOdoo()
+    assert run(tmp_path, odoo, limit=4) == 0
+    lines: list[str] = []
+
+    assert ci.run_verify(tmp_path, sample=10, seed=1, limit=4, call=odoo, write=lines.append) == 0
+    assert lines[-1] == "4 of 4 match.\n"
 
 
 def test_a_real_run_writes_its_record(tmp_path: Path) -> None:

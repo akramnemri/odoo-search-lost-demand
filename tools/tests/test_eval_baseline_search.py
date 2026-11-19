@@ -197,15 +197,46 @@ def test_a_run_writes_the_table_and_the_run_folder(tmp_path: Path) -> None:
     assert observations["hand_picked"][0]["control"]["first_expected_rank"] == 2
 
 
-def test_hand_picked_only(tmp_path: Path) -> None:
+def test_hand_picked_only_keeps_the_committed_table(tmp_path: Path) -> None:
     write_slice(tmp_path)
     write_queries(tmp_path, [GOOD])
+    committed = tmp_path / bs.SUMMARY_FILE
+    committed.parent.mkdir(parents=True)
+    committed.write_text("table of the last full run\n", encoding="utf-8")
     pages = {"red shoez": page("red shoez", None, []), "red shoes": page("red shoes", 1, [10])}
+    lines: list[str] = []
 
-    assert (
-        bs.run_baseline_search(tmp_path, with_dev=False, fetch=pages.__getitem__, write=lambda _: None) == 0
-    )
-    assert "All 2 dev queries" not in (tmp_path / bs.SUMMARY_FILE).read_text(encoding="utf-8")
+    assert bs.run_baseline_search(tmp_path, with_dev=False, fetch=pages.__getitem__, write=lines.append) == 0
+    assert committed.read_text(encoding="utf-8") == "table of the last full run\n"
+    run_dir = next((tmp_path / "results").glob("baseline-search-*"))
+    assert json.loads((run_dir / "run.json").read_text(encoding="utf-8"))["command"].endswith("--no-dev")
+    assert "unchanged" in lines[-1]
+
+
+def test_a_fallback_message_is_read_with_escaped_terms_and_ignored_when_incomplete() -> None:
+    parsed = bs.parse_shop_page(page("tom &amp; jerry", 3, [5], fuzzy_from="tom &amp; jery"))
+    assert parsed.fuzzy_term == "tom & jerry"
+    # "No results found" without "Showing results for": Odoo did not fall back
+    broken = page("x", None, []) + "No results found for '<span>x</span>'." + "<span>" * 2000
+    assert bs.parse_shop_page(broken).fuzzy_term is None
+
+
+@pytest.mark.parametrize(
+    ("query", "bucket"), [("a b", "1–2 words"), ("a b c d", "3–4 words"), ("a b c d e", "5+ words")]
+)
+def test_length_buckets(query: str, bucket: str) -> None:
+    assert bs.length_bucket(query) == bucket
+
+
+def test_a_query_file_that_cannot_be_read_or_has_no_product(tmp_path: Path) -> None:
+    write_slice(tmp_path)
+    dev = bs.read_dev_data(tmp_path)
+    write_queries(tmp_path, [{**GOOD, "expected": []}])
+    with pytest.raises(bs.BaselineError, match="'red shoez': no expected product"):
+        bs.load_hand_picked(tmp_path / bs.QUERY_FILE, dev)
+    (tmp_path / bs.QUERY_FILE).write_text("[[query]]\ngroup = 'typo'\n", encoding="utf-8")
+    with pytest.raises(bs.BaselineError, match="is not valid"):
+        bs.load_hand_picked(tmp_path / bs.QUERY_FILE, dev)
 
 
 def test_the_table_keeps_the_dirty_mark_and_singular_result() -> None:
