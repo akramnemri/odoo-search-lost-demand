@@ -4,6 +4,7 @@ import io
 import json
 from pathlib import Path
 
+import pytest
 from conftest import REPO_ROOT, FakeSystem
 
 from shoptools.doctor.model import CheckResult, Fix, Status
@@ -71,15 +72,29 @@ def test_failed_fix_is_reported() -> None:
     assert "failed: core.autocrlf: permission denied" in out.getvalue()
 
 
-def test_later_sections_are_skipped_with_their_task() -> None:
+def test_later_sections_are_skipped_with_their_task(monkeypatch: pytest.MonkeyPatch) -> None:
+    from shoptools.doctor import report as report_module
+
+    monkeypatch.setattr(report_module, "LATER_SECTIONS", {"future": "9.9"})
+    results = report_module.run_checks(["future"], context=None)  # type: ignore[arg-type]
+
+    assert [(result.section, result.status.value, result.found) for result in results] == [
+        ("future", "SKIP", "available from Task 9.9"),
+    ]
+
+
+def test_data_section_checks_the_three_esci_files() -> None:
     out = io.StringIO()
-    code = run_doctor(["data"], as_json=True, system=FakeSystem(), start=REPO_ROOT, out=out)
+    run_doctor(["data"], as_json=True, system=FakeSystem(), start=REPO_ROOT, out=out)
     report = json.loads(out.getvalue())
 
-    assert code == 0
-    assert [(result["section"], result["status"], result["found"]) for result in report["results"]] == [
-        ("data", "SKIP", "available from Task 2.1"),
+    # OK once fetched, WARN before (CI never downloads datasets); never SKIP any more (Task 2.1).
+    assert [result["name"] for result in report["results"]] == [
+        "ESCI examples.parquet",
+        "ESCI products.parquet",
+        "ESCI sources.csv",
     ]
+    assert {result["status"] for result in report["results"]} <= {"OK", "WARN"}
 
 
 def test_all_sections_run_by_default_and_a_failure_sets_exit_code_one() -> None:

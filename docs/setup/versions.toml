@@ -53,3 +53,30 @@ standard = 8
 
 [ports]
 required_free = [8069, 8072, 9200, 5601, 8089]
+
+# Datasets (ADR-012, docs/setup/VERSIONS.md §4). Read by `uv run shop data fetch` and the doctor's `data` section.
+# Parquet sizes and SHA-256 come from the Git LFS pointer files at the pinned commit (checked 2026-11-14);
+# sources.csv is a plain git file, its SHA-256 computed from the pinned commit the same day.
+[datasets.esci]
+repository = "amazon-science/esci-data"
+commit = "7916cdf6ab75a462e77f20ab40428a10923998d5"  # pragma: allowlist secret
+folder = "shopping_queries_dataset"
+license = "Apache-2.0"
+
+[[datasets.esci.files]]
+name = "shopping_queries_dataset_examples.parquet"
+lfs = true
+size_bytes = 51286808
+sha256 = "4a735b693b4a424a6fc67f5be6e4c811495c488bbf66d02a602d308b2744263a"  # pragma: allowlist secret
+
+[[datasets.esci.files]]
+name = "shopping_queries_dataset_products.parquet"
+lfs = true
+size_bytes = 1108857465
+sha256 = "25124442d064d64b26f74082d6fa09438d679efc0c183cf28d19064a2b65a265"  # pragma: allowlist secret
+
+[[datasets.esci.files]]
+name = "shopping_queries_dataset_sources.csv"
+lfs = false
+size_bytes = 1682802
+sha256 = "a5fed8ecc016443de40bf3c63098f0e3f23bbe4daa4236f1c38b8c3184778c50"  # pragma: allowlist secret

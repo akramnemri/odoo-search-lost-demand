@@ -1,2 +1,29 @@
 # Provenance of every downloaded data file (filled by `uv run shop data fetch`, checked by the doctor).
 # One [[file]] table per file: path, source_url, version, sha256, size_bytes, license, downloaded_at.
+
+[[file]]
+path = "data/raw/esci/shopping_queries_dataset_examples.parquet"
+source_url = "https://media.githubusercontent.com/media/amazon-science/esci-data/7916cdf6ab75a462e77f20ab40428a10923998d5/shopping_queries_dataset/shopping_queries_dataset_examples.parquet"
+version = "amazon-science/esci-data@7916cdf6ab75a462e77f20ab40428a10923998d5"
+sha256 = "4a735b693b4a424a6fc67f5be6e4c811495c488bbf66d02a602d308b2744263a"  # pragma: allowlist secret
+size_bytes = 51286808
+license = "Apache-2.0"
+downloaded_at = "2026-11-14T15:41:11Z"
+
+[[file]]
+path = "data/raw/esci/shopping_queries_dataset_products.parquet"
+source_url = "https://media.githubusercontent.com/media/amazon-science/esci-data/7916cdf6ab75a462e77f20ab40428a10923998d5/shopping_queries_dataset/shopping_queries_dataset_products.parquet"
+version = "amazon-science/esci-data@7916cdf6ab75a462e77f20ab40428a10923998d5"
+sha256 = "25124442d064d64b26f74082d6fa09438d679efc0c183cf28d19064a2b65a265"  # pragma: allowlist secret
+size_bytes = 1108857465
+license = "Apache-2.0"
+downloaded_at = "2026-11-14T15:41:11Z"
+
+[[file]]
+path = "data/raw/esci/shopping_queries_dataset_sources.csv"
+source_url = "https://raw.githubusercontent.com/amazon-science/esci-data/7916cdf6ab75a462e77f20ab40428a10923998d5/shopping_queries_dataset/shopping_queries_dataset_sources.csv"
+version = "amazon-science/esci-data@7916cdf6ab75a462e77f20ab40428a10923998d5"
+sha256 = "a5fed8ecc016443de40bf3c63098f0e3f23bbe4daa4236f1c38b8c3184778c50"  # pragma: allowlist secret
+size_bytes = 1682802
+license = "Apache-2.0"
+downloaded_at = "2026-11-14T15:41:11Z"

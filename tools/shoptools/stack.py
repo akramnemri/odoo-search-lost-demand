@@ -7,12 +7,15 @@ Every command names compose.yaml and the repository explicitly, so it works from
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
 import sys
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
+
+from shoptools.envfile import parse_env
 
 COMPOSE_FILE = "compose.yaml"
 SERVICES = ("db", "elasticsearch", "es-setup", "kibana", "odoo")
@@ -35,14 +38,33 @@ class ServiceState:
     exit_code: int
 
 
-def project_name(repo_root: Path) -> str:
-    """The `name:` of compose.yaml; Compose's default (folder name) when the file does not set one."""
+def project_name(repo_root: Path, environ: Mapping[str, str] | None = None) -> str:
+    """The Compose project name, in Compose's own order.
+
+    `COMPOSE_PROJECT_NAME` in the environment, then in `.env`, then `name:` in compose.yaml, then the folder
+    name. The doctor uses it to recognise our containers: an isolated run under another project name, as in
+    the M1 regression check, is ours too.
+    """
+    environ = os.environ if environ is None else environ
+    from_env = environ.get("COMPOSE_PROJECT_NAME", "").strip()
+    if from_env:
+        return _normalize_project(from_env)
+    env_file = repo_root / ".env"
+    if env_file.is_file():
+        from_dotenv = parse_env(env_file.read_text(encoding="utf-8")).get("COMPOSE_PROJECT_NAME", "").strip()
+        if from_dotenv:
+            return _normalize_project(from_dotenv)
     compose = repo_root / COMPOSE_FILE
     if compose.is_file():
         match = _PROJECT_NAME.search(compose.read_text(encoding="utf-8"))
         if match:
             return match.group(1)
-    return re.sub(r"[^a-z0-9_-]", "", repo_root.name.lower())
+    return _normalize_project(repo_root.name)
+
+
+def _normalize_project(name: str) -> str:
+    # Compose lowercases a project name and keeps only letters, digits, '-' and '_'.
+    return re.sub(r"[^a-z0-9_-]", "", name.lower())
 
 
 def compose_command(repo_root: Path, *args: str) -> list[str]:

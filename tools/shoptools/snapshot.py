@@ -291,7 +291,8 @@ def _run(
     return "" if stdout_path else result.stdout.decode("utf-8", errors="replace")
 
 
-def _git_sha(repo_root: Path) -> str:
+def git_sha(repo_root: Path) -> str:
+    """HEAD of the repository, with "-dirty" when the working tree has changes; "unknown" without git."""
     git = ["git", "-C", str(repo_root)]
     try:
         sha = subprocess.run([*git, "rev-parse", "HEAD"], capture_output=True, text=True, check=True).stdout
@@ -367,7 +368,7 @@ def run_save(repo_root: Path, name: str, force: bool = False) -> int:
         metadata = Metadata(
             name=name,
             created_at=datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
-            git_sha=_git_sha(repo_root),
+            git_sha=git_sha(repo_root),
             odoo_image=_odoo_image(repo_root),
             db_name=db,
             files=files,

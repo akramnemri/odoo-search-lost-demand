@@ -12,10 +12,12 @@ import sys
 from collections.abc import Callable, Sequence
 from pathlib import Path
 
-from shoptools import __version__, moduletest, odoodb, odoosrc, snapshot, stack
+from shoptools import __version__, catalog_import, moduletest, odoodb, odoosrc, snapshot, stack
+from shoptools.data import esci, slice_builder
 from shoptools.doctor.expected import VERSIONS_FILE, find_repo_root, load_expected
 from shoptools.doctor.report import SECTIONS, run_doctor
 from shoptools.envfile import PROFILES, init_env
+from shoptools.eval import baseline_search
 
 ACTION_METAVAR = "<action>"
 
@@ -36,7 +38,7 @@ PLANNED_COMMANDS: dict[str, tuple[str, str]] = {
     "import": ("import the catalog into Odoo", "2.4"),
     "index": ("rebuild or check the product index", "3.1"),
     "probe": ("measure freshness of products and events", "3.2"),
-    "eval": ("run evaluation campaigns (NDCG, detection, speed)", "3.4"),
+    "eval": ("run evaluation campaigns (baseline search; later NDCG, detection, speed)", "2.5"),
     "kibana": ("import or export Kibana saved objects", "4.5"),
     "shoppers": ("run Locust virtual shoppers", "5.3"),
     "scenario": ("run scripted end-to-end scenarios", "6.4"),
@@ -218,6 +220,40 @@ def _run_test(namespace: argparse.Namespace) -> int:
     return moduletest.run_module_tests(repo_root, with_es=namespace.es, keep_db=namespace.keep_db)
 
 
+def _add_data_arguments(parser: argparse.ArgumentParser) -> None:
+    actions = parser.add_subparsers(dest="data_action", metavar=ACTION_METAVAR, required=True)
+    fetch = actions.add_parser(
+        "fetch", help="download a dataset into data/raw/ with checksums and provenance (asks first)"
+    )
+    fetch.add_argument("dataset", choices=["esci"], help="esci (Task 2.1); rees46 comes in Task 7.1")
+    fetch.add_argument(
+        "--dry-run", action="store_true", help="show files, sizes, disk and time; download nothing"
+    )
+    fetch.add_argument("--yes", action="store_true", help="do not ask before downloading")
+    profile = actions.add_parser(
+        "profile", help="write aggregate statistics of a fetched dataset to results/summary/"
+    )
+    profile.add_argument("dataset", choices=["esci"])
+    build = actions.add_parser(
+        "build-slice",
+        help="build the query sets, qrels and catalog in data/processed/ from ESCI (seeded, reproducible)",
+    )
+    build.add_argument(
+        "--dry-run", action="store_true", help="check inputs and select the queries; write nothing"
+    )
+
+
+def _run_data(namespace: argparse.Namespace) -> int:
+    repo_root = _repo_root("data")
+    if repo_root is None:
+        return 1
+    if namespace.data_action == "fetch":
+        return esci.run_fetch(repo_root, dry_run=namespace.dry_run, yes=namespace.yes)
+    if namespace.data_action == "build-slice":
+        return slice_builder.run_build_slice(repo_root, dry_run=namespace.dry_run)
+    return esci.run_profile(repo_root)
+
+
 def _add_odoo_src_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--force", action="store_true", help="replace an existing .odoo-src/")
     parser.add_argument(
@@ -242,6 +278,78 @@ def _run_odoo_src(namespace: argparse.Namespace) -> int:
     )
 
 
+def _positive_int(text: str) -> int:
+    value = int(text)
+    if value < 1:
+        raise argparse.ArgumentTypeError("must be a positive whole number")
+    return value
+
+
+def _add_import_arguments(parser: argparse.ArgumentParser) -> None:
+    targets = parser.add_subparsers(dest="import_target", metavar="<what>", required=True)
+    catalog = targets.add_parser(
+        "catalog",
+        help="categories, vendors and products from data/processed/ into Odoo (re-runs change nothing)",
+    )
+    catalog.add_argument("--limit", type=_positive_int, help="only the first N products (by ESCI id)")
+    catalog.add_argument("--dry-run", action="store_true", help="compare with Odoo and report; write nothing")
+    catalog.add_argument(
+        "--batch-size",
+        type=_positive_int,
+        default=catalog_import.BATCH_SIZE,
+        help=f"products per JSON-2 call (default {catalog_import.BATCH_SIZE})",
+    )
+    verify = targets.add_parser(
+        "verify",
+        help="compare random imported products with their source rows (all fields, stock); read-only",
+    )
+    verify.add_argument(
+        "--sample",
+        type=_positive_int,
+        default=catalog_import.VERIFY_SAMPLE,
+        help=f"how many products (default {catalog_import.VERIFY_SAMPLE})",
+    )
+    verify.add_argument("--seed", type=int, help="base seed of the draw (default: the seed of slice.toml)")
+    verify.add_argument(
+        "--limit",
+        type=_positive_int,
+        help="draw from the first N products only, as `import catalog --limit N`",
+    )
+
+
+def _run_import(namespace: argparse.Namespace) -> int:
+    repo_root = _repo_root("import")
+    if repo_root is None:
+        return 1
+    if namespace.import_target == "verify":
+        return catalog_import.run_verify(
+            repo_root, sample=namespace.sample, seed=namespace.seed, limit=namespace.limit
+        )
+    return catalog_import.run_import(
+        repo_root, limit=namespace.limit, dry_run=namespace.dry_run, batch_size=namespace.batch_size
+    )
+
+
+def _add_eval_arguments(parser: argparse.ArgumentParser) -> None:
+    kinds = parser.add_subparsers(dest="eval_kind", metavar="<kind>", required=True)
+    baseline = kinds.add_parser(
+        "baseline-search",
+        help="Odoo's own shop search on the hand-picked and all dev queries (Task 2.5; read-only)",
+    )
+    baseline.add_argument(
+        "--no-dev",
+        action="store_true",
+        help="only the hand-picked queries (skip the 300 dev queries); writes the run folder, not the table",
+    )
+
+
+def _run_eval(namespace: argparse.Namespace) -> int:
+    repo_root = _repo_root("eval")
+    if repo_root is None:
+        return 1
+    return baseline_search.run_baseline_search(repo_root, with_dev=not namespace.no_dev)
+
+
 # command -> (function adding its arguments, function running it)
 IMPLEMENTED_COMMANDS: dict[
     str, tuple[Callable[[argparse.ArgumentParser], None], Callable[[argparse.Namespace], int]]
@@ -257,6 +365,9 @@ IMPLEMENTED_COMMANDS: dict[
     "snapshot": (_add_snapshot_arguments, _run_snapshot),
     "test": (_add_test_arguments, _run_test),
     "odoo-src": (_add_odoo_src_arguments, _run_odoo_src),
+    "data": (_add_data_arguments, _run_data),
+    "import": (_add_import_arguments, _run_import),
+    "eval": (_add_eval_arguments, _run_eval),
 }
 
 

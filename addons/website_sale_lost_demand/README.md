@@ -15,6 +15,9 @@ Version `19.0.0.1.0` (Task 1.3) is the skeleton:
 - **Services** (`services/`, pure Python, no `odoo` import): configuration, Elasticsearch client with
   timeouts and a status cache, circuit breaker.
 
+Version `19.0.0.2.0` (Task 2.4a) adds a **Brand** field on products (`product.template.brand`, shown after the
+product category on the product form). Odoo 19.0 Community has none; the catalog importer fills it.
+
 ## Layout
 
 | Path | Content |
@@ -23,6 +26,7 @@ Version `19.0.0.1.0` (Task 1.3) is the skeleton:
 | `services/es_client.py` | `EsClient`: `cluster_status()` for the settings page, `guarded()` for shopper calls |
 | `services/breaker.py` | Circuit breaker: closed → open after N failures → half-open trial → closed |
 | `models/res_config_settings.py` | Computed, non-stored status fields on `res.config.settings` |
+| `models/product_template.py`, `views/product_template_views.xml` | The `brand` field and its place on the form |
 | `views/res_config_settings_views.xml` | The status block in the Website app of Settings |
 | `security/` | Groups; `ir.model.access.csv` (header only until the first model, M3) |
 | `tests/` | Odoo tests; `fake_es.py` replaces Elasticsearch; tests tagged `es` use the real cluster |

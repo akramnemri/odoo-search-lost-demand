@@ -1,0 +1,164 @@
+# Hand-picked queries for Task 2.5 (`uv run shop eval baseline-search`). DEV DATA ONLY: no test query and no
+# product judged for a test query (checked by the script). Chosen on 2026-11-15 AFTER measuring all 300 dev
+# queries, to illustrate each kind of failure; how often each kind occurs is in the same generated table.
+# group: typo, vocabulary, plural, brand, long. control: the query without the problem under study.
+
+[[query]]
+group = "typo"
+query = "theottle cable"
+control = "throttle cable"
+expected = ["B002ET2O2W", "B0055DPJJE", "B00D9TI6WI", "B01MD12TXA", "B01MXD17JN", "B07FXNPCGS", "B07M5RVMNL", "B07Q5NXR7W", "B07T1NYV7Z", "B087F61M7M"]
+source = "dev query 102547 (real ESCI shopper query); expected = its Exact products"
+why = "One wrong letter: every word must appear in the product text, so nothing matches."
+
+[[query]]
+group = "typo"
+query = "goodthreada cardigan wool"
+control = "goodthreads cardigan wool"
+expected = ["B07BKR1S9K", "B07N4LMT3Z", "B07N4QZP8Z", "B07P4PNNNB", "B07PDP1133", "B07PGR974M", "B07PGRF9J7", "B07PHW4TH7", "B07PK1KNWL"]
+source = "dev query 46705 (real ESCI shopper query); expected = its Exact products"
+why = "Misspelt brand: no result, and no suggestion either."
+
+[[query]]
+group = "typo"
+query = "mazada 5 drain plug"
+control = "mazda 5 drain plug"
+expected = ["B000C11GIM", "B000CHH69E", "B000CIQY1E", "B001NYMUWI", "B00KWEJB18", "B00OZ6TB1E", "B01NANQIMI", "B07C9CJM8J", "B07D995XRF", "B07QLN2W2R", "B07QPPQQX2"]
+source = "dev query 66608 (real ESCI shopper query); expected = its Exact products"
+why = "Misspelt car make in a 4-word query."
+
+[[query]]
+group = "typo"
+query = "squritle"
+control = "squirtle"
+expected = ["B018VAI2V4", "B06Y64613K", "B07K1D58LZ", "B07NQF6DNV", "B07PP8T36M", "B07PRH37KL", "B07SYF5VK7", "B07TFTGM5K", "B07V8KG7ND", "B07ZWQNVXT", "B086R7XXPN"]
+source = "dev query 97265 (real ESCI shopper query); expected = its Exact products"
+why = "One-word query: Odoo's fallback finds a similar word and shows its results (the case it handles)."
+
+[[query]]
+group = "vocabulary"
+query = "moomoos for women"
+control = "muu muu for women"
+expected = ["B07GBBDKWM"]
+source = "dev query 70566 (real ESCI shopper query); expected = its Exact products"
+why = "The shopper's spelling of the product type is not the seller's."
+
+[[query]]
+group = "vocabulary"
+query = "skechers boys dyna-lite trainers"
+control = "skechers boys dyna-lite sneaker"
+expected = ["B07H9LL4K1"]
+source = "constructed from the name of dev product B07H9LL4K1"
+why = "British word for the same product: no synonym handling."
+
+[[query]]
+group = "vocabulary"
+query = "hanes ecosmart full-zip hooded sweatshirt"
+control = "hanes ecosmart full-zip hoodie sweatshirt"
+expected = ["B01NBY4AC6"]
+source = "constructed from the name of dev product B01NBY4AC6"
+why = "Same thing, different word form: 'hooded' never matches 'hoodie'."
+
+[[query]]
+group = "vocabulary"
+query = "cellphone bike holder"
+control = "cell phone bike holder"
+expected = ["B08WG19GD1"]
+source = "constructed from the name of dev product B08WG19GD1"
+why = "One word or two: 'cellphone' never matches 'Cell Phone' in the product name."
+
+[[query]]
+group = "plural"
+query = "royal blue bedspreads"
+control = "royal blue bedspread"
+expected = ["B01N6G48OE", "B07588BD6X", "B07CT1DGC8"]
+source = "dev query 88851 (real ESCI shopper query); expected = its Exact products"
+why = "Plural query, singular product name: 'bedspreads' is not a substring of 'bedspread'."
+
+[[query]]
+group = "plural"
+query = "birthday candles sparklers"
+control = "birthday candle sparkler"
+expected = ["B07BLQHFCS", "B07HVFYZ48", "B07L5NX8XT", "B07RZHV5G3", "B07VPNL6RZ", "B07X8QHNYG", "B081P52KPG", "B082XKQJ1M"]
+source = "dev query 16096 (real ESCI shopper query); expected = its Exact products"
+why = "Two plural words: neither matches."
+
+[[query]]
+group = "plural"
+query = "koenders windmill parts"
+control = "koenders windmill part"
+expected = ["B008UQOD72", "B008UQOD8G", "B00JPJXJ6Y", "B075C9LZZP", "B07MKJ71QR", "B07NPCQDHX", "B07PDW5C1R", "B081RFNJG9", "B087BXW4F9", "B0897PHY5X", "B089S76PQW"]
+source = "dev query 58959 (real ESCI shopper query); expected = its Exact products"
+why = "Plural of the last word only."
+
+[[query]]
+group = "plural"
+query = "husqvarna dual knives"
+control = "husqvarna dual knife"
+expected = ["B008N2ALXS"]
+source = "constructed from the name of dev product B008N2ALXS"
+why = "Irregular plural."
+
+[[query]]
+group = "brand"
+query = "nintendo pokemon channel"
+control = "pokemon channel"
+expected = ["B0000E5U6V"]
+source = "constructed from the name of dev product B0000E5U6V"
+why = "Brand only in the brand field, which Odoo's search does not read."
+
+[[query]]
+group = "brand"
+query = "amscan voice changer"
+control = "voice changer"
+expected = ["B000W4RHAK"]
+source = "constructed from the name of dev product B000W4RHAK"
+why = "Same: the brand word makes the search fail."
+
+[[query]]
+group = "brand"
+query = "bantam tin can sailors"
+control = "tin can sailors"
+expected = ["0553381482"]
+source = "constructed from the name of dev product 0553381482"
+why = "Publisher as brand, not in the title."
+
+[[query]]
+group = "brand"
+query = "shoppingonbed rope hoist"
+control = "rope hoist"
+expected = ["B001BXJVNC"]
+source = "constructed from the name of dev product B001BXJVNC"
+why = "The brand word narrows to an unrelated product."
+
+[[query]]
+group = "long"
+query = "blood sugar monitor without finger pricks"
+control = "blood sugar monitor"
+expected = ["B00KHXF078", "B00NG0MSPQ", "B00NOKWUYW", "B013PT257I", "B01IDMQK96", "B06WWBFRVL", "B06Y2FFQB9", "B07BKYLL1K", "B07G3BNXR6", "B07MPCX4DZ", "B07QQWZQRL", "B07TVLNL4Q", "B07Z9N65F8", "B081ZY1LHV", "B0828WFD5J", "B084G394X7", "B08B86TM6R", "B08DGZCPSW", "B08FV1SVSW", "B08FXTPCGG", "B08G5BZQVL", "B08G5CW8RF", "B08HL9XSWJ", "B08XH27X76", "B096GR9NX9"]
+source = "dev query 17232 (real ESCI shopper query); expected = its Exact products"
+why = "Negation: the word 'without' itself must appear in the product."
+
+[[query]]
+group = "long"
+query = "women's sweatshirts without hoods"
+control = "women's sweatshirts"
+expected = ["B01M5EXSR4", "B01MZFS5AU", "B06ZYMQN6F", "B071D1DFX5", "B071Y2XRFV", "B0756DM76V", "B07FVS5QVB", "B07G5RW9VZ", "B07K55YM9H", "B07TBX46WQ", "B07TF9J546", "B07V2F986Z", "B07VMSRZZN", "B07Y9DV4N6", "B088KJNHS5", "B08BS21TDF", "B08F3LLB6S", "B08G88YVFX", "B08HV1MX83", "B08NSK69WN"]
+source = "dev query 112783 (real ESCI shopper query); expected = its Exact products"
+why = "Negation in a 4-word query."
+
+[[query]]
+group = "long"
+query = "110 laptop charger cable without brick"
+control = "laptop charger cable"
+expected = ["B072VYSCDN", "B07SW89GC3"]
+source = "dev query 1741 (real ESCI shopper query); expected = its Exact products"
+why = "Long query with a negation and a number."
+
+[[query]]
+group = "long"
+query = "+black +cardboard not foam"
+control = "black cardboard"
+expected = ["B000J07BRQ", "B00D8STBHY", "B075CTN5M6", "B0829C8Y8T", "B08C9S9XFJ"]
+source = "dev query 214 (real ESCI shopper query); expected = its Exact products"
+why = "Operators and negation typed by the shopper."
