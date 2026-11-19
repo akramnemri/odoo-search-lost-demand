@@ -330,7 +330,9 @@ def _add_eval_arguments(parser: argparse.ArgumentParser) -> None:
         help="Odoo's own shop search on the hand-picked and all dev queries (Task 2.5; read-only)",
     )
     baseline.add_argument(
-        "--no-dev", action="store_true", help="only the hand-picked queries (skip the 300 dev queries)"
+        "--no-dev",
+        action="store_true",
+        help="only the hand-picked queries (skip the 300 dev queries); writes the run folder, not the table",
     )
 
 

@@ -17,7 +17,8 @@ Two sets of queries, **dev data only** (the test queries and their products stay
    the failures of the hand-picked examples happen, so the examples are not a cherry-picked story.
 
 Outputs: `results/<run-id>/observations.json` and `run.json` (git-ignored), and the generated table
-`results/summary/baseline-search.md` (committed). Requests are read-only.
+`results/summary/baseline-search.md` (committed; a `--no-dev` run leaves it unchanged). Requests are
+read-only.
 """
 
 from __future__ import annotations
@@ -54,6 +55,10 @@ SNAPSHOT = "baseline-catalog"
 
 Fetch = Callable[[str], str]  # query -> HTML of /shop?search=query
 
+# Outcomes of a search, also the column names of the dev-query table.
+NO_RESULTS = "no results"
+REPLACED = "replaced by another word"
+
 
 class BaselineError(Exception):
     """The query file, the inputs or the shop are not as expected; the message says what to do."""
@@ -64,7 +69,10 @@ class BaselineError(Exception):
 _COUNT = re.compile(
     r"Search results for </span>'<strong>(.*?)</strong>'\s*(?:<small[^>]*>\s*\((\d+)\)</small>)?"
 )
-_FUZZY = re.compile(r"No results found for '<span>(.*?)</span>'\.\s*Showing results for '<span>(.*?)</span>'")
+# `[^<]*` instead of `.*?`: Odoo escapes the term, so it holds no "<"; no backtracking (SonarCloud S8786).
+_FUZZY = re.compile(
+    r"No results found for '<span>([^<]*)</span>'\.\s*Showing results for '<span>([^<]*)</span>'"
+)
 _PRODUCT = re.compile(r'href="/shop/(?!category/|cart|checkout|wishlist|page/)[a-z0-9-]*?-(\d+)"')
 _GRID = 'id="o_wsale_products_grid"'
 
@@ -127,9 +135,9 @@ class Observation:
     @property
     def outcome(self) -> str:
         if self.total == 0:
-            return "no results"
+            return NO_RESULTS
         if self.fuzzy_term:
-            return "replaced by another word"
+            return REPLACED
         if self.first_expected_rank is None:
             return "results, expected product not on page 1"
         return "expected product on page 1"
@@ -197,9 +205,17 @@ def read_id_map(repo_root: Path) -> dict[int, str]:
 
 def load_hand_picked(path: Path, dev: DevData) -> list[HandPicked]:
     """The query file, checked: known groups, dev-only products, no test query text (protocol §3)."""
+    picked = _read_hand_picked(path)
+    problems = [problem for entry in picked for problem in _entry_problems(entry, dev)]
+    if problems:
+        raise BaselineError("query file refused:\n  " + "\n  ".join(problems))
+    return picked
+
+
+def _read_hand_picked(path: Path) -> list[HandPicked]:
     try:
         rows = tomllib.loads(path.read_text(encoding="utf-8"))["query"]
-        picked = [
+        return [
             HandPicked(
                 group=row["group"],
                 query=row["query"],
@@ -212,21 +228,25 @@ def load_hand_picked(path: Path, dev: DevData) -> list[HandPicked]:
         ]
     except (OSError, KeyError, TypeError, ValueError) as error:  # TOMLDecodeError is a ValueError
         raise BaselineError(f"{path} is not valid: {error}") from error
+
+
+def _entry_problems(entry: HandPicked, dev: DevData) -> list[str]:
     problems = []
-    for entry in picked:
-        if entry.group not in GROUPS:
-            problems.append(f"{entry.query!r}: unknown group {entry.group!r} (one of {', '.join(GROUPS)})")
-        if not entry.expected:
-            problems.append(f"{entry.query!r}: no expected product")
-        for product in entry.expected:
-            if product not in dev.dev_products or product in dev.test_products:
-                problems.append(f"{entry.query!r}: {product} is not a dev-only judged product")
-        for text in filter(None, (entry.query, entry.control)):
-            if normalize_query(text) in dev.test_texts:
-                problems.append(f"{text!r} is a test query: the test set stays unseen")
-    if problems:
-        raise BaselineError("query file refused:\n  " + "\n  ".join(problems))
-    return picked
+    if entry.group not in GROUPS:
+        problems.append(f"{entry.query!r}: unknown group {entry.group!r} (one of {', '.join(GROUPS)})")
+    if not entry.expected:
+        problems.append(f"{entry.query!r}: no expected product")
+    problems += [
+        f"{entry.query!r}: {product} is not a dev-only judged product"
+        for product in entry.expected
+        if product not in dev.dev_products or product in dev.test_products
+    ]
+    problems += [
+        f"{text!r} is a test query: the test set stays unseen"
+        for text in filter(None, (entry.query, entry.control))
+        if normalize_query(text) in dev.test_texts
+    ]
+    return problems
 
 
 # --- aggregate over the dev queries ------------------------------------------------------------------------
@@ -234,7 +254,11 @@ def load_hand_picked(path: Path, dev: DevData) -> list[HandPicked]:
 
 def length_bucket(query: str) -> str:
     words = len(query.split())
-    return "1–2 words" if words <= 2 else "3–4 words" if words <= 4 else "5+ words"
+    if words <= 2:
+        return "1–2 words"
+    if words <= 4:
+        return "3–4 words"
+    return "5+ words"
 
 
 def dev_rates(observations: list[Observation]) -> dict[str, dict[str, Any]]:
@@ -251,8 +275,8 @@ def dev_rates(observations: list[Observation]) -> dict[str, dict[str, Any]]:
         n = len(items)
         rates[name] = {
             "queries": n,
-            "no results": sum(o.outcome == "no results" for o in items),
-            "replaced by another word": sum(o.outcome == "replaced by another word" for o in items),
+            NO_RESULTS: sum(o.outcome == NO_RESULTS for o in items),
+            REPLACED: sum(o.outcome == REPLACED for o in items),
             "exact match on page 1": sum(o.outcome == "expected product on page 1" for o in items),
             "median results": sorted(o.total for o in items)[n // 2] if n else 0,
         }
@@ -317,6 +341,11 @@ def run_baseline_search(
     }
     rates = dev_rates(dev_observations) if dev_observations else {}
     _write_run(repo_root, run_id, meta, hand, dev_observations, rates)
+    if not with_dev:  # a quick look must not replace the committed table, which holds the dev-query rates
+        write(
+            f"Done in {seconds:.0f} s. Run folder: results/{run_id}/ ({SUMMARY_FILE.as_posix()} unchanged)\n"
+        )
+        return 0
     _write_text(repo_root / SUMMARY_FILE, render_summary(meta, hand, rates))
     write(f"Done in {seconds:.0f} s. Table: {SUMMARY_FILE.as_posix()}; run folder: results/{run_id}/\n")
     return 0
@@ -405,7 +434,7 @@ def render_summary(
                 return f"{count} ({count / n:.0%})" if n else "0"
 
             lines.append(
-                f"| {name} | {n} | {share(row['no results'])} | {share(row['replaced by another word'])} | "
+                f"| {name} | {n} | {share(row[NO_RESULTS])} | {share(row[REPLACED])} | "
                 f"{share(row['exact match on page 1'])} | {row['median results']:,} |"
             )
         lines += [
