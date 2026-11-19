@@ -722,12 +722,19 @@ def run_verify(
     repo_root: Path,
     sample: int = VERIFY_SAMPLE,
     seed: int | None = None,
+    limit: int | None = None,
     call: Call | None = None,
     write: Callable[[str], None] = sys.stdout.write,
 ) -> int:
-    """Compare `sample` products, drawn with a seed, with their source rows; exit 1 on any mismatch."""
+    """Compare `sample` products, drawn with a seed, with their source rows; exit 1 on any mismatch.
+
+    `limit` draws from the first N products only, as `import catalog --limit N` imports them: after a partial
+    import, the other products are missing by design, not by error.
+    """
     try:
         products, _ = read_inputs(repo_root)
+        if limit is not None:
+            products = products[:limit]
         if seed is None:
             seed = slice_builder.load_config(repo_root / slice_builder.CONFIG_FILE).seed
         chosen = slice_builder.derived_rng(seed, "import-check").sample(products, min(sample, len(products)))
@@ -768,4 +775,7 @@ def run_verify(
             f"{row['category'][:24]}{detail}\n"
         )
     write(f"{len(chosen) - failures} of {len(chosen)} match.\n")
+    missing = sum(row["product_id"] not in records for row in chosen)
+    if missing and limit is None:
+        write(f"{missing} not in Odoo: after `import catalog --limit N`, verify with the same `--limit N`.\n")
     return 1 if failures else 0

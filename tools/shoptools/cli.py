@@ -310,6 +310,11 @@ def _add_import_arguments(parser: argparse.ArgumentParser) -> None:
         help=f"how many products (default {catalog_import.VERIFY_SAMPLE})",
     )
     verify.add_argument("--seed", type=int, help="base seed of the draw (default: the seed of slice.toml)")
+    verify.add_argument(
+        "--limit",
+        type=_positive_int,
+        help="draw from the first N products only, as `import catalog --limit N`",
+    )
 
 
 def _run_import(namespace: argparse.Namespace) -> int:
@@ -317,7 +322,9 @@ def _run_import(namespace: argparse.Namespace) -> int:
     if repo_root is None:
         return 1
     if namespace.import_target == "verify":
-        return catalog_import.run_verify(repo_root, sample=namespace.sample, seed=namespace.seed)
+        return catalog_import.run_verify(
+            repo_root, sample=namespace.sample, seed=namespace.seed, limit=namespace.limit
+        )
     return catalog_import.run_import(
         repo_root, limit=namespace.limit, dry_run=namespace.dry_run, batch_size=namespace.batch_size
     )
