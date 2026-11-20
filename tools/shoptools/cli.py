@@ -27,7 +27,7 @@ from shoptools.data import esci, slice_builder
 from shoptools.doctor.expected import VERSIONS_FILE, find_repo_root, load_expected
 from shoptools.doctor.report import SECTIONS, run_doctor
 from shoptools.envfile import PROFILES, init_env
-from shoptools.eval import baseline_search
+from shoptools.eval import baseline_search, ndcg
 
 ACTION_METAVAR = "<action>"
 
@@ -48,7 +48,7 @@ PLANNED_COMMANDS: dict[str, tuple[str, str]] = {
     "import": ("import the catalog into Odoo", "2.4"),
     "index": ("rebuild or check the product index", "3.1"),
     "probe": ("measure freshness of product changes (events in M4)", "3.2"),
-    "eval": ("run evaluation campaigns (baseline search; later NDCG, detection, speed)", "2.5"),
+    "eval": ("run evaluation campaigns (baseline search, NDCG; later detection, speed)", "2.5"),
     "kibana": ("import or export Kibana saved objects", "4.5"),
     "shoppers": ("run Locust virtual shoppers", "5.3"),
     "scenario": ("run scripted end-to-end scenarios", "6.4"),
@@ -351,12 +351,46 @@ def _add_eval_arguments(parser: argparse.ArgumentParser) -> None:
         action="store_true",
         help="only the hand-picked queries (skip the 300 dev queries); writes the run folder, not the table",
     )
+    ndcg_parser = kinds.add_parser(
+        "ndcg",
+        help="NDCG@10 of the search engines on the dev queries (Task 3.4; read-only)",
+    )
+    ndcg_parser.add_argument(
+        "--set",
+        dest="query_set",
+        default=ndcg.DEV,
+        help="query set: dev (test and test-typo are refused until the freeze, Task 8.2)",
+    )
+    ndcg_parser.add_argument(
+        "--engine",
+        default=",".join(ndcg.DEFAULT_ENGINES),
+        help=f"comma-separated engines, or all ({', '.join(ndcg.ALL_ENGINES)}); default: protocol's three",
+    )
+    ndcg_parser.add_argument(
+        "--mode",
+        choices=ndcg.MODES,
+        default=ndcg.HTTP,
+        help="http: real /shop page (reported numbers); direct: Elasticsearch only; both: both + consistency",
+    )
+    ndcg_parser.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="only the first N dev queries (a quick look: writes the run folder, not the table)",
+    )
 
 
 def _run_eval(namespace: argparse.Namespace) -> int:
     repo_root = _repo_root("eval")
     if repo_root is None:
         return 1
+    if namespace.eval_kind == "ndcg":
+        engines = (
+            ndcg.ALL_ENGINES
+            if namespace.engine == "all"
+            else tuple(name.strip() for name in namespace.engine.split(",") if name.strip())
+        )
+        return ndcg.run_ndcg(repo_root, namespace.query_set, engines, namespace.mode, namespace.limit)
     return baseline_search.run_baseline_search(repo_root, with_dev=not namespace.no_dev)
 
 
