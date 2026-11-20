@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import fnmatch
 import json
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -11,7 +12,8 @@ from typing import Any
 import pytest
 
 from services.config import EsConfig
-from services.es_client import EsClient
+from services.es_client import DeadlineExceeded, EsClient
+from services.index_sync import SyncOutcome, index_not_ready, retry_delay, send_changes, sync_operations
 from services.product_index import (
     DEFINITION_DIR,
     PRODUCTS,
@@ -30,6 +32,8 @@ from services.product_index import (
     rebuild,
     swap_actions,
 )
+
+VERSION = load_definition().version
 
 # --- an in-memory cluster with the calls the service makes ---
 
@@ -56,6 +60,11 @@ class FakeIndices:
             "mappings": mappings,
         }
         return {"acknowledged": True}
+
+    def get_mapping(self, index: str) -> dict[str, Any]:
+        self._owner.calls.append("get_mapping")
+        names = [n for n, data in self._owner.indices.items() if n == index or index in data["aliases"]]
+        return {name: {"mappings": self._owner.indices[name]["mappings"]} for name in names}
 
     def refresh(self, index: str) -> dict[str, Any]:
         self._owner.calls.append(f"refresh {index}")
@@ -100,16 +109,31 @@ class FakeCluster:
         self.indices_api = FakeIndices(self)
         self.synonyms = FakeSynonyms(self)
 
-    def bulk(self, operations: list[dict[str, Any]]) -> dict[str, Any]:
+    def resolve(self, name: str, require_alias: bool) -> str | None:
+        """The concrete index a write goes to; None when `require_alias` and `name` is no alias."""
+        holders = [index for index, data in self.indices.items() if name in data["aliases"]]
+        if holders:
+            return holders[0]
+        return None if require_alias else name
+
+    def bulk(self, operations: list[dict[str, Any]], require_alias: bool = False) -> dict[str, Any]:
         self.calls.append("bulk")
         items, errors = [], False
-        for action, document in zip(operations[::2], operations[1::2], strict=True):
-            target = action["index"]
+        pairs = iter(operations)
+        for action in pairs:
+            ((kind, target),) = action.items()
+            document = next(pairs) if kind == "index" else None
+            index = self.resolve(target["_index"], require_alias)
+            if index is None:
+                errors = True
+                error = {"type": "index_not_found_exception", "reason": "no such index [require_alias]"}
+                items.append({kind: {"_id": target["_id"], "status": 404, "error": error}})
+                continue
             if target["_id"] in self.refuse_ids:
                 errors = True
                 items.append(
                     {
-                        "index": {
+                        kind: {
                             "_id": target["_id"],
                             "status": 400,
                             "error": {"type": "document_parsing_exception", "reason": "bad field"},
@@ -117,9 +141,14 @@ class FakeCluster:
                     }
                 )
                 continue
+            docs = self.indices[index]["docs"]
+            if kind == "delete":
+                found = docs.pop(target["_id"], None) is not None
+                items.append({kind: {"_id": target["_id"], "status": 200 if found else 404}})
+                continue
             if target["_id"] not in self.lose_ids:
-                self.indices[target["_index"]]["docs"][target["_id"]] = document
-            items.append({"index": {"_id": target["_id"], "status": 201}})
+                docs[target["_id"]] = document
+            items.append({kind: {"_id": target["_id"], "status": 201}})
         return {"errors": errors, "items": items}
 
     def count(self, index: str) -> dict[str, Any]:
@@ -150,7 +179,7 @@ def client(cluster: FakeCluster) -> ClientView:
 
 def products(count: int, start: int = 1) -> list[ProductValues]:
     return [
-        ProductValues(template_id=i, name=f"Product {i}", qty_available=float(i % 3))
+        ProductValues(template_id=i, name=f"Product {i}", free_qty=float(i % 3))
         for i in range(start, start + count)
     ]
 
@@ -166,6 +195,7 @@ def test_the_committed_definition_loads() -> None:
     definition = load_definition()
     assert definition.settings["number_of_replicas"] == 0
     assert definition.mappings["dynamic"] == "strict"
+    assert definition.version == VERSION == 2  # 2: free_qty replaced qty_available (Task 3.2)
     assert definition.synonyms_seed == []  # chosen on dev queries in Tasks 3.5/3.6, not before
     analyzers = definition.settings["analysis"]["analyzer"]
     assert "shop_synonyms" in analyzers["shop_search"]["filter"]
@@ -227,7 +257,7 @@ def test_document_of_a_full_product() -> None:
         brand="Acme",
         categories=[(3, "Automotive"), (9, "Tools")],
         price=12.345,
-        qty_available=4.0,
+        free_qty=4.0,
         published=True,
         website_id=1,
         updated_at=datetime(2026, 11, 20, 8, 30, 5),
@@ -241,7 +271,7 @@ def test_document_of_a_full_product() -> None:
         "categories": ["Automotive", "Tools"],
         "category_ids": [3, 9],
         "price": 12.35,
-        "qty_available": 4.0,
+        "free_qty": 4.0,
         "in_stock": True,
         "published": True,
         "website_ids": [1],
@@ -251,7 +281,7 @@ def test_document_of_a_full_product() -> None:
 
 @pytest.mark.parametrize("quantity", [0.0, -2.0])
 def test_document_of_a_bare_product(quantity: float) -> None:
-    document = build_document(ProductValues(template_id=1, name="Mug", brand="  ", qty_available=quantity))
+    document = build_document(ProductValues(template_id=1, name="Mug", brand="  ", free_qty=quantity))
     assert document["in_stock"] is False
     assert document["website_ids"] == []  # on every website
     assert document["published"] is False
@@ -361,7 +391,7 @@ def test_second_rebuild_moves_the_alias_and_keeps_the_old_index(
     assert cluster.synonym_sets[SYNONYMS_SET] == [
         {"id": "r1", "synonyms": "sneakers, trainers"}
     ]  # not overwritten
-    assert read_status(client) == IndexStatus(("shop-products-v2",), 4)
+    assert read_status(client) == IndexStatus(("shop-products-v2",), 4, "", VERSION)
 
 
 def test_refused_documents_leave_the_alias(client: ClientView, cluster: FakeCluster) -> None:
@@ -398,8 +428,8 @@ def test_a_separate_alias_never_touches_the_shop_alias(client: ClientView, clust
     result = rebuild(client, load_definition(), batches(products(1)), expected=1, names=names)
 
     assert result.index == "shop-products-test-v1"
-    assert read_status(client) == IndexStatus(("shop-products-v1",), 2)
-    assert read_status(client, names) == IndexStatus(("shop-products-test-v1",), 1)
+    assert read_status(client) == IndexStatus(("shop-products-v1",), 2, "", VERSION)
+    assert read_status(client, names) == IndexStatus(("shop-products-test-v1",), 1, "", VERSION)
 
 
 def test_status_without_an_index(client: ClientView) -> None:
@@ -437,7 +467,7 @@ def test_index_status_through_the_service(client: ClientView, cluster: FakeClust
 
     rebuild(client, load_definition(), batches(products(2)), expected=2)
     service = EsClient(CONFIG, client=Options(cluster), errors=(Unreachable,))
-    assert service.product_index_status() == IndexStatus(("shop-products-v1",), 2)
+    assert service.product_index_status() == IndexStatus(("shop-products-v1",), 2, "", VERSION)
     assert PRODUCTS.alias == "shop-products"
 
 
@@ -446,3 +476,76 @@ def test_index_status_when_elasticsearch_is_down() -> None:
     status = service.product_index_status()
     assert not status.exists
     assert status.error == "Unreachable: Connection refused"
+
+
+def test_definition_without_a_version_is_refused(tmp_path: Path) -> None:
+    mappings = {key: value for key, value in load_definition().mappings.items() if key != "_meta"}
+    with pytest.raises(ValueError, match="definition_version"):
+        load_definition(_write_definition(tmp_path, mappings=mappings))
+
+
+def test_products_that_do_not_track_stock_are_in_stock() -> None:
+    document = build_document(ProductValues(template_id=1, name="Gift card", is_storable=False))
+    assert (document["free_qty"], document["in_stock"]) == (0.0, True)
+
+
+# --- incremental sync (Task 3.2, services/index_sync.py) ---
+
+
+def test_retry_delay_grows_to_one_hour() -> None:
+    assert [retry_delay(n) for n in (0, 1, 2, 3, 7, 8, 50)] == [0, 30, 60, 120, 1920, 3600, 3600]
+
+
+def test_sync_operations_index_then_delete() -> None:
+    assert sync_operations("shop-products", [{"template_id": 4, "name": "a"}], [9]) == [
+        {"index": {"_index": "shop-products", "_id": "4"}},
+        {"template_id": 4, "name": "a"},
+        {"delete": {"_index": "shop-products", "_id": "9"}},
+    ]
+
+
+def test_send_changes_through_the_alias(client: ClientView, cluster: FakeCluster) -> None:
+    rebuild(client, load_definition(), batches(products(3)), expected=3)
+    changed = build_document(ProductValues(template_id=2, name="Renamed", free_qty=0.0))
+    outcome = send_changes(client, [changed], [3, 99])  # 99: never indexed, a 404 is not a failure
+    assert outcome == SyncOutcome(done={2, 3, 99}, failed={})
+    docs = cluster.indices["shop-products-v1"]["docs"]
+    assert sorted(docs) == ["1", "2"]
+    assert (docs["2"]["name"], docs["2"]["in_stock"]) == ("Renamed", False)
+
+
+def test_send_changes_reports_refused_items(client: ClientView, cluster: FakeCluster) -> None:
+    rebuild(client, load_definition(), batches(products(2)), expected=2)
+    cluster.refuse_ids.add("2")
+    documents = [build_document(product) for product in products(2)]
+    outcome = send_changes(client, documents, [])
+    assert outcome.done == {1}
+    assert outcome.failed == {2: "document_parsing_exception: bad field"}
+
+
+def test_send_changes_never_creates_an_index_without_the_alias(
+    client: ClientView, cluster: FakeCluster
+) -> None:
+    outcome = send_changes(client, [build_document(products(1)[0])], [])
+    assert outcome.done == set()
+    assert "require_alias" in outcome.failed[1]
+    assert cluster.indices == {}
+    assert send_changes(client, [], []) == SyncOutcome()
+
+
+def test_index_not_ready(client: ClientView, cluster: FakeCluster) -> None:
+    definition = load_definition()
+    assert "no index behind the alias shop-products" in index_not_ready(client, definition)
+    rebuild(client, definition, batches(products(1)), expected=1)
+    assert index_not_ready(client, definition) == ""
+    index = cluster.indices["shop-products-v1"]
+    index["mappings"] = {k: v for k, v in index["mappings"].items() if k != "_meta"}  # as built by Task 3.1
+    reason = index_not_ready(client, definition)
+    assert "built from index definition 1, the module has 2" in reason
+
+
+def test_admin_call_has_a_hard_deadline() -> None:
+    service = EsClient(CONFIG, client=DownClient(), errors=(Unreachable,))
+    with pytest.raises(DeadlineExceeded):
+        service.admin_call(lambda _client: time.sleep(1), timeout=0.05)
+    assert service.admin_call(lambda _client: "ok", timeout=1) == "ok"

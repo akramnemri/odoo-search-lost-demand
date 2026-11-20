@@ -300,14 +300,23 @@ the real rendering path (see `04_DATA_SEARCH_EVALUATION.md`).
 
 ## 8. Product indexing (FR1)
 
-- Indexed fields: template ID, reference (ESCI product ID), name, description and bullet text, brand, color, public
-  categories (names and IDs), list price, available quantity, `in_stock`, published flag, website IDs, update timestamp;
+- Indexed fields: template ID, reference (ESCI product ID), name, description and bullet text, brand, public
+  categories (names and IDs), list price, free quantity (`free_qty`: on hand minus reserved in the website's
+  warehouse, as the shop computes "Out of Stock"), `in_stock`, published flag, website IDs, update timestamp;
   later `popularity` (from events) and `embedding` (FR13).
 - Index name `shop-products-v<N>` behind alias `shop-products`; mapping and analyzers from `elastic/`.
 - **Incremental:** model triggers write template IDs to `lost_demand.index.queue` in the same transaction as the change,
   then request an immediate run of the flush scheduled action (cron trigger). The flush job collapses duplicates,
   reads current data from Odoo, sends one bulk request, deletes processed rows, and retries failures with backoff.
   Unpublished products stay in the index with `published=false` (the lost-demand matcher may need them); shop queries filter on it.
+  As built (Task 3.2): hooks on `product.template`/`product.product` create/write/unlink, `product.public.category`
+  write/unlink and `stock.quant._update_available_quantity` (the one funnel of stock and reservation changes);
+  rows written by a pre-commit callback; bulk through the alias with `require_alias`; a refused product is retried
+  with backoff (30 s doubling, max 1 h) and never dropped; an outage leaves rows untouched; the job never raises
+  (Odoo deactivates failing cron jobs). Details: `docs/report/kit/odoo-overrides.md`.
+- **Rebuild vs. sync:** a PostgreSQL advisory lock. The rebuild takes it on its own cursor, then reads products on
+  a new cursor (REPEATABLE READ snapshot after the lock); the sync skips while it is held; rows enqueued during
+  the rebuild are sent to the new index after the alias swap.
 - **Full rebuild:** create `shop-products-v<N+1>`, bulk-load all templates, verify counts, swap the alias atomically,
   keep the previous index until the supervisor deletes it. Triggered by an admin button and by `uv run shop index rebuild`.
 - **Consistency check:** settings page and doctor compare Odoo's indexable product count with the alias document count.

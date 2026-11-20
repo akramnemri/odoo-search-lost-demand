@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Task 3.2: sends outbox rows (lost_demand.index.queue) to the product index. Started at once by
+         ir.cron._trigger() when a product changes; this interval is the safety net (retries, catch-up
+         after an Elasticsearch outage). noupdate: an administrator's change survives module upgrades. -->
+    <data noupdate="1">
+        <record id="ir_cron_product_index_sync" model="ir.cron">
+            <field name="name">Lost-demand search: sync product changes to Elasticsearch</field>
+            <field name="model_id" ref="model_lost_demand_index_queue"/>
+            <field name="state">code</field>
+            <field name="code">model._cron_send_to_index()</field>
+            <field name="interval_number">1</field>
+            <field name="interval_type">minutes</field>
+            <field name="active" eval="True"/>
+        </record>
+    </data>
+</odoo>

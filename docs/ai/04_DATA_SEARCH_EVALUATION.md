@@ -141,6 +141,7 @@ Index `shop-products-v<N>`, alias `shop-products`, 1 shard, 0 replicas, refresh 
     }
   },
   "mappings": {
+    "_meta": { "definition_version": 2 },
     "dynamic": "strict",
     "properties": {
       "template_id":  { "type": "integer" },
@@ -157,7 +158,7 @@ Index `shop-products-v<N>`, alias `shop-products`, 1 shard, 0 replicas, refresh 
       "categories":   { "type": "keyword" },
       "category_ids": { "type": "integer" },
       "price":        { "type": "scaled_float", "scaling_factor": 100 },
-      "qty_available":{ "type": "float" },
+      "free_qty":     { "type": "float" },
       "in_stock":     { "type": "boolean" },
       "published":    { "type": "boolean" },
       "website_ids":  { "type": "integer" },
@@ -174,6 +175,10 @@ Notes:
   regenerated from Odoo plus the reload-search-analyzers API, and record the decision.
 - Synonym sets apply at search time only (`updateable: true`): updates need no reindex.
 - `*.std` subfields (standard analyzer) let the **plain** engine represent "Elasticsearch out of the box" without a second index.
+- As built (Tasks 3.1–3.2): no `color` field (Odoo has none); `free_qty` = what the shop can sell (on hand minus
+  reserved, website warehouse, Odoo's own rule) replaced `qty_available` in definition version 2 (Task 3.2);
+  `in_stock` = `free_qty > 0` or the product does not track stock. `_meta.definition_version` is raised at
+  every mapping or analyzer change: the incremental sync writes only into an index of the current version.
 - Later fields: `popularity` (`rank_feature`, only with the leakage rule of §3), `embedding` (`dense_vector`, FR13).
 
 ## 6. Query design

@@ -76,6 +76,7 @@ Every "Used" feature is checked again on the running cluster (`GET _license` = b
 | Data streams, index lifecycle management, data stream lifecycle | Events | Free – Basic | Used |
 | Ingest pipelines (Ingest Node Pipeline Builder) | Events | Free – Basic | Used |
 | Synonym management, dynamically updateable synonyms | FR2 | Free – Basic | Used — confirmed on the basic cluster 2026-11-20 (Task 3.1): `odoo_app` (cluster `manage_search_synonyms`) created an empty set, an index used it in a `synonym_graph` filter (`updateable: true`), and a rule added later applied at search time without reindexing |
+| Bulk API with `require_alias`, index aliases, mapping `_meta` | FR1 sync (Task 3.2) | Core REST APIs, not a subscription feature (not in the PDF) | Used — confirmed on the basic cluster 2026-11-20: a bulk write with `require_alias=true` to a name that is no alias is refused per item and creates no index (module test `es`) |
 | Type ahead, suggestions, corrections, aggregations | FR2–FR5 | Free – Basic | Used |
 | Vector field type, vector search, retrievers: standard / kNN / pinned / rescorer | FR13 | Free – Basic | Used if FR13 is built |
 | Data transforms | Optional (unsatisfied signal) | Free – Basic | Optional |

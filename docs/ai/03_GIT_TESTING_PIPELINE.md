@@ -256,7 +256,7 @@ Required approvals: 0 for a solo developer, 1 for a pair.
 
 - regression gate (§9) passed and written in the PR;
 - `docs/progress/CHANGELOG.md` entry (what works now, known limitations);
-- milestone note written in `docs/report/notes/M<N>.md` (what was built, design choices, problems met, screenshots to capture);
+- milestone note written in `docs/report/notes/M<N>.md` (what was built, design choices, problems met, screenshots to capture); built from the report kit `docs/report/kit/`;
 - tag created after merge.
 
 **Demo checklist** (before any supervisor meeting, pilot or defense):
@@ -307,6 +307,9 @@ AUTOMATED CHECKS:
 
 MEASUREMENTS (if any):
 - <metric>: <value> (run id: <id>)
+
+REPORT KIT (docs/report/kit/, rule in CLAUDE.md):
+- <file>: <what was added> | nothing new for the report (why)
 
 MANUAL TEST REQUIRED:
 <the §7 block>

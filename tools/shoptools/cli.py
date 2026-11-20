@@ -12,7 +12,17 @@ import sys
 from collections.abc import Callable, Sequence
 from pathlib import Path
 
-from shoptools import __version__, catalog_import, index_rebuild, moduletest, odoodb, odoosrc, snapshot, stack
+from shoptools import (
+    __version__,
+    catalog_import,
+    index_rebuild,
+    moduletest,
+    odoodb,
+    odoosrc,
+    probe,
+    snapshot,
+    stack,
+)
 from shoptools.data import esci, slice_builder
 from shoptools.doctor.expected import VERSIONS_FILE, find_repo_root, load_expected
 from shoptools.doctor.report import SECTIONS, run_doctor
@@ -37,7 +47,7 @@ PLANNED_COMMANDS: dict[str, tuple[str, str]] = {
     "data": ("fetch datasets and build the catalog slice", "2.1"),
     "import": ("import the catalog into Odoo", "2.4"),
     "index": ("rebuild or check the product index", "3.1"),
-    "probe": ("measure freshness of products and events", "3.2"),
+    "probe": ("measure freshness of product changes (events in M4)", "3.2"),
     "eval": ("run evaluation campaigns (baseline search; later NDCG, detection, speed)", "2.5"),
     "kibana": ("import or export Kibana saved objects", "4.5"),
     "shoppers": ("run Locust virtual shoppers", "5.3"),
@@ -370,6 +380,29 @@ def _run_index(namespace: argparse.Namespace) -> int:
     return index_rebuild.run_rebuild(repo_root, check_only=namespace.check)
 
 
+def _add_probe_arguments(parser: argparse.ArgumentParser) -> None:
+    actions = parser.add_subparsers(dest="probe_action", metavar="<action>", required=True)
+    products = actions.add_parser(
+        "products",
+        help="change prices and stock through Odoo's API, time until each change is searchable (FR1)",
+    )
+    products.add_argument("--count", type=int, default=30, help="changes to measure (default: 30)")
+    products.add_argument(
+        "--timeout", type=float, default=120.0, help="seconds to wait for one change (default: 120)"
+    )
+    products.add_argument("--seed", type=int, default=probe.SEED, help="seed of the product draw")
+
+
+def _run_probe(namespace: argparse.Namespace) -> int:
+    repo_root = _repo_root("probe")
+    if repo_root is None:
+        return 1
+    if namespace.count < 1:
+        print("shop probe products: --count must be at least 1", file=sys.stderr)
+        return 1
+    return probe.run_probe(repo_root, namespace.count, namespace.timeout, namespace.seed)
+
+
 # command -> (function adding its arguments, function running it)
 IMPLEMENTED_COMMANDS: dict[
     str, tuple[Callable[[argparse.ArgumentParser], None], Callable[[argparse.Namespace], int]]
@@ -389,6 +422,7 @@ IMPLEMENTED_COMMANDS: dict[
     "import": (_add_import_arguments, _run_import),
     "eval": (_add_eval_arguments, _run_eval),
     "index": (_add_index_arguments, _run_index),
+    "probe": (_add_probe_arguments, _run_probe),
 }
 
 

@@ -10,7 +10,7 @@ from odoo.tests import TransactionCase, new_test_user, tagged
 
 from ..models import res_config_settings as settings_module
 from ..services.config import ConfigError
-from ..services.product_index import IndexStatus
+from ..services.product_index import IndexStatus, load_definition
 from .fake_es import HEALTHY, FakeEsService
 
 
@@ -47,7 +47,7 @@ class TestProductValues(TransactionCase):
         self.assertEqual((values.name, values.ref, values.brand), ("Throttle cable", "B000TEST01", "Acme"))
         self.assertEqual(values.description, "Fits most mowers.")
         self.assertEqual(values.categories, [(self.category.id, "Automotive")])
-        self.assertEqual((values.price, values.qty_available, values.published), (12.5, 7.0, True))
+        self.assertEqual((values.price, values.free_qty, values.published), (12.5, 7.0, True))
         self.assertIsNone(values.website_id)
         self.assertTrue(values.updated_at)
 
@@ -62,7 +62,7 @@ class TestProductValues(TransactionCase):
         self.assertNotIn(archived.id, ids)
         self.assertEqual(self.index._indexable_count(), len(ids))
         (values,) = self.index._product_values(hidden)
-        self.assertEqual((values.published, values.qty_available, values.brand), (False, 0.0, None))
+        self.assertEqual((values.published, values.free_qty, values.brand), (False, 0.0, None))
 
     def test_batches_cover_every_product_once(self):
         ids = self.index._templates().search(self.index._indexable_domain(), order="id").ids
@@ -88,7 +88,7 @@ class TestIndexStatusAndAccess(TransactionCase):
         return self.env["lost_demand.product.index"]._indexable_count()
 
     def test_in_sync(self):
-        status = IndexStatus(("shop-products-v3",), self._products())
+        status = IndexStatus(("shop-products-v3",), self._products(), "", load_definition().version)
         with _with_service(FakeEsService(HEALTHY, status)):
             settings = self._settings()
             self.assertTrue(settings.lost_demand_index_in_sync)
@@ -98,7 +98,11 @@ class TestIndexStatusAndAccess(TransactionCase):
 
     def test_out_of_sync_missing_and_unknown(self):
         cases = [
-            (IndexStatus(("shop-products-v3",), self._products() + 1), "Out of sync"),
+            (
+                IndexStatus(("shop-products-v3",), self._products() + 1, "", load_definition().version),
+                "Out of sync",
+            ),
+            (IndexStatus(("shop-products-v3",), self._products()), "older index definition"),
             (IndexStatus(), "No product index yet"),
             (IndexStatus(error="ConnectionError: refused"), "Unknown: ConnectionError: refused"),
         ]

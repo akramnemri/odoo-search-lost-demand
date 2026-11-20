@@ -24,8 +24,18 @@ rebuild loads a new index `shop-products-v<N+1>`, checks that it holds one docum
 the alias in one atomic call; the previous index is kept (delete old ones yourself when no longer needed).
 Run it with `uv run shop index rebuild` or *Settings › Website › Rebuild product index* (administrators);
 `uv run shop index rebuild --check` and the doctor compare the counts. Shop search does not use the index yet
-(Task 3.3), and product changes reach it only through a rebuild until Task 3.2. The module now depends on
-`website_sale_stock` (stock quantities).
+(Task 3.3). The module now depends on `website_sale_stock` (stock quantities).
+
+Version `19.0.0.4.0` (Task 3.2) keeps the index **in sync within a minute** (FR1). Product, variant, category
+and stock changes (inventory adjustments, deliveries, reservations) write the product's ID to an outbox
+(`lost_demand.index.queue`) in the same transaction; the scheduled action *Lost-demand search: sync product
+changes to Elasticsearch* runs at once (cron trigger) and every minute, sends one bulk request per 500 products
+through the alias, and deletes the rows that went through. While Elasticsearch is down, rows wait and are sent
+after it recovers; a product Elasticsearch refuses is retried later (30 s, doubling, at most hourly), never
+dropped. *Settings › Website › Product changes* shows the backlog. The index now holds the **free** quantity
+(on hand minus reserved, the shop's own rule) in `free_qty`: index definition version 2, so an index built by
+19.0.0.3.0 must be rebuilt once (changes wait until then). Which Odoo methods are extended, and why:
+`docs/report/kit/odoo-overrides.md`. Measure the delay with `uv run shop probe products`.
 
 ## Layout
 
@@ -35,12 +45,15 @@ Run it with `uv run shop index rebuild` or *Settings › Website › Rebuild pro
 | `services/es_client.py` | `EsClient`: `cluster_status()` and `product_index_status()` for the settings page, `admin_client()` for the rebuild, `guarded()` for shopper calls |
 | `services/breaker.py` | Circuit breaker: closed → open after N failures → half-open trial → closed |
 | `services/product_index.py` | Index definition loader, documents, versioned names, rebuild with count check and alias swap |
+| `services/index_sync.py` | Incremental sync: bulk index/delete through the alias (`require_alias`), per-item errors, retry delays, "index ready?" check |
 | `elastic/products/` | Index settings and analyzers, mapping, synonyms seed (JSON; the index is built from these) |
-| `models/product_index.py` | `lost_demand.product.index`: reads products in batches of 500 and runs the rebuild |
+| `models/product_index.py` | `lost_demand.product.index`: reads products (free quantity per website warehouse) in batches of 500 and runs the rebuild under the sync lock |
+| `models/index_queue.py`, `data/ir_cron_data.xml` | `lost_demand.index.queue` (the outbox) and the sync job |
+| `models/stock_quant.py` | Stock and reservation changes enqueue the product (`_update_available_quantity`) |
 | `models/res_config_settings.py` | Computed, non-stored status fields on `res.config.settings` |
-| `models/product_template.py`, `views/product_template_views.xml` | The `brand` field and its place on the form |
+| `models/product_template.py`, `views/product_template_views.xml` | The `brand` field and its place on the form; product, variant and category changes enqueue products |
 | `views/res_config_settings_views.xml` | The status block in the Website app of Settings, product index status and rebuild button |
-| `security/` | Groups; `ir.model.access.csv` (header only until the first model, M3) |
+| `security/` | Groups; `ir.model.access.csv` (the outbox: read for administrators; the module writes it as superuser) |
 | `tests/` | Odoo tests; `fake_es.py` replaces Elasticsearch; tests tagged `es` use the real cluster |
 
 ## Configuration

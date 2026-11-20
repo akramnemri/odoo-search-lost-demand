@@ -68,6 +68,10 @@ class EsService(Protocol):
 
     def product_index_status(self) -> IndexStatus: ...
 
+    def admin_call(self, operation: Callable[[Any], T], timeout: float = ...) -> T: ...
+
+    def client_errors(self) -> tuple[type[Exception], ...]: ...
+
 
 def _body(response: Any) -> Mapping[str, Any]:
     # The real client returns ObjectApiResponse (its JSON in `.body`); fakes return plain dicts.
@@ -189,6 +193,12 @@ class EsClient:
         job (index rebuild) that runs in the caller's thread, because it reads Odoo records between calls.
         Never for shopper requests. Its errors are `client_errors()`."""
         return self._raw().options(request_timeout=timeout)
+
+    def admin_call(self, operation: Callable[[Any], T], timeout: float = ADMIN_TIMEOUT_SECONDS) -> T:
+        """Run `operation(client)` within a hard deadline, outside the circuit breaker: for background jobs
+        (the index sync) that must not hang on a DNS lookup. Raises one of `client_errors()` or
+        DeadlineExceeded. Like `guarded()`, `operation` may only use the client it receives."""
+        return self._within(timeout, lambda: operation(self.admin_client(timeout)))
 
     def client_errors(self) -> tuple[type[Exception], ...]:
         return self._client_errors()
