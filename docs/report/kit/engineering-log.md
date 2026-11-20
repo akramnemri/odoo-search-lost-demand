@@ -59,3 +59,11 @@ Found by the tests:
 | Problem | Cause | Fix | Lesson |
 |---|---|---|---|
 | The category-page test saw no product, though the page listed them | on a category page Odoo 19 links a product as `/shop/<category>/<product>` (`product_template.py:1117`, `_get_product_url`); the page parser expected `/shop/<product>` | the test parser accepts both forms. The baseline harness parses only `/shop?search=` pages (no category), so its results are unaffected; the Task 3.4 harness must accept both | check a test's own parser against the real markup when it says "nothing" |
+
+Found by the manual test (agent, 2026-11-20):
+
+| Problem | Cause | Fix | Lesson |
+|---|---|---|---|
+| A sold-out product searched by its exact name is not in the results at all (ranked 1st without the stock rule) | typo tolerance and "any word" matching find 14,664 in-stock products; the in-stock-first sort is applied before the 1,000-hit cut, so in-stock weak matches fill every place | open: supervisor's decision (cut before the stock rule in 3.3, and/or `minimum_should_match` and rule (b) in 3.5) | a sort rule and a result cap interact: decide which comes first, and test with a product that should lose the sort |
+| The "price low to high" sort and page 2 show unrelated products | the 1,000 hits include weak matches, which a non-relevance sort brings to the top | Task 3.5 (fewer weak matches) | a recall-oriented query needs a precision floor once users can re-sort |
+| Recovery after an Elasticsearch restart took 97 s once (54 s before) | its first answer was 401 while the security index loaded; a failure in the trial re-opens the circuit for 30 s | none needed: designed behaviour, documented | readiness is more than "port open" |
