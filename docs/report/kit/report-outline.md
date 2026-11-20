@@ -12,7 +12,7 @@ material already is.
 | 4 | Architecture: one Odoo module, Elasticsearch + Kibana, Python tools, Docker Compose | `01_ARCHITECTURE.md`; ADR-001…019; `docs/report/kit/figures.md` |
 | 5 | Implementation in Odoo: extension by inheritance, never by editing the core | `docs/report/kit/odoo-overrides.md` (every override with Odoo's original and our addition); module `README.md` |
 | 6 | Data: Amazon ESCI (real queries, human labels), labelled-synthetic shop data, REES46 events | `results/summary/esci-profile.md`, `slice-report.md`, `enrichment-report.md`; ADR-012; `docs/report/notes/M2.md` |
-| 7 | Search: product index, sync within a minute (FR1), Elasticsearch search with fallback (FR2–FR3) | `docs/report/kit/odoo-overrides.md`; `figures.md` D1–D3; `results/summary/freshness-products.md`; Tasks 3.3–3.6 |
+| 7 | Search: product index, sync within a minute (FR1), Elasticsearch search with fallback (FR2–FR3) | `docs/report/kit/odoo-overrides.md`; `figures.md` D1–D3; `results/summary/freshness-products.md`; `odoo-overrides.md` Task 3.3 (search override, fallback), `figures.md` D4, `engineering-log.md` 3.3; Tasks 3.4–3.6 |
 | 8 | Events and dashboards (FR6–FR7) | M4 (to come) |
 | 9 | Lost-demand detection and restocking (FR8–FR10) | M6 (to come); protocol v1.1 hidden sets |
 | 10 | Evaluation protocol and results (NDCG, detection recall, speed, freshness, volume, usefulness) | `docs/evaluation/protocol.md` (tagged before any result); `docs/report/kit/results-index.md` |

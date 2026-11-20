@@ -12,8 +12,10 @@ Task 3.1: product index in Elasticsearch (definition in elastic/products/), full
 index status and rebuild button in Website settings.
 Task 3.2: incremental sync within 60 s: product, variant, category and stock changes go to an outbox in
 the same transaction; a cron job (triggered at once) sends them in bulk, with retries; backlog in settings.
+Task 3.3: shop search through Elasticsearch (engines es_plain, es_tuned, es_tuned_stock): Elasticsearch ranks,
+Odoo filters with its own rules and keeps the order; any Elasticsearch problem falls back to Odoo's search.
     """,
-    "version": "19.0.0.4.0",
+    "version": "19.0.0.5.0",
     "category": "Website/Website",
     "author": "Lost Demand Project",
     "license": "LGPL-3",

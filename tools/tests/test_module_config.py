@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from services.config import ConfigError, load_config
+from services.config import ConfigError, load_config, load_test_key
 
 VALID = {
     "LOST_DEMAND_ES_URL": "http://elasticsearch:9200/",
@@ -21,6 +21,7 @@ def test_valid_environment_uses_defaults() -> None:
     assert config.search_timeout == 0.5
     assert config.status_timeout == 2.0
     assert config.breaker_failures == 3
+    assert config.search_max_hits == 1000
 
 
 def test_password_never_in_repr() -> None:
@@ -71,6 +72,8 @@ def test_optional_numbers_override_defaults() -> None:
         ("LOST_DEMAND_ES_SEARCH_TIMEOUT_MS", "fast", "must be a number"),
         ("LOST_DEMAND_ES_SEARCH_TIMEOUT_MS", "0", "must be at least 1"),
         ("LOST_DEMAND_ES_BREAKER_FAILURES", "-2", "must be at least 1"),
+        ("LOST_DEMAND_ES_SEARCH_MAX_HITS", "0", "must be at least 1"),
+        ("LOST_DEMAND_ES_SEARCH_MAX_HITS", "10001", "must be at most 10000"),
     ],
 )
 def test_bad_numbers(name: str, value: str, problem: str) -> None:
@@ -80,3 +83,20 @@ def test_bad_numbers(name: str, value: str, problem: str) -> None:
 
 def test_zero_cache_is_allowed() -> None:
     assert load_config({**VALID, "LOST_DEMAND_ES_HEALTH_CACHE_SECONDS": "0"}).health_cache_seconds == 0
+
+
+def test_search_max_hits_override() -> None:
+    assert load_config({**VALID, "LOST_DEMAND_ES_SEARCH_MAX_HITS": "200"}).search_max_hits == 200
+
+
+@pytest.mark.parametrize(
+    ("environ", "expected"),
+    [
+        ({}, ""),
+        ({"LOST_DEMAND_LOAD_TEST_KEY": "   "}, ""),
+        ({"LOST_DEMAND_LOAD_TEST_KEY": "too-short"}, ""),  # pragma: allowlist secret
+        ({"LOST_DEMAND_LOAD_TEST_KEY": " sixteen-chars-ok "}, "sixteen-chars-ok"),  # pragma: allowlist secret
+    ],
+)
+def test_load_test_key_is_optional_and_never_trivial(environ: dict[str, str], expected: str) -> None:
+    assert load_test_key(environ) == expected

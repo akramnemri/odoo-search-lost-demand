@@ -5,4 +5,6 @@ from . import (
     test_product_index,
     test_product_index_es,
     test_settings_page,
+    test_shop_search,
+    test_shop_search_es,
 )

@@ -57,6 +57,29 @@ flowchart LR
     F -- no --> H[attempts+1, retry in 30 s, 60 s, ... max 1 h; shown in Settings and doctor]
 ```
 
+## D4 — Shop search with fallback (Task 3.3, FR2–FR3, reliability §13)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor S as Shopper
+    participant C as /shop controller (our override)
+    participant ES as Elasticsearch (alias shop-products)
+    participant O as Odoo ORM (native search)
+    S->>C: GET /shop?search=royal blue bedspreads
+    alt search text and circuit closed
+        C->>ES: _search (engine es_tuned_stock, published + website + category filters, 1,000 IDs)
+        ES-->>C: ranked template IDs (within 500 ms)
+        C->>O: search(Odoo's shop domain AND id in IDs)
+        O-->>C: allowed products
+        C->>C: keep Elasticsearch's order (or the chosen sort)
+    else error, timeout or circuit open
+        C->>O: super(): every word ilike name / reference / descriptions
+        O-->>C: native results
+    end
+    C-->>S: product grid, pages, categories, filters (Odoo's templates)
+```
+
 ## Screenshots to capture — M3
 
 | # | Screen | What it must show | State |
@@ -67,3 +90,6 @@ flowchart LR
 | S3.4 | Terminal | `uv run shop probe products` output with p50/p95/max | to capture |
 | S3.5 | Kibana › Discover (or Dev Tools, read-only) | one product document before and after a stock change (`free_qty`, `in_stock`) | to capture |
 | S3.6 | Terminal | `uv run shop index rebuild`: "moved from shop-products-v4", count OK | to capture |
+| S3.7 | Shop › `/shop?search=royal blue bedspreads` | results found by Elasticsearch (Odoo's own search finds none for the plural, baseline screenshot 3) | to capture |
+| S3.8 | Shop › `/shop?search=theottle cable` | throttle cables despite the typo, with the category list | to capture |
+| S3.9 | Shop, Elasticsearch stopped | same search still answers (Odoo's results), no error page | to capture |

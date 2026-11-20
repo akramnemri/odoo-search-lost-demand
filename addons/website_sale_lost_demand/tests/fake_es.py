@@ -123,3 +123,25 @@ class FakeEsService:
 
     def client_errors(self):
         return (FakeEsError,)
+
+
+class FakeSearchClient:
+    """Low-level client for a real `EsClient` in shop search tests: answers `search` with `ranked` template
+    IDs (whatever the query), or fails (`down`), or hangs until `release` is set (`hang`)."""
+
+    def __init__(self, ranked=()):
+        self.ranked = list(ranked)
+        self.down = False
+        self.hang = None  # a threading.Event to make calls hang
+        self.requests = []
+
+    def options(self, request_timeout):
+        return self
+
+    def search(self, index, body):
+        self.requests.append({"index": index, **body})
+        if self.hang is not None:
+            self.hang.wait(timeout=10)
+        if self.down:
+            raise FakeEsError("ConnectionError: connection refused")
+        return {"took": 3, "hits": {"hits": [{"_id": str(template_id)} for template_id in self.ranked]}}

@@ -38,3 +38,24 @@ Found by the tests:
 |---|---|---|---|
 | 12 module tests errored on the first run; the outbox's own searches started the sync job | the job's method was called `_flush`, which overrides the ORM's `BaseModel._flush()` | renamed `_send_to_index` | check new method names against the framework's base classes |
 | `env.flush_model` does not exist | in 19.0 `flush_model` is a model method | `self.flush_model([...])` | never trust remembered APIs (project rule) |
+
+## M3 — Task 3.3 (shop search through Elasticsearch, with fallback)
+
+Found during the two design reviews (before code), by reading the Odoo 19 source and by trying the planned
+queries on the real index (read-only, as `shop_tools`, 2026-11-20; observations, not protocol results):
+
+| Problem | Cause | Fix | Lesson |
+|---|---|---|---|
+| A typo query would show products but an empty category list and no attribute filters | `shop()` builds those from `_get_shop_domain()`, which still matched Odoo's words | override `_get_shop_domain()` too: Odoo's filters without the words, limited to the products found | follow every use of the data you replace, not only the main call |
+| With at most 1,000 hits, a category page could miss products of that category ranked lower | the category was only filtered by Odoo, after the cut | the selected category and its subcategories are also filtered in Elasticsearch | filter before cutting, re-check after |
+| Pushing the price filter into Elasticsearch would shrink the price slider to the current selection | Odoo computes the slider's range from all matches, ignoring the price filter | price, tags and attributes stay Odoo-only filters | mirror the framework's semantics, not just its results |
+| A slow sync job could make shoppers' searches queue | one worker pool of 4 threads served both background jobs and shopper calls | shopper searches got their own 8-thread pool | isolate the latency-critical path |
+| The first search after Elasticsearch starts can miss the 500 ms deadline (518 ms measured, cold caches) | caches are empty at start; warm searches took 30–150 ms | accepted: one fallback, the circuit needs 3 failures to open | measure cold and warm paths separately |
+| Typo tolerance (`fuzziness: AUTO`) matches far more products ("windex": 36 → 3,018) | each word may differ by up to 2 letters | top results stay right; totals are capped at 1,000; `minimum_should_match` etc. are Task 3.5 experiments | a recall gain has a precision cost: measure it (NDCG) |
+| Odoo's search finds a product by its internal reference; the Elasticsearch engines do not | `ref` is indexed but not among the searched fields | left for Task 3.5 (one change at a time); ESCI queries never contain references | list functional gaps, don't hide them |
+
+Found by the tests:
+
+| Problem | Cause | Fix | Lesson |
+|---|---|---|---|
+| The category-page test saw no product, though the page listed them | on a category page Odoo 19 links a product as `/shop/<category>/<product>` (`product_template.py:1117`, `_get_product_url`); the page parser expected `/shop/<product>` | the test parser accepts both forms. The baseline harness parses only `/shop?search=` pages (no category), so its results are unaffected; the Task 3.4 harness must accept both | check a test's own parser against the real markup when it says "nothing" |

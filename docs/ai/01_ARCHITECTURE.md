@@ -296,6 +296,18 @@ Evaluation hook: a request may choose the engine (`odoo`, `es_plain`, `es_tuned`
 load-test key header from `.env`; otherwise the parameter is ignored. This lets one harness compare engines through
 the real rendering path (see `04_DATA_SEARCH_EVALUATION.md`).
 
+As built (Task 3.3): the override is `WebsiteSale._shop_lookup_products` (`website_sale/controllers/main.py:239`),
+plus `_get_shop_domain` (line 158) so categories, attributes and the price range describe the products found.
+Elasticsearch returns at most `LOST_DEMAND_ES_SEARCH_MAX_HITS` (1,000) IDs, filtered on published, website and the
+selected category with its subcategories; Odoo re-filters with `product.template._search_get_detail()`'s base
+domain (the native filters, including tags, price and attributes) and keeps Elasticsearch's order unless the
+shopper picked a sort. Published-only applies to every user (internal users included), unlike Odoo's search.
+Searches without text and the autocomplete stay native. Evaluation headers: `X-Lost-Demand-Key` (=
+`LOAD_TEST_KEY` of `.env`), `X-Lost-Demand-Engine` (`odoo`, `es_plain`, `es_tuned`, `es_tuned_stock`); with the
+key only, the response carries `X-Lost-Demand-Engine-Used` (`odoo_fallback` when Elasticsearch failed). Shopper
+searches use their own worker pool (8 threads), separate from background jobs. Details:
+`docs/report/kit/odoo-overrides.md`.
+
 ---
 
 ## 8. Product indexing (FR1)

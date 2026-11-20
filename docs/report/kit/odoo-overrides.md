@@ -5,11 +5,14 @@ below lives in `addons/website_sale_lost_demand/` and works through Odoo's inher
 `inherit_id` on a view). Each Odoo method was read in `.odoo-src/odoo/` (Odoo `19.0.post20261015`) before it was
 overridden; the path and line are given so a reader can check the original.
 
-Two patterns only:
+Three patterns only:
 
 - **Extend and call `super()` first.** Every override lets Odoo do its full job, then adds one small step.
   If our step were removed, Odoo would behave exactly as before.
-- **Add, don't replace.** New fields, new models, new view blocks; no Odoo method is replaced or skipped.
+- **Add, don't replace.** New fields, new models, new view blocks.
+- **Replace with Odoo as the fallback** (Task 3.3 only, the shop search): our code answers instead of Odoo's,
+  and `super()` — Odoo's own search — runs whenever ours cannot (Elasticsearch down, slow, refusing). The only
+  place where an Odoo method is deliberately not called on the normal path; the reason is written in the code.
 
 Updated at every task that adds or changes an extension point (rule in `CLAUDE.md`).
 
@@ -28,6 +31,8 @@ Updated at every task that adds or changes an extension point (rule in `CLAUDE.m
 | 3.2 | `stock.quant` | `_update_available_quantity` | override (`super()` first) | every stock or reservation change reindexes the product |
 | 3.2 | `ir.cron` | — (new record) | data | scheduled action "sync product changes to Elasticsearch" |
 | 3.2 | `res.config.settings` | — (new fields) | fields | outbox backlog: waiting, refused, oldest |
+| 3.3 | `WebsiteSale` controller (`/shop`) | `_shop_lookup_products` | replace, `super()` as fallback | Elasticsearch ranks; Odoo filters with its own domain and keeps the order |
+| 3.3 | `WebsiteSale` controller (`/shop`) | `_get_shop_domain` | override (`super()` called, then narrowed) | categories, attributes and price range describe the products Elasticsearch found |
 
 New models (ours, not inherited): `lost_demand.product.index` (abstract: reads products, full rebuild) and
 `lost_demand.index.queue` (the outbox).
@@ -119,3 +124,83 @@ The sync job's method was first called `_flush`. Every Odoo model already has `B
 pending ORM changes to SQL), so the outbox model's searches started the sync job recursively. The method is now
 `_send_to_index`. Lesson for the report: in an inheritance-based framework, a new private method name must be
 checked against the base classes (`odoo/orm/models.py`) as well.
+
+## Task 3.3 — shop search through Elasticsearch, with fallback (FR1–FR3)
+
+Goal: `/shop?search=...` is answered by Elasticsearch (stemming, synonyms, typo tolerance, relevance order,
+in-stock first), while everything else on the page — what a shopper may see, pages, totals, the category and
+attribute filters, prices — stays Odoo's. Code: `controllers/main.py` (class `WebsiteSaleLostDemand`, inherits
+`odoo.addons.website_sale.controllers.main.WebsiteSale`), `services/query_builder.py`, `services/shop_search.py`.
+
+### How Odoo 19 builds a shop search page
+
+`WebsiteSale.shop()` (`website_sale/controllers/main.py:285`) calls, in this order:
+
+1. `_shop_lookup_products()` (line 239) → `website._search_with_fuzzy("products_only", ...)`
+   (`website/models/website.py:2052`) → `product.template._search_get_detail()`
+   (`website_sale/models/product_template.py:873`) gives the base domain (`website.sale_product_domain()`:
+   sellable, website, company, and for visitors published; plus category, tags, price, attributes), and
+   `_search_fetch()` (`website/models/mixins.py:380`) adds "every word `ilike` the name, reference or
+   descriptions" and sorts by the shop order (`_get_search_order()`, line 149). If nothing matches, one similar
+   word is tried. It returns `(similar word, count, products)`.
+2. `_get_shop_domain()` (line 158) — the same filters (without tags and price) with the words — for the price
+   range (line 383), the category list (line 426) and the attribute filters (line 478).
+3. The pager slices the products **in their order** (`search_product[offset:offset + ppg]`, line 467).
+
+### `_shop_lookup_products` — replaced, with Odoo as the fallback
+
+```python
+def _shop_lookup_products(self, options, post, search, website):
+    choice = choose_engine(request.httprequest.headers, load_test_key(os.environ))
+    text = clean_query(search)
+    if not text or choice.engine == ODOO:
+        return self._lost_demand_native(...)            # super(): category browsing stays Odoo's
+    try:
+        hits = search_template_ids(es_service(), "shop-products", choice.engine, text, filters, 1000)
+    except (EsUnavailable, ConfigError, MalformedResponse):
+        return self._lost_demand_native(...)            # super(): Odoo's native search
+    products = self._lost_demand_products(hits.ids, options, post, website)
+    return False, len(products), products               # no "similar word": Elasticsearch's answer is final
+```
+
+`_lost_demand_products` re-filters Elasticsearch's IDs with **Odoo's own base domain**, taken from
+`product.template._search_get_detail()` — the very filters the native search uses — as the shopper (same access
+rules), then restores Elasticsearch's order (or applies the sort the shopper picked in the sort menu):
+
+```python
+domain = Domain.AND(detail["base_domain"]) & Domain("id", "in", ranked_ids)
+allowed = Product.search(domain)
+return allowed.sorted(key=lambda product: rank[product.id])
+```
+
+So Elasticsearch decides the **order**, Odoo decides what **may be shown**: a product unpublished in Odoo but
+still marked published in the index (for up to the sync delay) is never shown.
+
+### `_get_shop_domain` — `super()` without the words, limited to the products found
+
+```python
+without_words = super()._get_shop_domain("", category, attribute_value_dict, search_in_description)
+return without_words & Domain("id", "in", list(outcome.hit_ids))
+```
+
+Without it, a query Odoo's words cannot match (a typo, a plural, a brand) would show products but an empty
+category list and no attribute filters. Used only when Elasticsearch answered this request's search.
+
+### Fallback and timeouts
+
+`EsClient.guarded()` (Task 1.3): a hard 500 ms deadline that includes the DNS lookup (calls run in a worker
+pool; shopper searches have their own 8 workers since Task 3.3), and a circuit breaker (3 failures → open for
+30 s → one trial). Elasticsearch down, slow, refusing, the circuit open, missing settings or an answer of the
+wrong shape: `super()` answers. A warning is logged once per breaker opening.
+
+### Odoo APIs we use without overriding them
+
+| API | Where | Used for |
+|---|---|---|
+| `product.template._search_get_detail()` | `website_sale/models/product_template.py:873` | Odoo's own shop filters for the re-filter |
+| `WebsiteSale._get_search_order()` | `website_sale/controllers/main.py:149` | the sort the shopper picked |
+| `request.future_response.headers` | `odoo/http.py:1777`, injected at line 2456 | `X-Lost-Demand-Engine-Used` (evaluation requests only) |
+| `child_of` on `product.public.category` | ORM | the selected category's subcategories, for Elasticsearch's filter |
+
+Not changed: the search-bar autocomplete (`/website/snippet/autocomplete`, FR4 later) and category pages without
+search text stay Odoo's.

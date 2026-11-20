@@ -2,7 +2,10 @@
 
 compose.yaml passes LOST_DEMAND_ES_URL, LOST_DEMAND_ES_USERNAME and LOST_DEMAND_ES_PASSWORD to the `odoo`
 service. They are never stored in the Odoo database (docs/ai/01_ARCHITECTURE.md §6.2). The optional
-timeouts and breaker settings have defaults; set them in the environment only to experiment.
+timeouts, breaker and search settings have defaults; set them in the environment only to experiment.
+
+LOST_DEMAND_LOAD_TEST_KEY (Task 3.3) is separate: it unlocks the evaluation switches of a shop request
+(services/shop_search.py) and is optional — without it every switch is ignored.
 """
 
 from __future__ import annotations
@@ -21,7 +24,15 @@ OPTIONAL_NUMBERS: dict[str, tuple[float, float]] = {
     "HEALTH_CACHE_SECONDS": (10, 0),  # how long the settings page reuses the last status
     "BREAKER_FAILURES": (3, 1),  # consecutive failures that open the circuit
     "BREAKER_RESET_SECONDS": (30, 1),  # time an open circuit waits before one trial request
+    # Ranked products asked from Elasticsearch per shop search (Task 3.3): about 48 pages of 21. Pages,
+    # totals and the category list are built from these; Elasticsearch refuses more than 10,000
+    # (index.max_result_window).
+    "SEARCH_MAX_HITS": (1000, 1),
 }
+MAX_RESULT_WINDOW = 10_000
+LOAD_TEST_KEY = "LOST_DEMAND_LOAD_TEST_KEY"
+# A key shorter than this is treated as unset: `shop env init` generates 43 characters.
+LOAD_TEST_KEY_MIN_LENGTH = 16
 
 
 class ConfigError(ValueError):
@@ -38,6 +49,7 @@ class EsConfig:
     health_cache_seconds: float = 10.0
     breaker_failures: int = 3
     breaker_reset_seconds: float = 30.0
+    search_max_hits: int = 1000
 
 
 def _number(environ: Mapping[str, str], name: str, problems: list[str]) -> float:
@@ -74,6 +86,8 @@ def load_config(environ: Mapping[str, str]) -> EsConfig:
     if url:
         _check_url(url, problems)
     numbers = {name: _number(environ, name, problems) for name in OPTIONAL_NUMBERS}
+    if numbers["SEARCH_MAX_HITS"] > MAX_RESULT_WINDOW:
+        problems.append(f"{PREFIX}SEARCH_MAX_HITS must be at most {MAX_RESULT_WINDOW}")
     if problems:
         raise ConfigError("; ".join(problems))
     return EsConfig(
@@ -85,4 +99,11 @@ def load_config(environ: Mapping[str, str]) -> EsConfig:
         health_cache_seconds=numbers["HEALTH_CACHE_SECONDS"],
         breaker_failures=int(numbers["BREAKER_FAILURES"]),
         breaker_reset_seconds=numbers["BREAKER_RESET_SECONDS"],
+        search_max_hits=int(numbers["SEARCH_MAX_HITS"]),
     )
+
+
+def load_test_key(environ: Mapping[str, str]) -> str:
+    """The load-test key, or "" when it is unset or too short to be a real secret (switches disabled)."""
+    key = environ.get(LOAD_TEST_KEY, "").strip()
+    return key if len(key) >= LOAD_TEST_KEY_MIN_LENGTH else ""
