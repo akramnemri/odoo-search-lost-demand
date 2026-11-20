@@ -1,15 +1,15 @@
 # STATUS
 
-Updated: 2026-11-20 by agent session 8 — Task 3.2 (incremental sync): manual test passed (run by the agent), PR #35 open
+Updated: 2026-11-20 by agent session 9 — Task 3.2 merged (PR #35); Task 3.3 (shop search through Elasticsearch) started
 
 ## Current position
 - Milestone: M3 — Search engine (FR1–FR3, fallback, synonyms). M2 released 2026-11-19 (PR #32 4f62925, release PR
   #33 merge commit 8c7558a, tag `m2-catalog`); M1 released 2026-11-14 (PR #22, f3926a1, tag `m1-stack`)
-- M3 order: 3.1 → **3.2** → 3.3 → 3.4 → 3.5 → 3.6 → 3.7. Task 1.6 (interview) still open, in parallel
-- Task: **3.2 — incremental sync within 60 s (FR1)** — state: **manual test passed 2026-11-20 (run by the agent
-  on the supervisor's request); waiting for CI and the supervisor's "merge"** (plan accepted 2026-11-20)
-- Branch / PR: `feat/incremental-sync` (from `develop` 7a393ca) — PR #35
-- Local checkout: on `feat/incremental-sync`; ESCI in `data/raw/esci/` (3 files, verified)
+- M3 order: 3.1 → 3.2 → **3.3** → 3.4 → 3.5 → 3.6 → 3.7. Task 1.6 (interview) still open, in parallel
+- Task: **3.3 — shop search through Elasticsearch, with fallback** — state: **in progress** (plan accepted
+  2026-11-20: "go as the recommendations", after a second in-depth review)
+- Branch / PR: `feat/es-shop-search` (from `develop` 85102c8) — PR not opened yet
+- Local checkout: on `feat/es-shop-search`; ESCI in `data/raw/esci/` (3 files, verified)
 - Repository: https://github.com/akramnemri/odoo-search-lost-demand (public, default branch `develop`)
 
 ## Milestone 0 exit check (2026-10-28)
@@ -300,7 +300,8 @@ Updated: 2026-11-20 by agent session 8 — Task 3.2 (incremental sync): manual t
   recorded in `docs/setup/VERSIONS.md`. Tests: 441 tools (+31), 27 module (+12, 3 of them `es`, on test-only
   `shop-products-test*` indices removed after each test)
 
-- 3.2 — PR #35 open, waiting for CI and "merge". **Manual test passed 2026-11-20, run by the agent** on the
+- 3.2 — merged 2026-11-20 (PR #35, squash 85102c8, on the supervisor's "merge" after CI). **Manual test passed
+  2026-11-20, run by the agent** on the
   supervisor's request ("do the manual test for me"); the Odoo backend sign-in was not used (the agent enters no
   passwords), so backend steps ran through the same server code: (1) product 4242 set to 0 on hand by an
   inventory adjustment over JSON-2 (what "On Hand › Apply" calls) → index `free_qty 0`, `in_stock false` after
@@ -347,6 +348,10 @@ Updated: 2026-11-20 by agent session 8 — Task 3.2 (incremental sync): manual t
   `baseline-search-20261119T154209Z`, git bc36eb3): every table row identical
 
 ## Decisions since last milestone
+- Task 3.3 plan accepted 2026-11-20 ("go as the recommendations", after the supervisor asked for a second,
+  deeper review): engines `es_plain`, `es_tuned` (v0, untuned) and `es_tuned_stock` (shoppers' default, in-stock
+  first by rule (a)); at most 1,000 hits per search; an explicit sort order sorts the hits with Odoo's order;
+  Elasticsearch shows published products only, also to internal users
 - Task 3.2 plan accepted 2026-11-20 ("go as the recommendations", after a deeper review): index the free
   quantity (definition version 2, rebuild once), the probe measures change → searchable in the index until
   Task 3.3 adds the shop page, refused rows kept and retried hourly (never dropped)
@@ -446,9 +451,8 @@ Updated: 2026-11-20 by agent session 8 — Task 3.2 (incremental sync): manual t
 - A local shop owner for interview #1 (Task 1.6) — start looking early
 
 ## Next step (exact)
-- **Supervisor: "merge" of PR #35 after CI** (manual test passed, run by the agent; details under Last completed
-  tasks). Optional, in a signed-in browser: the screenshots S3.1–S3.3. The original manual-test steps, for
-  reference:
+- **Task 3.3 in progress** on `feat/es-shop-search`. Optional, in a signed-in browser: the screenshots
+  S3.1–S3.3 of Task 3.2. Task 3.2's manual-test steps, for reference:
   1. Odoo › Inventory › a product › "On Hand" › set the quantity to 0 (or Settings › Website, change a price);
      within a minute `GET shop-products/_search?q=template_id:<id>` (Kibana Dev Tools, read-only) shows
      `free_qty: 0`, `in_stock: false` (shop ordering by stock comes with Task 3.3);
@@ -459,7 +463,6 @@ Updated: 2026-11-20 by agent session 8 — Task 3.2 (incremental sync): manual t
   4. `uv run shop probe products` → read p50/p95 (last run: p95 2.19 s), then `uv run shop doctor`
      (`product changes waiting` OK);
   5. read `docs/report/kit/odoo-overrides.md` (the file asked for the report)
-- Then, on "merge": squash-merge; next task 3.3 (shop search through Elasticsearch, with fallback)
 - Supervisor: old product indices (`shop-products-v1..v3`, ~70 MB each) are kept; say when to delete them
 - Idea for M4/M6 (not decided): Odoo's "Get notified when back in stock" form on out-of-stock pages is an explicit
   lost-demand signal (a shopper asking for a missing product); consider it as an extra event
