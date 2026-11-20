@@ -1,17 +1,15 @@
 # STATUS
 
-Updated: 2026-11-20 by agent session 9 — Task 3.3 (shop search through Elasticsearch, with fallback) implemented, PR open
+Updated: 2026-11-20 by agent session 9 — Task 3.3 merged (PR #36); Task 3.4 (NDCG harness) started
 
 ## Current position
 - Milestone: M3 — Search engine (FR1–FR3, fallback, synonyms). M2 released 2026-11-19 (PR #32 4f62925, release PR
   #33 merge commit 8c7558a, tag `m2-catalog`); M1 released 2026-11-14 (PR #22, f3926a1, tag `m1-stack`)
-- M3 order: 3.1 → 3.2 → **3.3** → 3.4 → 3.5 → 3.6 → 3.7. Task 1.6 (interview) still open, in parallel
-- Task: **3.3 — shop search through Elasticsearch, with fallback** — state: **manual test run by the agent
-  2026-11-20; its finding (sold-out exact matches disappeared) fixed with the supervisor's option A and
-  re-checked live; waiting for CI and the supervisor's "merge"** (plan accepted 2026-11-20: "go as the
+- M3 order: 3.1 → 3.2 → 3.3 → **3.4** → 3.5 → 3.6 → 3.7. Task 1.6 (interview) still open, in parallel
+- Task: **3.4 — minimal NDCG harness** — state: **in progress** (plan accepted 2026-11-20: "go as the
   recommendations", after a second in-depth review)
-- Branch / PR: `feat/es-shop-search` (from `develop` 85102c8) — PR #36
-- Local checkout: on `feat/es-shop-search`; ESCI in `data/raw/esci/` (3 files, verified)
+- Branch / PR: `feat/ndcg-harness` (from `develop` b807c00) — PR not opened yet
+- Local checkout: on `feat/ndcg-harness`; ESCI in `data/raw/esci/` (3 files, verified)
 - Repository: https://github.com/akramnemri/odoo-search-lost-demand (public, default branch `develop`)
 
 ## Milestone 0 exit check (2026-10-28)
@@ -337,7 +335,8 @@ Updated: 2026-11-20 by agent session 9 — Task 3.3 (shop search through Elastic
   `_send_to_index`). Report kit `docs/report/kit/` created (supervisor's request) and its rule added to
   `CLAUDE.md`. Tests: 462 tools (+21), 45 module (+18, 5 of them `es`)
 
-- 3.3 — implemented 2026-11-20 on `feat/es-shop-search`, PR #36. **Manual test run by the agent 2026-11-20** on
+- 3.3 — merged 2026-11-20 (PR #36, squash b807c00, by the agent on the supervisor's "Merge now" after all six
+  checks were green). **Manual test run by the agent 2026-11-20** on
   the supervisor's request (built-in browser for the public shop pages, scripts for the rest; no sign-in):
   (1) "royal blue bedspreads" 1,000 results, a royal blue velvet bedspread first, category bar and price range
   filled; page 2, "price low to high" sort, a category while searching (Bedding & Bath: only bedding hits),
@@ -401,6 +400,10 @@ Updated: 2026-11-20 by agent session 9 — Task 3.3 (shop search through Elastic
   `baseline-search-20261119T154209Z`, git bc36eb3): every table row identical
 
 ## Decisions since last milestone
+- Task 3.4 plan accepted 2026-11-20 ("go as the recommendations", after a second, deeper review): paired
+  statistics (difference interval, randomization test, Holm) included now; `--engine all` adds
+  `es_tuned_stock`; an Elasticsearch fallback in `http` mode fails the run (one retry); `--mode both` with the
+  consistency check; no test-set path before the freeze (Task 8.2)
 - Task 3.3 manual-test finding (supervisor, 2026-11-20, "Option A"): the in-stock rule (a) applies after the
   1,000-hit relevance cut, never before it; Task 3.5 still measures `minimum_should_match` and rule (b)
 - Task 3.3 plan accepted 2026-11-20 ("go as the recommendations", after the supervisor asked for a second,
@@ -506,10 +509,8 @@ Updated: 2026-11-20 by agent session 9 — Task 3.3 (shop search through Elastic
 - A local shop owner for interview #1 (Task 1.6) — start looking early
 
 ## Next step (exact)
-- **Supervisor: "merge" of PR #36 after CI** (manual test run by the agent, finding fixed with option A).
-  Task 3.5 must address what remains: sold-out exact matches sit after up to ~1,000 weak in-stock matches
-  (`minimum_should_match`, rule (b) "boosted"), and weak matches surface under the price sort. Then the next
-  task is 3.4 (NDCG harness). The original manual-test steps, kept for the supervisor's own run (the stack
+- **Task 3.4 in progress** on `feat/ndcg-harness`. Task 3.5 must address what remains of the 3.3 finding: sold-out exact matches sit after up to ~1,000 weak in-stock matches
+  (`minimum_should_match`, rule (b) "boosted"), and weak matches surface under the price sort. The original manual-test steps, kept for the supervisor's own run (the stack
   runs module 19.0.0.5.0 with the fix):
   1. Browser, `http://127.0.0.1:8069/shop?search=royal blue bedspreads` (Odoo alone finds nothing: baseline),
      `theottle cable` (typo), `windex`: results, prices, pages; open page 2; pick "Price - Low to High" in the
