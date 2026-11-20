@@ -1,15 +1,15 @@
 # STATUS
 
-Updated: 2026-11-20 by agent session 7 — Task 3.1 (product index): implemented, task PR open
+Updated: 2026-11-20 by agent session 8 — Task 3.1 merged; Task 3.2 (incremental sync) started
 
 ## Current position
 - Milestone: M3 — Search engine (FR1–FR3, fallback, synonyms). M2 released 2026-11-19 (PR #32 4f62925, release PR
   #33 merge commit 8c7558a, tag `m2-catalog`); M1 released 2026-11-14 (PR #22, f3926a1, tag `m1-stack`)
-- M3 order: **3.1** → 3.2 → 3.3 → 3.4 → 3.5 → 3.6 → 3.7. Task 1.6 (interview) still open, in parallel
-- Task: **3.1 — product index as code and full rebuild** — state: **implemented, waiting for CI and the
-  supervisor's manual test**
-- Branch / PR: `feat/product-index` (from `develop` 4f62925)
-- Local checkout: on `feat/product-index`; ESCI in `data/raw/esci/` (3 files, verified)
+- M3 order: 3.1 → **3.2** → 3.3 → 3.4 → 3.5 → 3.6 → 3.7. Task 1.6 (interview) still open, in parallel
+- Task: **3.2 — incremental sync within 60 s (FR1)** — state: **in progress** (plan accepted 2026-11-20, "go as
+  the recommendations")
+- Branch / PR: `feat/incremental-sync` (from `develop` 7a393ca)
+- Local checkout: on `feat/incremental-sync`; ESCI in `data/raw/esci/` (3 files, verified)
 - Repository: https://github.com/akramnemri/odoo-search-lost-demand (public, default branch `develop`)
 
 ## Milestone 0 exit check (2026-10-28)
@@ -78,10 +78,10 @@ Updated: 2026-11-20 by agent session 7 — Task 3.1 (product index): implemented
   (internal, Website designer) from that test. `shop test module` uses a throwaway `shop_test`, dropped after
   each run
 - Elasticsearch: users `odoo_app`, `shop_tools`, personal Kibana user `supervisor` (built-in `editor` role)
-- Product index (Task 3.1, 2026-11-20): alias `shop-products` → `shop-products-v2`, 19,869 documents (= Odoo's
-  19,869 products to index: active, `sale_ok`), 1,828 with `in_stock=false`; `shop-products-v1` (19,869, 72.8 MB)
-  kept from the first rebuild — delete it only on the supervisor's instruction. Rebuild 17 s then 14 s
-  (`uv run shop index rebuild`, whole command 20 s). Synonyms set `shop-synonyms`: created empty by the rebuild
+- Product index (Task 3.1, 2026-11-20): alias `shop-products` → `shop-products-v4`, 19,869 documents (= Odoo's
+  19,869 products to index: active, `sale_ok`), 1,828 with `in_stock=false`. Old indices `shop-products-v1..v3`
+  (~70 MB each) kept — delete them only on the supervisor's instruction. Rebuilds: v1 17 s, v2 14 s, v3 21 s (CLI),
+  v4 28 s (Settings button). Synonyms set `shop-synonyms`: created empty by the first rebuild
 - Events stored: 0
 
 ## Last completed tasks
@@ -277,7 +277,10 @@ Updated: 2026-11-20 by agent session 7 — Task 3.1 (product index): implemented
   code references; findings; screenshot list; limits). Published run from a clean checkout at 5bb9e2f (a first run
   on uncommitted code was discarded; the table keeps a "-dirty" mark when that happens). 14 new tool tests (404)
 
-- 3.1 — implemented 2026-11-20 on `feat/product-index`, waiting for CI and the manual test — index definition as
+- 3.1 — merged 2026-11-20 (PR #34, squash 7a393ca); manual test passed 2026-11-20, run by the agent: CLI rebuild
+  into v3 in 21 s; alias and count checked through the API as `shop_tools` (Kibana sign-in not used); Settings ›
+  Website block "In sync" 19,869/19,869 and its "Rebuild product index" button built v4 in 28 s; doctor
+  `product index alias` and `product index count` OK. What was built: index definition as
   JSON in the module (`addons/website_sale_lost_demand/elastic/products/`: settings and analyzers of `04` §5,
   strict mapping without `color` — Odoo has no colour field —, empty synonyms seed); `services/product_index.py`
   (pure: definition loader, documents, versioned names, rebuild = synonyms set if missing → `shop-products-v<N+1>`
@@ -396,15 +399,8 @@ Updated: 2026-11-20 by agent session 7 — Task 3.1 (product index): implemented
 - A local shop owner for interview #1 (Task 1.6) — start looking early
 
 ## Next step (exact)
-- **Supervisor: manual test of Task 3.1** (PR from `feat/product-index`; the shop's module is already 19.0.0.3.0):
-  1. `uv run shop index rebuild` → "19,869 products indexed into shop-products-v3 …; alias moved from
-     shop-products-v2", then `OK product index count`;
-  2. Kibana › Dev Tools (read-only): `GET _alias/shop-products` (one index) and `GET shop-products/_count` (19869);
-     `GET shop-products/_search?q=brand:acme` or any product name;
-  3. Odoo › Settings › Website: block "Product index" says "In sync", and "Rebuild product index" works there too;
-  4. `uv run shop doctor`: `product index alias` and `product index count` OK
-- Then, on "merge": squash-merge; next task 3.2 (incremental sync within 60 s)
-- Supervisor: old product indices (`shop-products-v1`, and later ones) are kept; say when to delete them
+- **Agent: Task 3.2** on `feat/incremental-sync` (outbox, hooks, flush job, probe) — in progress
+- Supervisor: old product indices (`shop-products-v1..v3`, ~70 MB each) are kept; say when to delete them
 - Idea for M4/M6 (not decided): Odoo's "Get notified when back in stock" form on out-of-stock pages is an explicit
   lost-demand signal (a shopper asking for a missing product); consider it as an extra event
 - Agent note: `odoo module upgrade -c /etc/odoo/odoo.conf -d shop website_sale_lost_demand` inside the `odoo`
