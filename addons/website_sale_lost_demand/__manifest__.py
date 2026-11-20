@@ -8,13 +8,16 @@ fallback to Odoo's own search; searches, clicks, carts and purchases become rest
 Task 1.3 (skeleton): Elasticsearch connection settings from the environment, read-only cluster status in
 Website settings, circuit breaker, security group.
 Task 2.4a: product brand (filled by the catalog importer).
+Task 3.1: product index in Elasticsearch (definition in elastic/products/), full rebuild with an alias swap,
+index status and rebuild button in Website settings.
     """,
-    "version": "19.0.0.2.0",
+    "version": "19.0.0.3.0",
     "category": "Website/Website",
     "author": "Lost Demand Project",
     "license": "LGPL-3",
-    # Only what this version needs; later tasks add website_sale_stock and purchase_stock when they use them.
-    "depends": ["website_sale"],
+    # Only what this version needs: website_sale_stock for stock quantities in the product index (Task 3.1);
+    # purchase_stock comes with the restock proposals (M6).
+    "depends": ["website_sale", "website_sale_stock"],
     "external_dependencies": {"python": ["elasticsearch"]},
     "data": [
         "security/website_sale_lost_demand_groups.xml",

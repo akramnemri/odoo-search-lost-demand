@@ -1,19 +1,15 @@
 # STATUS
 
-Updated: 2026-11-19 by agent session 7 — Task 2.6 (M2 release): regression gate passed, task PR open
+Updated: 2026-11-20 by agent session 7 — Task 3.1 (product index): implemented, task PR open
 
 ## Current position
-- Milestone: M2 — Datasets, evaluation protocol, catalog import — **release in progress**. M1 released 2026-11-14
-  (PR #22, merge commit f3926a1, tag `m1-stack`)
-- M2 order: 2.1 ✓ → 2.2 ✓ → 2.3a ✓ → 2.3b ✓ → 2.4a ✓ → 2.4b ✓ (+ availability follow-up ✓) → 2.5 ✓ → 2.6. Task 1.6
-  (interview) still open, in parallel
-- Task: **2.6 — milestone note and promotion** (`docs/report/notes/M2.md`, `CHANGELOG.md`, regression gate items 1–3
-  + full-catalog baseline reproduction, SonarCloud fixes of 2.5, `--no-dev` keeps the table, `import verify --limit`)
-  — state: **implemented, gate passed, waiting for CI and the supervisor's manual test**; then the release PR
-  `develop → main` and tag `m2-catalog`. Protocol tags `protocol-v1` (5689f1e) and `protocol-v1.1` (27640d6)
-- Branch / PR: `docs/m2-release` (from `develop` d15bebd)
-- Local checkout: on `docs/m2-release`; no other worktree (the regress worktree was removed); ESCI in
-  `data/raw/esci/` (3 files, verified)
+- Milestone: M3 — Search engine (FR1–FR3, fallback, synonyms). M2 released 2026-11-19 (PR #32 4f62925, release PR
+  #33 merge commit 8c7558a, tag `m2-catalog`); M1 released 2026-11-14 (PR #22, f3926a1, tag `m1-stack`)
+- M3 order: **3.1** → 3.2 → 3.3 → 3.4 → 3.5 → 3.6 → 3.7. Task 1.6 (interview) still open, in parallel
+- Task: **3.1 — product index as code and full rebuild** — state: **implemented, waiting for CI and the
+  supervisor's manual test**
+- Branch / PR: `feat/product-index` (from `develop` 4f62925)
+- Local checkout: on `feat/product-index`; ESCI in `data/raw/esci/` (3 files, verified)
 - Repository: https://github.com/akramnemri/odoo-search-lost-demand (public, default branch `develop`)
 
 ## Milestone 0 exit check (2026-10-28)
@@ -25,7 +21,8 @@ Updated: 2026-11-19 by agent session 7 — Task 2.6 (M2 release): regression gat
 - `main` still holds only the prompt pack: the first promotion `develop` → `main` is Task 1.7 (tag `m1-stack`)
 
 ## Environment
-- Doctor: 52 OK, 1 WARN (free disk 35.7 GB), 0 FAIL, 3 SKIP — 2026-11-19 with the stack up (72 GB on 2026-11-14 after the supervisor freed
+- Doctor: 54 OK, 1 WARN (free disk 39.2 GB), 0 FAIL, 2 SKIP — 2026-11-20 with the stack up and the product
+  index built (52 OK, 1 WARN, 3 SKIP on 2026-11-19) (72 GB on 2026-11-14 after the supervisor freed
   space)
 - Stack: `uv run shop up|down|status|logs`; `compose.yaml` (project `odoo-search-lost-demand`); clean start from empty
   volumes healthy in 94 s; `shop up` from stopped 66–82 s; images pulled 2026-10-29 (2.34 GB compressed)
@@ -74,13 +71,17 @@ Updated: 2026-11-19 by agent session 7 — Task 2.6 (M2 release): regression gat
   above — **the baseline every campaign restores**, protocol §8); `before-2-4a` (2026-11-14, 19.8 MB: module
   19.0.0.1.0, no catalog); `baseline-empty` (2026-11-06, 6.9 MB: 1 product, module not installed);
   `after-1-2a-manual-test` (2026-11-06, older: its integration user cannot create products)
-- Module `website_sale_lost_demand` **19.0.0.2.0** in `shop` (upgraded 2026-11-14 with `odoo module upgrade`, then
-  `docker compose restart odoo`); 19.0.0.1.0 was installed from Apps on 2026-11-06 (browser re-test of 1.3);
+- Module `website_sale_lost_demand` **19.0.0.3.0** in `shop` (upgraded 2026-11-20 with `odoo module upgrade`, 9 s,
+  then `docker compose restart odoo`; 19.0.0.2.0 since 2026-11-14). Snapshot `baseline-catalog` still holds
+  19.0.0.2.0: after restoring it, upgrade the module again (same catalog data; not re-saved without the supervisor); 19.0.0.1.0 was installed from Apps on 2026-11-06 (browser re-test of 1.3);
   snapshot `baseline-empty` is the state without it. `shop` also holds an archived throwaway user `ld_tester`
   (internal, Website designer) from that test. `shop test module` uses a throwaway `shop_test`, dropped after
   each run
-- Elasticsearch: users `odoo_app`, `shop_tools`, personal Kibana user `supervisor` (built-in `editor` role); no indices
-- Product index: none
+- Elasticsearch: users `odoo_app`, `shop_tools`, personal Kibana user `supervisor` (built-in `editor` role)
+- Product index (Task 3.1, 2026-11-20): alias `shop-products` → `shop-products-v2`, 19,869 documents (= Odoo's
+  19,869 products to index: active, `sale_ok`), 1,828 with `in_stock=false`; `shop-products-v1` (19,869, 72.8 MB)
+  kept from the first rebuild — delete it only on the supervisor's instruction. Rebuild 17 s then 14 s
+  (`uv run shop index rebuild`, whole command 20 s). Synonyms set `shop-synonyms`: created empty by the rebuild
 - Events stored: 0
 
 ## Last completed tasks
@@ -247,7 +248,8 @@ Updated: 2026-11-19 by agent session 7 — Task 2.6 (M2 release): regression gat
   sample), update 122 s, second run 66 s with 0 changes and the record untouched, `shop import verify` 10/10; built-in
   browser: an out-of-stock product shows "Out of Stock" with Add to cart hidden, an in-stock one (13) keeps Add to
   cart, one with 4 units shows "4 Units in stock". `baseline-catalog` re-saved. 3 new tool tests (390 total)
-- 2.6 — implemented 2026-11-19 on `docs/m2-release`, waiting for CI and the manual test — `baseline_search.py`: the
+- 2.6 — merged 2026-11-19 (PR #32, 4f62925, squash, after the supervisor's manual test); M2 released the same day:
+  release PR #33 (`develop → main`, merge commit 8c7558a), annotated tag `m2-catalog` on it — `baseline_search.py`: the
   5 SonarCloud findings of 2.5 fixed (regex without backtracking, outcome constants, `load_hand_picked` split, plain
   `if` for length buckets); `--no-dev` writes its run folder only and leaves `results/summary/baseline-search.md`
   unchanged. `shop import verify --limit N` draws from the first N products like `import catalog --limit N` (the
@@ -275,6 +277,21 @@ Updated: 2026-11-19 by agent session 7 — Task 2.6 (M2 release): regression gat
   code references; findings; screenshot list; limits). Published run from a clean checkout at 5bb9e2f (a first run
   on uncommitted code was discarded; the table keeps a "-dirty" mark when that happens). 14 new tool tests (404)
 
+- 3.1 — implemented 2026-11-20 on `feat/product-index`, waiting for CI and the manual test — index definition as
+  JSON in the module (`addons/website_sale_lost_demand/elastic/products/`: settings and analyzers of `04` §5,
+  strict mapping without `color` — Odoo has no colour field —, empty synonyms seed); `services/product_index.py`
+  (pure: definition loader, documents, versioned names, rebuild = synonyms set if missing → `shop-products-v<N+1>`
+  → bulk 500 per request → refresh → count must equal both the documents sent and Odoo's count → one `_aliases`
+  call; on any failure the alias stays, the half-built index is kept); `models/product_index.py`
+  (`lost_demand.product.index`, abstract: reads active `sale_ok` templates in batches of 500, stock from
+  `qty_available`, private `_rebuild()` for administrators/superuser); Settings › Website: index status (alias,
+  documents vs. products) and "Rebuild product index" button; `uv run shop index rebuild [--check]` (`odoo shell`
+  in the container; `--check` = the doctor's count check); doctor: `product index alias` (elastic) and
+  `product index count` (odoo, psql count vs. alias count); module 19.0.0.3.0 depends on `website_sale_stock`.
+  Synonym sets verified on the basic cluster (empty set accepted; a rule added later applied without reindex),
+  recorded in `docs/setup/VERSIONS.md`. Tests: 441 tools (+31), 27 module (+12, 3 of them `es`, on test-only
+  `shop-products-test*` indices removed after each test)
+
 ## Latest results
 - **Baseline, Odoo's native shop search, dev queries** (run `baseline-search-20261115T022019Z`, commit 5bb9e2f,
   `results/summary/baseline-search.md`): of 300 dev queries, **73 (24 %) show no result** although every wanted
@@ -285,6 +302,10 @@ Updated: 2026-11-19 by agent session 7 — Task 2.6 (M2 release): regression gat
   `baseline-search-20261119T154209Z`, git bc36eb3): every table row identical
 
 ## Decisions since last milestone
+- Task 3.1 plan accepted 2026-11-19 ("Go, as recommended"): index files inside the module (the Odoo container mounts
+  only `addons/`; `elastic/README.md` points there); `shop index rebuild` runs the rebuild in `odoo shell`, no
+  administrator rights for the API user; empty synonyms seed until Tasks 3.5/3.6 (chosen on dev queries); no `color`
+  field; old indices kept until the supervisor deletes them
 - Repository `odoo-search-lost-demand`, public; code license LGPL-3.0-only (`LICENSE` + `COPYING`)
 - Repository stays on the Windows drive (consequence in ADR-014: restart Odoo after Python changes)
 - Version table approved (ADR-018); PostgreSQL 16 kept; Docker Desktop stays at 4.60.1
@@ -361,10 +382,12 @@ Updated: 2026-11-19 by agent session 7 — Task 2.6 (M2 release): regression gat
 - Kibana and Elasticsearch memory under real dashboard and indexing load is not measured yet (M4, M7, M8)
 - Clean start 387 s on 2026-11-19 (target < 5 min; 93 s on 2026-11-14) with ~17 containers of other projects running
   (a kind cluster among them); the timing targets assume a quieter engine. Stop other stacks before timed runs
-- Fresh stack: cluster health yellow — Kibana 9.5 creates `.entity_analytics.watchlists.default` with 1 replica,
-  which a one-node cluster cannot assign. Not blocking; follow-up: set `number_of_replicas: 0` on it in `es-setup`
-  (or an index template) in M3
-- Free disk 35.7 GB on 2026-11-19 after the gate (doctor WARN below 50 GB): enough for M3; never prune without the supervisor
+- Fresh stack: cluster health was yellow at the M2 gate. Checked 2026-11-20: Kibana 9.5 creates
+  `.entity_analytics.watchlists.default` with `auto_expand_replicas: 0-1`, so on one node it settles at 0 replicas
+  (green on the real stack). The yellow was most likely transient while Kibana started; `es-setup` cannot change an
+  index created after it runs, so nothing was changed. Re-check at the M3 regression gate
+- Free disk 39.2 GB on 2026-11-20 (35.7 GB on 2026-11-19; doctor WARN below 50 GB): enough for M3; never prune
+  without the supervisor
 - The PostgreSQL password was shown once in the agent chat (process list check, before the fix); it never reached
   the repository. Rotate it if the transcript is shared (needs `ALTER USER` on the existing volume)
 
@@ -373,12 +396,15 @@ Updated: 2026-11-19 by agent session 7 — Task 2.6 (M2 release): regression gat
 - A local shop owner for interview #1 (Task 1.6) — start looking early
 
 ## Next step (exact)
-- **Supervisor: manual test of Task 2.6** (PR from `docs/m2-release`): read `docs/report/notes/M2.md` and the
-  `m2-catalog` entry of `docs/progress/CHANGELOG.md`; optionally `uv run shop eval baseline-search --no-dev`
-  (about 30 s) and check that `git status` shows `results/summary/baseline-search.md` unchanged; optionally
-  `uv run shop import verify --limit 500` (10 of 10 on the full shop)
-- Then, on the supervisor's "merge": squash-merge the task PR, open the release PR `develop → main` (merge commit,
-  gate results in the description), and after it merges tag `m2-catalog` on `main`
+- **Supervisor: manual test of Task 3.1** (PR from `feat/product-index`; the shop's module is already 19.0.0.3.0):
+  1. `uv run shop index rebuild` → "19,869 products indexed into shop-products-v3 …; alias moved from
+     shop-products-v2", then `OK product index count`;
+  2. Kibana › Dev Tools (read-only): `GET _alias/shop-products` (one index) and `GET shop-products/_count` (19869);
+     `GET shop-products/_search?q=brand:acme` or any product name;
+  3. Odoo › Settings › Website: block "Product index" says "In sync", and "Rebuild product index" works there too;
+  4. `uv run shop doctor`: `product index alias` and `product index count` OK
+- Then, on "merge": squash-merge; next task 3.2 (incremental sync within 60 s)
+- Supervisor: old product indices (`shop-products-v1`, and later ones) are kept; say when to delete them
 - Idea for M4/M6 (not decided): Odoo's "Get notified when back in stock" form on out-of-stock pages is an explicit
   lost-demand signal (a shopper asking for a missing product); consider it as an extra event
 - Agent note: `odoo module upgrade -c /etc/odoo/odoo.conf -d shop website_sale_lost_demand` inside the `odoo`

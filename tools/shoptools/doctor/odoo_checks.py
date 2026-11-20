@@ -13,6 +13,7 @@ import re
 
 from shoptools.doctor.checks import DoctorContext
 from shoptools.doctor.model import CheckResult, Status
+from shoptools.doctor.stack_checks import REBUILD_HINT, product_index_documents
 from shoptools.doctor.system import CommandResult, HttpResponse
 from shoptools.envfile import parse_env
 from shoptools.stack import ODOO_URL, compose_command
@@ -20,6 +21,8 @@ from shoptools.stack import ODOO_URL, compose_command
 MODULE = "website_sale_lost_demand"
 MANIFEST = f"addons/{MODULE}/__manifest__.py"
 UP_HINT = "uv run shop up"
+# Products the module indexes: the domain of lost_demand.product.index._indexable_domain (active, sale_ok).
+PRODUCTS_TO_INDEX_SQL = "SELECT count(*) FROM product_template WHERE sale_ok AND active"
 # Same rule as `shop db create`: a PostgreSQL identifier that is safe inside the SQL below.
 _DB_NAME = re.compile(r"^[a-z][a-z0-9_]{0,62}$")
 
@@ -57,7 +60,32 @@ def check_odoo(context: DoctorContext) -> list[CheckResult]:
             f"SELECT state, coalesce(latest_version, '') FROM ir_module_module WHERE name = '{MODULE}'",
         )
     )
-    return [health, database, module_result(row.stdout if row and row.ok else None, wanted)]
+    module = module_result(row.stdout if row and row.ok else None, wanted)
+    return [health, database, module, index_count_check(context, db_name)]
+
+
+def index_count_check(context: DoctorContext, db_name: str) -> CheckResult:
+    """Products Odoo would index vs. documents behind the alias (also `shop index rebuild --check`)."""
+    rows = context.system.run(psql_command(context, db_name, PRODUCTS_TO_INDEX_SQL))
+    text = rows.stdout.strip() if rows is not None and rows.ok else ""
+    return index_count_result(int(text) if text.isdigit() else None, product_index_documents(context))
+
+
+def index_count_result(products: int | None, documents: int | None) -> CheckResult:
+    name, expected = "product index count", "one document per product"
+    if products is None:
+        return CheckResult(
+            "odoo", name, Status.WARN, "cannot count the products", expected, "uv run shop logs db"
+        )
+    if documents is None:
+        return CheckResult(
+            "odoo", name, Status.WARN, f"{products:,} products, no product index", expected, REBUILD_HINT
+        )
+    found = f"{documents:,} documents for {products:,} products"
+    if documents == products:
+        return CheckResult("odoo", name, Status.OK, found, expected)
+    # Until Task 3.2 keeps the index in sync, any product change since the last rebuild shows here.
+    return CheckResult("odoo", name, Status.WARN, found, expected, REBUILD_HINT)
 
 
 def health_result(response: HttpResponse | None) -> CheckResult:

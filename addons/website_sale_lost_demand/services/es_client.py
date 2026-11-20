@@ -29,10 +29,13 @@ from typing import Any, Protocol, TypeVar
 
 from .breaker import BreakerState, CircuitBreaker
 from .config import EsConfig, load_config
+from .product_index import IndexStatus, read_status
 
 _logger = logging.getLogger(__name__)
 T = TypeVar("T")
 ERROR_TEXT_LIMIT = 200
+# One request of an administrator's job (a bulk of 500 products, creating an index): generous, not endless.
+ADMIN_TIMEOUT_SECONDS = 120.0
 # Calls hanging in a DNS lookup occupy a worker until it gives up; when all are busy, new calls wait in the
 # queue and hit their deadline, so a dead cluster never piles up threads.
 POOL_WORKERS = 4
@@ -62,6 +65,8 @@ class EsService(Protocol):
     """What the Odoo glue needs; tests replace it with a fake (tests/fake_es.py)."""
 
     def cluster_status(self, refresh: bool = False) -> ClusterStatus: ...
+
+    def product_index_status(self) -> IndexStatus: ...
 
 
 def _body(response: Any) -> Mapping[str, Any]:
@@ -168,6 +173,25 @@ class EsClient:
             breaker=breaker,
             checked_at=checked_at,
         )
+
+    # --- administrator pages and jobs (Task 3.1) ---
+
+    def product_index_status(self) -> IndexStatus:
+        """Where the product alias points and its document count, within the status timeout; never raises."""
+        timeout = self.config.status_timeout
+        try:
+            return self._within(timeout, lambda: read_status(self._raw().options(request_timeout=timeout)))
+        except (*self._client_errors(), DeadlineExceeded) as error:
+            return IndexStatus(error=describe_error(error))
+
+    def admin_client(self, timeout: float = ADMIN_TIMEOUT_SECONDS) -> Any:
+        """The raw client with a long per-request timeout, outside the circuit breaker: for an administrator's
+        job (index rebuild) that runs in the caller's thread, because it reads Odoo records between calls.
+        Never for shopper requests. Its errors are `client_errors()`."""
+        return self._raw().options(request_timeout=timeout)
+
+    def client_errors(self) -> tuple[type[Exception], ...]:
+        return self._client_errors()
 
     # --- shopper requests (used from Task 3.3) ---
 

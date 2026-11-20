@@ -10,6 +10,7 @@ from shoptools.doctor.model import Status
 from shoptools.doctor.odoo_checks import (
     MANIFEST,
     MODULE,
+    PRODUCTS_TO_INDEX_SQL,
     check_odoo,
     health_result,
     manifest_version,
@@ -17,7 +18,7 @@ from shoptools.doctor.odoo_checks import (
     psql_command,
 )
 from shoptools.doctor.system import HttpResponse
-from shoptools.stack import ODOO_URL
+from shoptools.stack import ELASTICSEARCH_URL, ODOO_URL
 
 HEALTH_URL = ODOO_URL + "/web/health"
 MODULE_SQL = f"SELECT state, coalesce(latest_version, '') FROM ir_module_module WHERE name = '{MODULE}'"
@@ -26,7 +27,9 @@ MODULE_SQL = f"SELECT state, coalesce(latest_version, '') FROM ir_module_module 
 @pytest.fixture
 def ready(context: DoctorContext, fake_system: FakeSystem) -> FakeSystem:
     fake_system.http[HEALTH_URL] = HttpResponse(200, json.dumps({"status": "pass"}))
-    fake_system.files[(context.repo_root / ".env").as_posix()] = "ODOO_DB_NAME=shop\n"
+    fake_system.files[(context.repo_root / ".env").as_posix()] = (
+        "ODOO_DB_NAME=shop\nSHOP_TOOLS_ES_PASSWORD=tools-value\n"  # pragma: allowlist secret
+    )
     fake_system.files[(context.repo_root / MANIFEST).as_posix()] = '{"name": "x", "version": "19.0.0.1.0"}'
     sql = "SELECT 1 FROM pg_database WHERE datname = 'shop'"
     fake_system.respond(*psql_command(context, "postgres", sql), stdout="1\n")
@@ -35,6 +38,7 @@ def ready(context: DoctorContext, fake_system: FakeSystem) -> FakeSystem:
 
 def test_everything_ok(context: DoctorContext, ready: FakeSystem) -> None:
     ready.respond(*psql_command(context, "shop", MODULE_SQL), stdout="installed|19.0.0.1.0\n")
+    _index(context, ready, products=19869, documents=19869)
 
     results = check_odoo(context)
 
@@ -42,7 +46,35 @@ def test_everything_ok(context: DoctorContext, ready: FakeSystem) -> None:
         ("health (/web/health)", Status.OK),
         ("database shop", Status.OK),
         (f"module {MODULE}", Status.OK),
+        ("product index count", Status.OK),
     ]
+    assert results[-1].found == "19,869 documents for 19,869 products"
+    assert ready.http_auth[COUNT_URL] == ("shop_tools", "tools-value")
+
+
+COUNT_URL = f"{ELASTICSEARCH_URL}/shop-products/_count"
+
+
+def _index(context: DoctorContext, system: FakeSystem, products: int, documents: int | None) -> None:
+    system.respond(*psql_command(context, "shop", PRODUCTS_TO_INDEX_SQL), stdout=f"{products}\n")
+    status, body = (404, {"status": 404}) if documents is None else (200, {"count": documents})
+    system.http[COUNT_URL] = HttpResponse(status, json.dumps(body))
+
+
+@pytest.mark.parametrize(
+    ("documents", "found"),
+    [(19868, "19,868 documents for 19,869 products"), (None, "19,869 products, no product index")],
+)
+def test_product_index_count_differs(
+    context: DoctorContext, ready: FakeSystem, documents: int | None, found: str
+) -> None:
+    ready.respond(*psql_command(context, "shop", MODULE_SQL), stdout="installed|19.0.0.1.0\n")
+    _index(context, ready, products=19869, documents=documents)
+
+    result = check_odoo(context)[-1]
+
+    assert (result.name, result.status, result.found) == ("product index count", Status.WARN, found)
+    assert result.hint == "uv run shop index rebuild"
 
 
 def test_odoo_down_stops_the_section(context: DoctorContext, fake_system: FakeSystem) -> None:

@@ -46,6 +46,31 @@
                             </div>
                         </div>
                     </setting>
+                    <setting id="lost_demand_product_index" string="Product index"
+                             help="Products the shop can sell, in Elasticsearch behind the alias shop-products. A rebuild loads a new index, checks the count, then moves the alias; the previous index is kept.">
+                        <div class="content-group">
+                            <div class="mt8">
+                                <field name="lost_demand_index_message"/>
+                            </div>
+                            <div class="row mt8">
+                                <label class="col-lg-4 o_light_label" string="Index" for="lost_demand_index_name"/>
+                                <field name="lost_demand_index_name" class="col-lg-8"/>
+                            </div>
+                            <div class="row">
+                                <label class="col-lg-4 o_light_label" string="Documents" for="lost_demand_index_documents"/>
+                                <field name="lost_demand_index_documents" class="col-lg-8"/>
+                            </div>
+                            <div class="row">
+                                <label class="col-lg-4 o_light_label" string="Products" for="lost_demand_index_products"/>
+                                <field name="lost_demand_index_products" class="col-lg-8"/>
+                            </div>
+                            <div class="mt8">
+                                <button name="action_lost_demand_rebuild_index" type="object" string="Rebuild product index"
+                                        icon="oi-arrow-right" class="btn-link"
+                                        confirm="Rebuild the product index now? It takes a few minutes; the shop keeps working meanwhile."/>
+                            </div>
+                        </div>
+                    </setting>
                 </block>
             </xpath>
         </field>

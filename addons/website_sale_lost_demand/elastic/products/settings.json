@@ -1,0 +1,25 @@
+{
+  "number_of_shards": 1,
+  "number_of_replicas": 0,
+  "refresh_interval": "1s",
+  "analysis": {
+    "filter": {
+      "en_possessive": { "type": "stemmer", "language": "possessive_english" },
+      "en_stemmer": { "type": "stemmer", "language": "light_english" },
+      "shop_synonyms": { "type": "synonym_graph", "synonyms_set": "shop-synonyms", "updateable": true }
+    },
+    "normalizer": {
+      "lower": { "type": "custom", "filter": ["lowercase", "asciifolding"] }
+    },
+    "analyzer": {
+      "shop_index": {
+        "tokenizer": "standard",
+        "filter": ["en_possessive", "lowercase", "asciifolding", "en_stemmer"]
+      },
+      "shop_search": {
+        "tokenizer": "standard",
+        "filter": ["en_possessive", "lowercase", "asciifolding", "shop_synonyms", "en_stemmer"]
+      }
+    }
+  }
+}

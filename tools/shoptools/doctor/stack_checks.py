@@ -25,6 +25,9 @@ from shoptools.stack import (
 )
 
 UP_HINT = "uv run shop up"
+# The alias the shop reads (Task 3.1, addons/website_sale_lost_demand/services/product_index.py).
+PRODUCT_ALIAS = "shop-products"
+REBUILD_HINT = "uv run shop index rebuild"
 # es-setup sets every password from .env on each run; re-running it repairs a mismatch.
 PASSWORD_HINT = "the password in .env differs from the cluster: run `docker compose up -d es-setup`"
 
@@ -120,9 +123,46 @@ def check_elastic(context: DoctorContext) -> list[CheckResult]:
         cluster_health_result(get("/_cluster/health")),
         es_version_result(get("/"), expected.elasticsearch_version),
         license_result(get("/_license"), expected.elastic_license),
-        CheckResult("elastic", "product index alias", Status.SKIP, "available from Task 3.1"),
+        product_index_result(get(f"/_alias/{PRODUCT_ALIAS}"), get(f"/{PRODUCT_ALIAS}/_count")),
         CheckResult("elastic", "event data stream", Status.SKIP, "available from Task 4.1"),
     ]
+
+
+def product_index_result(alias: HttpResponse | None, count: HttpResponse | None) -> CheckResult:
+    name, expected = "product index alias", f"{PRODUCT_ALIAS} -> one shop-products-v<N>"
+    if alias is None:
+        return CheckResult("elastic", name, Status.FAIL, "no answer", expected, UP_HINT)
+    if alias.status == 404:
+        return CheckResult(
+            "elastic", name, Status.WARN, "missing (no index built yet)", expected, REBUILD_HINT
+        )
+    holders = sorted(_json(alias) or {}) if alias.status == 200 else []
+    if len(holders) != 1:
+        found = (
+            f"HTTP {alias.status}"
+            if alias.status != 200
+            else f"on {len(holders)} indices: {', '.join(holders)}"
+        )
+        return CheckResult("elastic", name, Status.WARN, found, expected, REBUILD_HINT)
+    documents = _documents(count)
+    counted = f", {documents:,} documents" if documents is not None else ", count unknown"
+    return CheckResult("elastic", name, Status.OK, f"{PRODUCT_ALIAS} -> {holders[0]}{counted}", expected)
+
+
+def _documents(response: HttpResponse | None) -> int | None:
+    if response is None or response.status != 200:
+        return None
+    count = (_json(response) or {}).get("count")
+    return count if isinstance(count, int) else None
+
+
+def product_index_documents(context: DoctorContext) -> int | None:
+    """Documents behind the product alias (as `shop_tools`); None when unknown or missing."""
+    password = _env(context).get("SHOP_TOOLS_ES_PASSWORD")
+    if not password:
+        return None
+    url = f"{ELASTICSEARCH_URL}/{PRODUCT_ALIAS}/_count"
+    return _documents(context.system.http_get(url, auth=("shop_tools", password)))
 
 
 def login_result(section: str, name: str, url: str, response: HttpResponse | None) -> CheckResult:
