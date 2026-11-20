@@ -11,7 +11,14 @@ import pytest
 
 from services.config import EsConfig
 from services.es_client import EsClient, EsUnavailable
-from services.query_builder import DEFAULT_ENGINE, ES_PLAIN, ODOO, MalformedResponse, SearchFilters
+from services.query_builder import (
+    DEFAULT_ENGINE,
+    ES_PLAIN,
+    ES_TUNED_STOCK,
+    ODOO,
+    MalformedResponse,
+    SearchFilters,
+)
 from services.shop_search import (
     ENGINE_HEADER,
     KEY_HEADER,
@@ -137,3 +144,16 @@ def test_slow_cluster_gives_up_at_the_deadline() -> None:
 def test_odd_answer_is_malformed_not_empty() -> None:
     with pytest.raises(MalformedResponse):
         _search(EsClient(CONFIG, client=FakeRaw(answer={"error": "?"}), errors=(FakeError,)))
+
+
+def test_stock_engine_puts_in_stock_hits_first_after_the_cut() -> None:
+    hits = [{"_id": "35", "fields": {"in_stock": [False]}}, {"_id": "7", "fields": {"in_stock": [True]}}]
+    raw = FakeRaw(answer={"took": 2, "hits": {"hits": hits}})
+    service = EsClient(CONFIG, client=raw, errors=(FakeError,))
+
+    result = search_template_ids(
+        service, "shop-products", ES_TUNED_STOCK, "usb", SearchFilters(website_id=1), 2
+    )
+
+    assert result.ids == (7, 35)  # the sold-out best match stays among the hits, after the in-stock one
+    assert raw.requests[0]["docvalue_fields"] == ["in_stock"]

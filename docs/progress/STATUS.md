@@ -7,9 +7,9 @@ Updated: 2026-11-20 by agent session 9 — Task 3.3 (shop search through Elastic
   #33 merge commit 8c7558a, tag `m2-catalog`); M1 released 2026-11-14 (PR #22, f3926a1, tag `m1-stack`)
 - M3 order: 3.1 → 3.2 → **3.3** → 3.4 → 3.5 → 3.6 → 3.7. Task 1.6 (interview) still open, in parallel
 - Task: **3.3 — shop search through Elasticsearch, with fallback** — state: **manual test run by the agent
-  2026-11-20 (supervisor's request): everything works as built, but it found one design problem (sold-out
-  exact matches disappear, below) — waiting for the supervisor's decision** (plan accepted 2026-11-20: "go as
-  the recommendations", after a second in-depth review)
+  2026-11-20; its finding (sold-out exact matches disappeared) fixed with the supervisor's option A and
+  re-checked live; waiting for CI and the supervisor's "merge"** (plan accepted 2026-11-20: "go as the
+  recommendations", after a second in-depth review)
 - Branch / PR: `feat/es-shop-search` (from `develop` 85102c8) — PR #36
 - Local checkout: on `feat/es-shop-search`; ESCI in `data/raw/esci/` (3 files, verified)
 - Repository: https://github.com/akramnemri/odoo-search-lost-demand (public, default branch `develop`)
@@ -350,6 +350,16 @@ Updated: 2026-11-20 by agent session 9 — Task 3.3 (shop search through Elastic
   categories, "theottle cable" Odoo's 0, no error page; started again: Elasticsearch results 97 s later (its
   first answer, 1 s after start, was a 401 while its security index loaded, which re-opened the circuit for
   30 s); while down, one warning per re-opening (every 30 s); doctor afterwards 55 OK, 0 FAIL.
+  **Fix (supervisor: "Option A", 2026-11-20):** `es_tuned_stock` asks Elasticsearch for the 1,000 best-scored
+  hits (sort `_score`, `template_id`) with `docvalue_fields: ["in_stock"]`, and `hit_ids(in_stock_first=True)`
+  puts in-stock ones first within them (stable): the stock rule reorders, never removes. Live re-check: the
+  three sold-out exact matches are back (pages 43–45 of 48, after every in-stock hit; page 1 all in stock).
+  Tests now 511 tools (+49 in 3.3), 64 module (+19: a sold-out best match shown after the in-stock ones on a
+  real page; on the real cluster, with room for one hit the sold-out best match is kept). One module run
+  errored on a 14 s page (12 s client timeout) while the supervisor's kind cluster `mlops-lab-*` was busy;
+  the re-run passed (same page 0.81 s). Module version unchanged (Python only); Odoo restarted.
+  Also found: `shop lint` (pre-commit `--all-files`) checks tracked files only — new files passed unchecked
+  until `git add`; fixed in 809df19
   Built: `controllers/main.py` (`WebsiteSaleLostDemand`): `_shop_lookup_products` (website_sale/controllers/
   main.py:239) — Elasticsearch ranks at most 1,000 template IDs (published, website, selected category and its
   subcategories), Odoo re-filters them with `product.template._search_get_detail()`'s base domain as the shopper
@@ -391,6 +401,8 @@ Updated: 2026-11-20 by agent session 9 — Task 3.3 (shop search through Elastic
   `baseline-search-20261119T154209Z`, git bc36eb3): every table row identical
 
 ## Decisions since last milestone
+- Task 3.3 manual-test finding (supervisor, 2026-11-20, "Option A"): the in-stock rule (a) applies after the
+  1,000-hit relevance cut, never before it; Task 3.5 still measures `minimum_should_match` and rule (b)
 - Task 3.3 plan accepted 2026-11-20 ("go as the recommendations", after the supervisor asked for a second,
   deeper review): engines `es_plain`, `es_tuned` (v0, untuned) and `es_tuned_stock` (shoppers' default, in-stock
   first by rule (a)); at most 1,000 hits per search; an explicit sort order sorts the hits with Odoo's order;
@@ -494,13 +506,11 @@ Updated: 2026-11-20 by agent session 9 — Task 3.3 (shop search through Elastic
 - A local shop owner for interview #1 (Task 1.6) — start looking early
 
 ## Next step (exact)
-- **Supervisor: decide the fix for the sold-out finding of the 3.3 manual test** (Last completed tasks, 3.3):
-  (A, recommended) in 3.3: `es_tuned_stock` takes the 1,000 most relevant hits first, then puts in-stock ones
-  first within them (the cut before the stock rule: no product is lost to it; still deep in the list);
-  plus in 3.5: `minimum_should_match` and rule (b) "boosted" measured on dev queries, as planned;
-  (B) leave 3.3 as built and solve it only in 3.5; (C) change the default to `es_tuned` until 3.5.
-  Then "merge". The original manual-test steps, kept for the supervisor's own run (the stack runs module
-  19.0.0.5.0):
+- **Supervisor: "merge" of PR #36 after CI** (manual test run by the agent, finding fixed with option A).
+  Task 3.5 must address what remains: sold-out exact matches sit after up to ~1,000 weak in-stock matches
+  (`minimum_should_match`, rule (b) "boosted"), and weak matches surface under the price sort. Then the next
+  task is 3.4 (NDCG harness). The original manual-test steps, kept for the supervisor's own run (the stack
+  runs module 19.0.0.5.0 with the fix):
   1. Browser, `http://127.0.0.1:8069/shop?search=royal blue bedspreads` (Odoo alone finds nothing: baseline),
      `theottle cable` (typo), `windex`: results, prices, pages; open page 2; pick "Price - Low to High" in the
      sort menu; open a category from the left list while searching;

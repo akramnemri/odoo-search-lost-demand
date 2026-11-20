@@ -42,7 +42,8 @@ Elasticsearch ranks the products (at most 1,000 per search); Odoo keeps only tho
 (published, website, company, category, tags, price, attributes) and shows them in Elasticsearch's order, or
 in the sort the shopper picked; pages, totals and the category and attribute filters follow. Engines
 (`services/query_builder.py`): `es_plain` (out of the box), `es_tuned` (v0: stemming, synonyms, weights,
-typo tolerance; tuned in Task 3.5) and `es_tuned_stock` (the same, in-stock products first: the default).
+typo tolerance; tuned in Task 3.5) and `es_tuned_stock` (the same; among its 1,000 most relevant hits,
+in-stock products first: the default).
 Any Elasticsearch problem — error, no answer within 500 ms, open circuit — gives Odoo's own search results
 instead; shoppers never see an error. Searches without text (category pages) stay Odoo's.
 

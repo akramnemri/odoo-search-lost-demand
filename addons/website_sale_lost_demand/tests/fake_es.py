@@ -127,10 +127,12 @@ class FakeEsService:
 
 class FakeSearchClient:
     """Low-level client for a real `EsClient` in shop search tests: answers `search` with `ranked` template
-    IDs (whatever the query), or fails (`down`), or hangs until `release` is set (`hang`)."""
+    IDs (whatever the query), or fails (`down`), or hangs until `release` is set (`hang`). IDs in `sold_out`
+    carry `in_stock: false` when the query asks for the stock flag (engine es_tuned_stock)."""
 
     def __init__(self, ranked=()):
         self.ranked = list(ranked)
+        self.sold_out = set()
         self.down = False
         self.hang = None  # a threading.Event to make calls hang
         self.requests = []
@@ -144,4 +146,10 @@ class FakeSearchClient:
             self.hang.wait(timeout=10)
         if self.down:
             raise FakeEsError("ConnectionError: connection refused")
-        return {"took": 3, "hits": {"hits": [{"_id": str(template_id)} for template_id in self.ranked]}}
+        hits = []
+        for template_id in self.ranked:
+            hit = {"_id": str(template_id)}
+            if "docvalue_fields" in body:
+                hit["fields"] = {"in_stock": [template_id not in self.sold_out]}
+            hits.append(hit)
+        return {"took": 3, "hits": {"hits": hits}}

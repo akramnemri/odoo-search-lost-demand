@@ -52,9 +52,9 @@ class TestShopSearchOnTheRealCluster(TransactionCase):
             if TEST_NAMES.version_of(index) is not None:
                 cls.client.indices.delete(index=index)
 
-    def search(self, engine, text):
+    def search(self, engine, text, size=100):
         filters = SearchFilters(website_id=self.website.id)
-        hits = search_template_ids(self.service, TEST_NAMES.alias, engine, text, filters, 100)
+        hits = search_template_ids(self.service, TEST_NAMES.alias, engine, text, filters, size)
         self.assertIsInstance(hits.took_ms, int)
         ours = (self.sold_out.id, self.in_stock.id, self.hidden.id)
         return [template_id for template_id in hits.ids if template_id in ours]
@@ -71,3 +71,8 @@ class TestShopSearchOnTheRealCluster(TransactionCase):
     def test_in_stock_rule_puts_sold_out_products_last(self):
         self.assertEqual(self.search(ES_TUNED, "zqxes bedspread"), [self.sold_out.id, self.in_stock.id])
         self.assertEqual(self.search(ES_TUNED_STOCK, "zqxes bedspread"), [self.in_stock.id, self.sold_out.id])
+
+    def test_stock_rule_applies_after_the_cut(self):
+        """Option A (manual test, 2026-11-20): with room for one hit, the most relevant product is kept even
+        though it is sold out and a weaker in-stock match exists."""
+        self.assertEqual(self.search(ES_TUNED_STOCK, "zqxes bedspread", size=1), [self.sold_out.id])

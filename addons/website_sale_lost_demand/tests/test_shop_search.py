@@ -116,6 +116,15 @@ class TestShopSearch(HttpCase):
         self.assertEqual(len(self.client.requests), 1)
         self.assertEqual(self.client.requests[0]["index"], "shop-products")
 
+    def test_sold_out_best_match_is_shown_after_the_in_stock_ones(self):
+        # Option A (2026-11-20): the stock rule reorders the hits; it never removes one.
+        self.rank(self.alpha, self.gamma, self.beta)
+        self.client.sold_out = {self.alpha.id}
+
+        response = self.shop(WORD)
+
+        self.assertEqual(self.shown(response), [self.gamma.id, self.beta.id, self.alpha.id])
+
     def test_unpublished_product_never_shown_even_if_elasticsearch_returns_it(self):
         self.rank(self.hidden, self.alpha)
 
@@ -222,7 +231,7 @@ class TestShopSearch(HttpCase):
             self.assertNotIn(ENGINE_USED_HEADER, response.headers)
 
         self.assertEqual(len(self.client.requests), 2)
-        self.assertIn({"in_stock": "desc"}, self.client.requests[0]["sort"])  # the default engine
+        self.assertEqual(self.client.requests[0]["docvalue_fields"], ["in_stock"])  # the default engine
 
     def test_engine_switch_ignored_when_no_key_is_configured(self):
         self.patch(controller, "load_test_key", lambda environ: "")

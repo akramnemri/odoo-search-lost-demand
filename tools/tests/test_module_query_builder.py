@@ -20,6 +20,7 @@ from services.query_builder import (
     build_search,
     clean_query,
     hit_ids,
+    stock_first,
 )
 
 FILTERS = SearchFilters(website_id=1)
@@ -78,11 +79,19 @@ def test_tuned_engine_v0() -> None:
     }
 
 
-def test_stock_engine_puts_in_stock_products_first_then_score() -> None:
-    body = build_search(ES_TUNED_STOCK, "royal blue bedspread", FILTERS, 50)
-
-    assert body["query"] == {"bool": {"must": [TUNED_MATCH], "filter": SHOP_FILTERS}}
-    assert body["sort"] == [{"in_stock": "desc"}, "_score", {"template_id": "asc"}]
+def test_stock_engine_cuts_by_score_and_reads_the_stock_flag() -> None:
+    """Option A (2026-11-20): Elasticsearch ranks by score only; the stock rule applies after the cut."""
+    assert build_search(ES_TUNED_STOCK, "royal blue bedspread", FILTERS, 50) == {
+        "query": {"bool": {"must": [TUNED_MATCH], "filter": SHOP_FILTERS}},
+        "sort": ["_score", {"template_id": "asc"}],
+        "size": 50,
+        "_source": False,
+        "track_total_hits": False,
+        "docvalue_fields": ["in_stock"],
+    }
+    assert stock_first(ES_TUNED_STOCK)
+    assert not stock_first(ES_TUNED)
+    assert not stock_first(ES_PLAIN)
 
 
 def test_default_engine_is_the_stock_rule() -> None:
@@ -142,3 +151,28 @@ def test_hit_ids_of_no_hits() -> None:
 def test_hit_ids_refuse_an_odd_answer(response: dict) -> None:
     with pytest.raises(MalformedResponse):
         hit_ids(response)
+
+
+def _hit(template_id: int, in_stock: bool) -> dict:
+    return {"_id": str(template_id), "fields": {"in_stock": [in_stock]}}
+
+
+def test_in_stock_first_keeps_the_score_order_within_each_group() -> None:
+    response = {"hits": {"hits": [_hit(35, False), _hit(7, True), _hit(9, False), _hit(2, True)]}}
+
+    assert hit_ids(response, in_stock_first=True) == [7, 2, 35, 9]
+    assert hit_ids(response) == [35, 7, 9, 2]  # without the rule: Elasticsearch's order
+
+
+@pytest.mark.parametrize(
+    "hit",
+    [
+        {"_id": "1"},
+        {"_id": "1", "fields": {}},
+        {"_id": "1", "fields": {"in_stock": []}},
+        {"_id": "1", "fields": {"in_stock": ["yes"]}},
+    ],
+)
+def test_in_stock_first_refuses_a_hit_without_the_flag(hit: dict) -> None:
+    with pytest.raises(MalformedResponse):
+        hit_ids({"hits": {"hits": [hit]}}, in_stock_first=True)

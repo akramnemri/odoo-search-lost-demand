@@ -18,7 +18,15 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
-from .query_builder import DEFAULT_ENGINE, ENGINES, ES_ENGINES, SearchFilters, build_search, hit_ids
+from .query_builder import (
+    DEFAULT_ENGINE,
+    ENGINES,
+    ES_ENGINES,
+    SearchFilters,
+    build_search,
+    hit_ids,
+    stock_first,
+)
 
 KEY_HEADER = "X-Lost-Demand-Key"
 ENGINE_HEADER = "X-Lost-Demand-Engine"
@@ -82,4 +90,5 @@ def search_template_ids(
 
     response = service.guarded(run)
     took = response.get("took")
-    return SearchHits(ids=tuple(hit_ids(response)), took_ms=took if isinstance(took, int) else None)
+    ids = hit_ids(response, in_stock_first=stock_first(engine))
+    return SearchHits(ids=tuple(ids), took_ms=took if isinstance(took, int) else None)
