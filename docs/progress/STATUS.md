@@ -1,15 +1,15 @@
 # STATUS
 
-Updated: 2026-11-20 by agent session 7 — Task 3.1 (product index): implemented, task PR open
+Updated: 2026-11-20 by agent session 8 — Task 3.2 (incremental sync): manual test passed (run by the agent), PR #35 open
 
 ## Current position
 - Milestone: M3 — Search engine (FR1–FR3, fallback, synonyms). M2 released 2026-11-19 (PR #32 4f62925, release PR
   #33 merge commit 8c7558a, tag `m2-catalog`); M1 released 2026-11-14 (PR #22, f3926a1, tag `m1-stack`)
-- M3 order: **3.1** → 3.2 → 3.3 → 3.4 → 3.5 → 3.6 → 3.7. Task 1.6 (interview) still open, in parallel
-- Task: **3.1 — product index as code and full rebuild** — state: **implemented, waiting for CI and the
-  supervisor's manual test**
-- Branch / PR: `feat/product-index` (from `develop` 4f62925)
-- Local checkout: on `feat/product-index`; ESCI in `data/raw/esci/` (3 files, verified)
+- M3 order: 3.1 → **3.2** → 3.3 → 3.4 → 3.5 → 3.6 → 3.7. Task 1.6 (interview) still open, in parallel
+- Task: **3.2 — incremental sync within 60 s (FR1)** — state: **manual test passed 2026-11-20 (run by the agent
+  on the supervisor's request); waiting for CI and the supervisor's "merge"** (plan accepted 2026-11-20)
+- Branch / PR: `feat/incremental-sync` (from `develop` 7a393ca) — PR #35
+- Local checkout: on `feat/incremental-sync`; ESCI in `data/raw/esci/` (3 files, verified)
 - Repository: https://github.com/akramnemri/odoo-search-lost-demand (public, default branch `develop`)
 
 ## Milestone 0 exit check (2026-10-28)
@@ -21,8 +21,8 @@ Updated: 2026-11-20 by agent session 7 — Task 3.1 (product index): implemented
 - `main` still holds only the prompt pack: the first promotion `develop` → `main` is Task 1.7 (tag `m1-stack`)
 
 ## Environment
-- Doctor: 54 OK, 1 WARN (free disk 39.2 GB), 0 FAIL, 2 SKIP — 2026-11-20 with the stack up and the product
-  index built (52 OK, 1 WARN, 3 SKIP on 2026-11-19) (72 GB on 2026-11-14 after the supervisor freed
+- Doctor: 55 OK, 1 WARN (free disk 34.0 GB), 0 FAIL, 2 SKIP — 2026-11-20 after the Task 3.2 manual test (new check `product
+  changes waiting`) (54 OK earlier that day; 52 OK, 1 WARN, 3 SKIP on 2026-11-19) (72 GB on 2026-11-14 after the supervisor freed
   space)
 - Stack: `uv run shop up|down|status|logs`; `compose.yaml` (project `odoo-search-lost-demand`); clean start from empty
   volumes healthy in 94 s; `shop up` from stopped 66–82 s; images pulled 2026-10-29 (2.34 GB compressed)
@@ -71,17 +71,22 @@ Updated: 2026-11-20 by agent session 7 — Task 3.1 (product index): implemented
   above — **the baseline every campaign restores**, protocol §8); `before-2-4a` (2026-11-14, 19.8 MB: module
   19.0.0.1.0, no catalog); `baseline-empty` (2026-11-06, 6.9 MB: 1 product, module not installed);
   `after-1-2a-manual-test` (2026-11-06, older: its integration user cannot create products)
-- Module `website_sale_lost_demand` **19.0.0.3.0** in `shop` (upgraded 2026-11-20 with `odoo module upgrade`, 9 s,
-  then `docker compose restart odoo`; 19.0.0.2.0 since 2026-11-14). Snapshot `baseline-catalog` still holds
+- Module `website_sale_lost_demand` **19.0.0.4.0** in `shop` (upgraded 2026-11-20 with `odoo module upgrade`, 10 s,
+  then `docker compose restart odoo`; 19.0.0.3.0 earlier that day, 19.0.0.2.0 since 2026-11-14). The upgrade logs
+  three "Missing not-null constraint on lost_demand.index.queue.*" warnings from its first registry load (code
+  ahead of the table); the columns are NOT NULL afterwards and a fresh install logs none. Snapshot `baseline-catalog` still holds
   19.0.0.2.0: after restoring it, upgrade the module again (same catalog data; not re-saved without the supervisor); 19.0.0.1.0 was installed from Apps on 2026-11-06 (browser re-test of 1.3);
   snapshot `baseline-empty` is the state without it. `shop` also holds an archived throwaway user `ld_tester`
   (internal, Website designer) from that test. `shop test module` uses a throwaway `shop_test`, dropped after
   each run
 - Elasticsearch: users `odoo_app`, `shop_tools`, personal Kibana user `supervisor` (built-in `editor` role)
-- Product index (Task 3.1, 2026-11-20): alias `shop-products` → `shop-products-v2`, 19,869 documents (= Odoo's
-  19,869 products to index: active, `sale_ok`), 1,828 with `in_stock=false`; `shop-products-v1` (19,869, 72.8 MB)
-  kept from the first rebuild — delete it only on the supervisor's instruction. Rebuild 17 s then 14 s
-  (`uv run shop index rebuild`, whole command 20 s). Synonyms set `shop-synonyms`: created empty by the rebuild
+- Product index (Tasks 3.1–3.2, 2026-11-20): alias `shop-products` → **`shop-products-v5`** (definition version 2:
+  `free_qty`), 19,869 documents (= Odoo's 19,869 products to index: active, `sale_ok`), 1,828 with
+  `in_stock=false`; kept in sync by the outbox (empty after the probe run). Old indices `shop-products-v1..v4`
+  (~70 MB each; v1–v4 are definition 1) kept — delete them only on the supervisor's instruction. Rebuilds: v1 17 s,
+  v2 14 s, v3 21 s (CLI), v4 28 s (Settings button), v5 17 s (CLI). Synonyms set `shop-synonyms`: created empty
+  by the first rebuild. The probe runs and the manual test left 64 inventory moves in `shop` on 2026-11-20
+  (each stock change undone by a second adjustment); every price and quantity is back to its value
 - Events stored: 0
 
 ## Last completed tasks
@@ -277,7 +282,10 @@ Updated: 2026-11-20 by agent session 7 — Task 3.1 (product index): implemented
   code references; findings; screenshot list; limits). Published run from a clean checkout at 5bb9e2f (a first run
   on uncommitted code was discarded; the table keeps a "-dirty" mark when that happens). 14 new tool tests (404)
 
-- 3.1 — implemented 2026-11-20 on `feat/product-index`, waiting for CI and the manual test — index definition as
+- 3.1 — merged 2026-11-20 (PR #34, squash 7a393ca); manual test passed 2026-11-20, run by the agent: CLI rebuild
+  into v3 in 21 s; alias and count checked through the API as `shop_tools` (Kibana sign-in not used); Settings ›
+  Website block "In sync" 19,869/19,869 and its "Rebuild product index" button built v4 in 28 s; doctor
+  `product index alias` and `product index count` OK. What was built: index definition as
   JSON in the module (`addons/website_sale_lost_demand/elastic/products/`: settings and analyzers of `04` §5,
   strict mapping without `color` — Odoo has no colour field —, empty synonyms seed); `services/product_index.py`
   (pure: definition loader, documents, versioned names, rebuild = synonyms set if missing → `shop-products-v<N+1>`
@@ -292,7 +300,44 @@ Updated: 2026-11-20 by agent session 7 — Task 3.1 (product index): implemented
   recorded in `docs/setup/VERSIONS.md`. Tests: 441 tools (+31), 27 module (+12, 3 of them `es`, on test-only
   `shop-products-test*` indices removed after each test)
 
+- 3.2 — PR #35 open, waiting for CI and "merge". **Manual test passed 2026-11-20, run by the agent** on the
+  supervisor's request ("do the manual test for me"); the Odoo backend sign-in was not used (the agent enters no
+  passwords), so backend steps ran through the same server code: (1) product 4242 set to 0 on hand by an
+  inventory adjustment over JSON-2 (what "On Hand › Apply" calls) → index `free_qty 0`, `in_stock false` after
+  0.63 s; the shop's own availability route `/website_sale/get_combination_info` gave `free_qty 0`, not orderable;
+  (2) Settings fields read in `odoo shell` as the admin user: "Reachable", "basic (active)", "In sync" on
+  `shop-products-v5` 19,869/19,869, "Up to date"; scheduled action active, every 1 minute; the form view holds
+  the new block; (3) Elasticsearch stopped: price saved in 0.11 s, Settings computed in 2.1 s with
+  "Unreachable … the shop keeps working" and "1 product changes waiting"; started again: searchable 51.4 s
+  later, block back to "Up to date"; (4) probe reproduction (below) and doctor OK; product 4242 restored (price
+  35.99, 6 on hand). Screenshots S3.1–S3.3 (`docs/report/kit/figures.md`) still need a signed-in browser.
+  Built: outbox
+  `lost_demand.index.queue` (template ID as a plain integer, rows written by a pre-commit callback, one per product
+  per transaction, then `ir.cron._trigger()`); hooks (all `super()` first): `product.template` and `product.product`
+  create/write/unlink (indexed fields only), `product.public.category` write(name)/unlink,
+  `stock.quant._update_available_quantity` (the one funnel of inventory adjustments, deliveries, receipts and
+  reservations); job *Lost-demand search: sync product changes to Elasticsearch* (every minute + trigger):
+  `FOR UPDATE SKIP LOCKED`, merge per product, bulk 500 through the alias with `require_alias=true`, delete
+  sent rows, refused items retried after 30 s doubling to 1 h (never dropped; "refused" after 10), outage =
+  rows untouched, never raises (Odoo deactivates failing cron jobs), 50 s budget then "partially done";
+  index stores the shop's **free quantity** (`free_qty`, website warehouse, `in_stock` also true for products
+  without stock tracking) — mapping `_meta.definition_version` 2, the sync waits for a rebuild when the alias
+  holds another version; rebuild and sync serialised by a PostgreSQL advisory lock (rebuild locks on its own
+  cursor, then reads on a new one: REPEATABLE READ snapshot after the lock), waiting rows due again after a
+  rebuild; Settings › Website block "Product changes" (waiting, refused, oldest); doctor `product changes
+  waiting` (odoo); `uv run shop probe products [--count 30] [--timeout] [--seed]`; module 19.0.0.4.0.
+  Found by tests: the job was first named `_flush`, which overrides the ORM's `BaseModel._flush()` (renamed
+  `_send_to_index`). Report kit `docs/report/kit/` created (supervisor's request) and its rule added to
+  `CLAUDE.md`. Tests: 462 tools (+21), 45 module (+18, 5 of them `es`)
+
 ## Latest results
+- **Product change → searchable in the index (FR1, target < 60 s)** (run `probe-products-20261120T174549Z`,
+  commit 55767d6, `results/summary/freshness-products.md`): 30 changes (15 price, 15 stock), **30 visible, 0
+  timeouts, p50 1.12 s, p95 2.19 s, max 4.38 s**. Index level only: the shop page searches Elasticsearch from
+  Task 3.3. Reproduced in the manual test from clean commit c8641c9 (run `probe-products-20261120T184703Z`,
+  not committed as the table): 30/30, p50 1.01 s, p95 1.19 s, max 1.21 s, 0 timeouts. Not a protocol result yet (04 §11.4 is measured again at the M8 campaign). Live outage check
+  (agent, 2026-11-20, not a recorded run): with Elasticsearch stopped a price write took 0.06 s and waited in
+  the outbox (0 refusals); visible 64.4 s after `docker compose start elasticsearch` (startup + next minute run)
 - **Baseline, Odoo's native shop search, dev queries** (run `baseline-search-20261115T022019Z`, commit 5bb9e2f,
   `results/summary/baseline-search.md`): of 300 dev queries, **73 (24 %) show no result** although every wanted
   product is in the shop (15 % for 1–2 words, 23 % for 3–4, 33 % for 5+, 46 % with a negation word); Odoo's
@@ -302,6 +347,11 @@ Updated: 2026-11-20 by agent session 7 — Task 3.1 (product index): implemented
   `baseline-search-20261119T154209Z`, git bc36eb3): every table row identical
 
 ## Decisions since last milestone
+- Task 3.2 plan accepted 2026-11-20 ("go as the recommendations", after a deeper review): index the free
+  quantity (definition version 2, rebuild once), the probe measures change → searchable in the index until
+  Task 3.3 adds the shop page, refused rows kept and retried hourly (never dropped)
+- Report kit (supervisor, 2026-11-20): `docs/report/kit/` is updated at the end of every task (Odoo overrides,
+  engineering log, figures, results index, outline); rule in `CLAUDE.md` and the task report template (03 §14)
 - Task 3.1 plan accepted 2026-11-19 ("Go, as recommended"): index files inside the module (the Odoo container mounts
   only `addons/`; `elastic/README.md` points there); `shop index rebuild` runs the rebuild in `odoo shell`, no
   administrator rights for the API user; empty synonyms seed until Tasks 3.5/3.6 (chosen on dev queries); no `color`
@@ -396,15 +446,21 @@ Updated: 2026-11-20 by agent session 7 — Task 3.1 (product index): implemented
 - A local shop owner for interview #1 (Task 1.6) — start looking early
 
 ## Next step (exact)
-- **Supervisor: manual test of Task 3.1** (PR from `feat/product-index`; the shop's module is already 19.0.0.3.0):
-  1. `uv run shop index rebuild` → "19,869 products indexed into shop-products-v3 …; alias moved from
-     shop-products-v2", then `OK product index count`;
-  2. Kibana › Dev Tools (read-only): `GET _alias/shop-products` (one index) and `GET shop-products/_count` (19869);
-     `GET shop-products/_search?q=brand:acme` or any product name;
-  3. Odoo › Settings › Website: block "Product index" says "In sync", and "Rebuild product index" works there too;
-  4. `uv run shop doctor`: `product index alias` and `product index count` OK
-- Then, on "merge": squash-merge; next task 3.2 (incremental sync within 60 s)
-- Supervisor: old product indices (`shop-products-v1`, and later ones) are kept; say when to delete them
+- **Supervisor: "merge" of PR #35 after CI** (manual test passed, run by the agent; details under Last completed
+  tasks). Optional, in a signed-in browser: the screenshots S3.1–S3.3. The original manual-test steps, for
+  reference:
+  1. Odoo › Inventory › a product › "On Hand" › set the quantity to 0 (or Settings › Website, change a price);
+     within a minute `GET shop-products/_search?q=template_id:<id>` (Kibana Dev Tools, read-only) shows
+     `free_qty: 0`, `in_stock: false` (shop ordering by stock comes with Task 3.3);
+  2. Settings › Website › "Product changes": "Up to date"; Settings › Technical › Scheduled Actions shows
+     "Lost-demand search: sync product changes to Elasticsearch" (every 1 minute);
+  3. `docker compose stop elasticsearch`, change a price: the save is instant and the block shows "1 product
+     changes waiting"; `docker compose start elasticsearch`: within ~1–2 min it is sent (block back to "Up to date");
+  4. `uv run shop probe products` → read p50/p95 (last run: p95 2.19 s), then `uv run shop doctor`
+     (`product changes waiting` OK);
+  5. read `docs/report/kit/odoo-overrides.md` (the file asked for the report)
+- Then, on "merge": squash-merge; next task 3.3 (shop search through Elasticsearch, with fallback)
+- Supervisor: old product indices (`shop-products-v1..v3`, ~70 MB each) are kept; say when to delete them
 - Idea for M4/M6 (not decided): Odoo's "Get notified when back in stock" form on out-of-stock pages is an explicit
   lost-demand signal (a shopper asking for a missing product); consider it as an extra event
 - Agent note: `odoo module upgrade -c /etc/odoo/odoo.conf -d shop website_sale_lost_demand` inside the `odoo`

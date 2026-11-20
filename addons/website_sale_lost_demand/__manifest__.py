@@ -10,8 +10,10 @@ Website settings, circuit breaker, security group.
 Task 2.4a: product brand (filled by the catalog importer).
 Task 3.1: product index in Elasticsearch (definition in elastic/products/), full rebuild with an alias swap,
 index status and rebuild button in Website settings.
+Task 3.2: incremental sync within 60 s: product, variant, category and stock changes go to an outbox in
+the same transaction; a cron job (triggered at once) sends them in bulk, with retries; backlog in settings.
     """,
-    "version": "19.0.0.3.0",
+    "version": "19.0.0.4.0",
     "category": "Website/Website",
     "author": "Lost Demand Project",
     "license": "LGPL-3",
@@ -22,6 +24,7 @@ index status and rebuild button in Website settings.
     "data": [
         "security/website_sale_lost_demand_groups.xml",
         "security/ir.model.access.csv",
+        "data/ir_cron_data.xml",
         "views/res_config_settings_views.xml",
         "views/product_template_views.xml",
     ],

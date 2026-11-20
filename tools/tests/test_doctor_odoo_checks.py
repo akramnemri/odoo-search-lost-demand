@@ -11,8 +11,10 @@ from shoptools.doctor.odoo_checks import (
     MANIFEST,
     MODULE,
     PRODUCTS_TO_INDEX_SQL,
+    QUEUE_SQL,
     check_odoo,
     health_result,
+    index_queue_result,
     manifest_version,
     module_result,
     psql_command,
@@ -21,6 +23,7 @@ from shoptools.doctor.system import HttpResponse
 from shoptools.stack import ELASTICSEARCH_URL, ODOO_URL
 
 HEALTH_URL = ODOO_URL + "/web/health"
+NL = chr(10)
 MODULE_SQL = f"SELECT state, coalesce(latest_version, '') FROM ir_module_module WHERE name = '{MODULE}'"
 
 
@@ -38,6 +41,7 @@ def ready(context: DoctorContext, fake_system: FakeSystem) -> FakeSystem:
 
 def test_everything_ok(context: DoctorContext, ready: FakeSystem) -> None:
     ready.respond(*psql_command(context, "shop", MODULE_SQL), stdout="installed|19.0.0.1.0\n")
+    ready.respond(*psql_command(context, "shop", QUEUE_SQL), stdout="0|0|0" + NL)
     _index(context, ready, products=19869, documents=19869)
 
     results = check_odoo(context)
@@ -46,6 +50,7 @@ def test_everything_ok(context: DoctorContext, ready: FakeSystem) -> None:
         ("health (/web/health)", Status.OK),
         ("database shop", Status.OK),
         (f"module {MODULE}", Status.OK),
+        ("product changes waiting", Status.OK),
         ("product index count", Status.OK),
     ]
     assert results[-1].found == "19,869 documents for 19,869 products"
@@ -146,3 +151,18 @@ def test_health_result(response: HttpResponse | None, status: Status) -> None:
 @pytest.mark.parametrize("text", [None, "", "not python", "['a list']"])
 def test_unreadable_manifest(text: str | None) -> None:
     assert manifest_version(text) == ""
+
+
+@pytest.mark.parametrize(
+    ("output", "status", "found"),
+    [
+        ("0|0|0" + NL, Status.OK, "none"),
+        ("3|12|0" + NL, Status.OK, "3 rows, oldest 12 s"),
+        ("1200|900|0" + NL, Status.WARN, "1,200 rows, oldest 900 s"),
+        ("2|40|1" + NL, Status.WARN, "2 rows, oldest 40 s, 1 refused 10+ times"),
+        (None, Status.SKIP, "no outbox (module older than 19.0.0.4.0?)"),
+    ],
+)
+def test_product_changes_waiting(output: str | None, status: Status, found: str) -> None:
+    result = index_queue_result(output)
+    assert (result.name, result.status, result.found) == ("product changes waiting", status, found)

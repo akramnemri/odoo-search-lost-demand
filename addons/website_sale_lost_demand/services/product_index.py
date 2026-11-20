@@ -9,7 +9,9 @@ Design (docs/ai/01_ARCHITECTURE.md §8, docs/ai/04_DATA_SEARCH_EVALUATION.md §5
   it is missing, so the rules managed later in Odoo (Task 3.6) are never overwritten;
 - a rebuild loads every product into a new index `shop-products-v<N+1>`, checks the document count, then moves
   the alias `shop-products` to it in one atomic `_aliases` call. Previous indices are kept: only the
-  supervisor deletes indices. When anything fails before the swap, the alias stays where it was.
+  supervisor deletes indices. When anything fails before the swap, the alias stays where it was;
+- `mappings.json` carries `_meta.definition_version`: the incremental sync (Task 3.2, services/index_sync.py)
+  writes only into an index built from the current definition, otherwise its changes wait for a rebuild.
 """
 
 from __future__ import annotations
@@ -66,6 +68,11 @@ class IndexDefinition:
     mappings: dict[str, Any]
     synonyms_seed: list[dict[str, str]]
 
+    @property
+    def version(self) -> int:
+        """`_meta.definition_version` of the mapping: raised whenever a field or analyzer changes."""
+        return int(self.mappings["_meta"]["definition_version"])
+
 
 def load_definition(folder: Path = DEFINITION_DIR) -> IndexDefinition:
     """Read the three JSON files; raise ValueError when they do not fit together."""
@@ -82,6 +89,9 @@ def load_definition(folder: Path = DEFINITION_DIR) -> IndexDefinition:
         )
     if mappings.get("dynamic") != "strict":
         raise ValueError("mappings.json must be strict: an unknown field is a bug, not a new column")
+    version = mappings.get("_meta", {}).get("definition_version")
+    if not isinstance(version, int) or isinstance(version, bool) or version < 1:
+        raise ValueError("mappings.json needs a positive integer _meta.definition_version")
     if not isinstance(seed, list) or any(
         not isinstance(rule, dict) or not rule.get("id") or not rule.get("synonyms") for rule in seed
     ):
@@ -103,7 +113,11 @@ class ProductValues:
     brand: str | None = None
     categories: Sequence[tuple[int, str]] = ()
     price: float = 0.0
-    qty_available: float = 0.0
+    # What the shop can still sell: on hand minus reserved, in the website's warehouse (website_sale_stock
+    # `_get_product_available_qty`), summed over the variants. Products that do not track stock
+    # (`is_storable=False`) are never sold out in the shop, whatever this says.
+    free_qty: float = 0.0
+    is_storable: bool = True
     published: bool = False
     website_id: int | None = None  # None: the product is on every website
     updated_at: datetime | None = None  # naive UTC, as Odoo stores it
@@ -126,8 +140,9 @@ def build_document(product: ProductValues) -> dict[str, Any]:
         "categories": [name for _, name in product.categories],
         "category_ids": [category_id for category_id, _ in product.categories],
         "price": round(product.price, 2),
-        "qty_available": product.qty_available,
-        "in_stock": product.qty_available > 0,
+        "free_qty": product.free_qty,
+        # Same rule as website_sale_stock `_is_sold_out`: only stock-tracked products can be sold out.
+        "in_stock": product.free_qty > 0 or not product.is_storable,
         "published": product.published,
         "website_ids": [product.website_id] if product.website_id else [],
     }
@@ -153,19 +168,27 @@ def bulk_operations(index: str, documents: Iterable[Mapping[str, Any]]) -> list[
     return operations
 
 
-def bulk_failures(response: Mapping[str, Any]) -> list[str]:
-    """`<id>: <error type>: <reason>` for every refused item of a bulk response."""
+def bulk_item_errors(response: Mapping[str, Any]) -> dict[str, str]:
+    """Document ID -> `<error type>: <reason>` for every refused item of a bulk response.
+
+    A `delete` of a document that is not there answers 404 `not_found` without an `error`: not a failure.
+    """
     if not response.get("errors"):
-        return []
-    failures = []
+        return {}
+    errors: dict[str, str] = {}
     for item in response.get("items", []):
         result = next(iter(item.values()), {})
         error = result.get("error")
         if error:
             reason = error.get("reason", "") if isinstance(error, Mapping) else str(error)
             kind = error.get("type", "error") if isinstance(error, Mapping) else "error"
-            failures.append(f"{result.get('_id')}: {kind}: {reason}")
-    return failures
+            errors[str(result.get("_id"))] = f"{kind}: {reason}"
+    return errors
+
+
+def bulk_failures(response: Mapping[str, Any]) -> list[str]:
+    """`<id>: <error type>: <reason>` for every refused item of a bulk response."""
+    return [f"{doc_id}: {error}" for doc_id, error in bulk_item_errors(response).items()]
 
 
 # --- indices and alias ---
@@ -217,10 +240,19 @@ class IndexStatus:
     indices: tuple[str, ...] = ()  # normally one
     documents: int | None = None
     error: str = ""
+    definition_version: int | None = None  # `_meta.definition_version` of the index behind the alias
 
     @property
     def exists(self) -> bool:
         return bool(self.indices)
+
+
+def definition_version_of(client: Any, index: str) -> int | None:
+    """The `_meta.definition_version` an index was built with; None for indices built before Task 3.2."""
+    for value in _body(client.indices.get_mapping(index=index)).values():
+        version = (value or {}).get("mappings", {}).get("_meta", {}).get("definition_version")
+        return int(version) if isinstance(version, int) else None
+    return None
 
 
 def read_status(client: Any, names: IndexNames = PRODUCTS) -> IndexStatus:
@@ -228,7 +260,8 @@ def read_status(client: Any, names: IndexNames = PRODUCTS) -> IndexStatus:
     if not holders:
         return IndexStatus()
     count = _body(client.count(index=names.alias)).get("count")
-    return IndexStatus(tuple(holders), int(count) if count is not None else None)
+    version = definition_version_of(client, holders[0]) if len(holders) == 1 else None
+    return IndexStatus(tuple(holders), int(count) if count is not None else None, "", version)
 
 
 # --- rebuild ---

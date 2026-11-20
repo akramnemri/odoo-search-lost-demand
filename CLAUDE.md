@@ -37,6 +37,7 @@ multi-server or cloud deployment, Kafka/Spark/Hadoop, any paid Elastic feature.
 | `docs/ai/04_DATA_SEARCH_EVALUATION.md` | Before any dataset, index mapping, relevance, event schema, dashboard or evaluation work |
 | `docs/setup/VERSIONS.md` | Before installing, pinning or upgrading anything |
 | `docs/decisions/` | When a task depends on a past decision |
+| `docs/report/kit/README.md` | At the end of every task (report kit, see below) |
 
 If `docs/progress/STATUS.md` does not exist yet, the project is at Milestone 0, Task 0.1.
 
@@ -54,7 +55,7 @@ read STATUS.md + current milestone section
  -> create the feature branch from develop
  -> implement ONE bounded task
  -> run automated checks (lint, tests, module tests, compose config, doctor, + task-specific)
- -> update docs/progress/STATUS.md
+ -> update docs/progress/STATUS.md and the report kit docs/report/kit/
  -> commit, push the branch, open a PR to develop (if tooling allows)
  -> post the TASK REPORT (format in 03_GIT_TESTING_PIPELINE.md §14)
  -> STOP. Wait for the supervisor's manual test result.
@@ -62,6 +63,13 @@ read STATUS.md + current milestone section
 
 Never start the next task on your own. Never implement a whole milestone in one go.
 If a task turns out bigger than expected, stop and propose a split.
+
+**Report kit (supervisor, 2026-11-20).** The final report is prepared from day one. At the end of every task,
+add to `docs/report/kit/` whatever the report will need from that task: every Odoo method or view inherited
+(Odoo's file, line and behaviour, and exactly what we add) in `odoo-overrides.md`; non-obvious problems, causes,
+fixes and lessons in `engineering-log.md`; diagrams and screenshots to capture in `figures.md`; every result and
+the command and file it comes from in `results-index.md`; material per chapter in `report-outline.md`. Anything
+else essential to the report goes there too. Point to sources, never retype numbers by hand.
 
 ## Hard rules
 

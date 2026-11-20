@@ -71,6 +71,26 @@
                             </div>
                         </div>
                     </setting>
+                    <setting id="lost_demand_index_sync" string="Product changes"
+                             help="Product, stock and category changes are sent to the index within a minute by the scheduled action 'Lost-demand search: sync product changes to Elasticsearch'. While Elasticsearch is down they wait here and are sent after it recovers.">
+                        <div class="content-group">
+                            <div class="mt8">
+                                <field name="lost_demand_queue_message"/>
+                            </div>
+                            <div class="row mt8">
+                                <label class="col-lg-4 o_light_label" string="Waiting" for="lost_demand_queue_waiting"/>
+                                <field name="lost_demand_queue_waiting" class="col-lg-8"/>
+                            </div>
+                            <div class="row">
+                                <label class="col-lg-4 o_light_label" string="Refused" for="lost_demand_queue_failing"/>
+                                <field name="lost_demand_queue_failing" class="col-lg-8"/>
+                            </div>
+                            <div class="row">
+                                <label class="col-lg-4 o_light_label" string="Oldest" for="lost_demand_queue_oldest"/>
+                                <field name="lost_demand_queue_oldest" class="col-lg-8"/>
+                            </div>
+                        </div>
+                    </setting>
                 </block>
             </xpath>
         </field>

@@ -23,6 +23,13 @@ MANIFEST = f"addons/{MODULE}/__manifest__.py"
 UP_HINT = "uv run shop up"
 # Products the module indexes: the domain of lost_demand.product.index._indexable_domain (active, sale_ok).
 PRODUCTS_TO_INDEX_SQL = "SELECT count(*) FROM product_template WHERE sale_ok AND active"
+# Outbox of product changes (Task 3.2, lost_demand.index.queue): rows, age of the oldest in seconds, rows
+# refused 10 times or more (services/index_sync.py FAILING_AFTER_ATTEMPTS). Datetimes are naive UTC in Odoo.
+QUEUE_SQL = (
+    "SELECT count(*), coalesce(floor(extract(epoch FROM (now() AT TIME ZONE 'utc') - min(enqueued_at))), 0), "
+    "count(*) FILTER (WHERE attempts >= 10) FROM lost_demand_index_queue"
+)
+QUEUE_MAX_AGE_SECONDS = 300  # FR1 wants 60 s; 5 min leaves room for a rebuild or a restart
 # Same rule as `shop db create`: a PostgreSQL identifier that is safe inside the SQL below.
 _DB_NAME = re.compile(r"^[a-z][a-z0-9_]{0,62}$")
 
@@ -61,7 +68,8 @@ def check_odoo(context: DoctorContext) -> list[CheckResult]:
         )
     )
     module = module_result(row.stdout if row and row.ok else None, wanted)
-    return [health, database, module, index_count_check(context, db_name)]
+    queue = index_queue_check(context, db_name)
+    return [health, database, module, queue, index_count_check(context, db_name)]
 
 
 def index_count_check(context: DoctorContext, db_name: str) -> CheckResult:
@@ -69,6 +77,29 @@ def index_count_check(context: DoctorContext, db_name: str) -> CheckResult:
     rows = context.system.run(psql_command(context, db_name, PRODUCTS_TO_INDEX_SQL))
     text = rows.stdout.strip() if rows is not None and rows.ok else ""
     return index_count_result(int(text) if text.isdigit() else None, product_index_documents(context))
+
+
+def index_queue_check(context: DoctorContext, db_name: str) -> CheckResult:
+    """Product changes waiting to reach the index (module 19.0.0.4.0 and later)."""
+    rows = context.system.run(psql_command(context, db_name, QUEUE_SQL))
+    return index_queue_result(rows.stdout if rows is not None and rows.ok else None)
+
+
+def index_queue_result(output: str | None) -> CheckResult:
+    name, expected = "product changes waiting", f"none older than {QUEUE_MAX_AGE_SECONDS // 60} min"
+    parts = (output or "").strip().split("|")
+    if len(parts) != 3 or not all(part.isdigit() for part in parts):
+        return CheckResult("odoo", name, Status.SKIP, "no outbox (module older than 19.0.0.4.0?)", expected)
+    waiting, oldest, refused = (int(part) for part in parts)
+    if not waiting:
+        return CheckResult("odoo", name, Status.OK, "none", expected)
+    found = f"{waiting:,} rows, oldest {oldest} s" + (f", {refused:,} refused 10+ times" if refused else "")
+    if refused or oldest > QUEUE_MAX_AGE_SECONDS:
+        hint = (
+            "Settings > Website > Product changes; `uv run shop logs odoo` (Elasticsearch up? index rebuilt?)"
+        )
+        return CheckResult("odoo", name, Status.WARN, found, expected, hint)
+    return CheckResult("odoo", name, Status.OK, found, expected)
 
 
 def index_count_result(products: int | None, documents: int | None) -> CheckResult:
@@ -84,7 +115,8 @@ def index_count_result(products: int | None, documents: int | None) -> CheckResu
     found = f"{documents:,} documents for {products:,} products"
     if documents == products:
         return CheckResult("odoo", name, Status.OK, found, expected)
-    # Until Task 3.2 keeps the index in sync, any product change since the last rebuild shows here.
+    # Since Task 3.2 changes reach the index within a minute: a lasting difference means the sync is
+    # stuck (see `product changes waiting`) or the index was built before products were added in bulk.
     return CheckResult("odoo", name, Status.WARN, found, expected, REBUILD_HINT)
 
 
