@@ -29,8 +29,16 @@ KEY = "a-generated-load-test-key-0123456789"  # pragma: allowlist secret
     [
         ({}, KEY, EngineChoice(DEFAULT_ENGINE, trusted=False)),
         ({ENGINE_HEADER: ODOO}, KEY, EngineChoice(DEFAULT_ENGINE, trusted=False)),  # no key: ignored
-        ({ENGINE_HEADER: ODOO, KEY_HEADER: "wrong-key-of-some-length"}, KEY, EngineChoice(DEFAULT_ENGINE, False)),
-        ({ENGINE_HEADER: ODOO, KEY_HEADER: KEY}, "", EngineChoice(DEFAULT_ENGINE, trusted=False)),  # switch off
+        (
+            {ENGINE_HEADER: ODOO, KEY_HEADER: "wrong-key-of-some-length"},
+            KEY,
+            EngineChoice(DEFAULT_ENGINE, False),
+        ),
+        (
+            {ENGINE_HEADER: ODOO, KEY_HEADER: KEY},
+            "",
+            EngineChoice(DEFAULT_ENGINE, trusted=False),
+        ),  # switch off
         ({ENGINE_HEADER: ODOO, KEY_HEADER: ""}, "", EngineChoice(DEFAULT_ENGINE, trusted=False)),
         ({ENGINE_HEADER: ODOO, KEY_HEADER: KEY}, KEY, EngineChoice(ODOO, trusted=True)),
         ({ENGINE_HEADER: " es_plain ", KEY_HEADER: f" {KEY} "}, KEY, EngineChoice(ES_PLAIN, trusted=True)),
@@ -38,7 +46,9 @@ KEY = "a-generated-load-test-key-0123456789"  # pragma: allowlist secret
         ({KEY_HEADER: KEY}, KEY, EngineChoice(DEFAULT_ENGINE, trusted=True)),
     ],
 )
-def test_engine_switch_needs_the_key(headers: dict[str, str], configured: str, expected: EngineChoice) -> None:
+def test_engine_switch_needs_the_key(
+    headers: dict[str, str], configured: str, expected: EngineChoice
+) -> None:
     assert choose_engine(headers, configured) == expected
 
 
@@ -54,7 +64,9 @@ class FakeError(Exception):
 
 class FakeRaw:
     def __init__(self, answer: Any = None) -> None:
-        self.answer = answer if answer is not None else {"took": 4, "hits": {"hits": [{"_id": "5"}, {"_id": "2"}]}}
+        self.answer = (
+            answer if answer is not None else {"took": 4, "hits": {"hits": [{"_id": "5"}, {"_id": "2"}]}}
+        )
         self.down = False
         self.hang: threading.Event | None = None
         self.requests: list[dict[str, Any]] = []
@@ -81,7 +93,9 @@ CONFIG = EsConfig(
 
 
 def _search(service: EsClient) -> Any:
-    return search_template_ids(service, "shop-products", ES_PLAIN, "usb cable", SearchFilters(website_id=1), 100)
+    return search_template_ids(
+        service, "shop-products", ES_PLAIN, "usb cable", SearchFilters(website_id=1), 100
+    )
 
 
 def test_search_returns_ranked_ids_and_took() -> None:

@@ -25,7 +25,7 @@ class TestShopSearchOnTheRealCluster(TransactionCase):
         cls.service = EsClient(load_config(os.environ))
         cls.client = cls.service.admin_client(timeout=30)
         Product = cls.env["product.template"]
-        # Sold out (stock-tracked, nothing on hand) but the most relevant for "zqxes bedspread": shortest name.
+        # Sold out (stock-tracked, nothing on hand) but the most relevant for "zqxes bedspread" (shortest).
         cls.sold_out = Product.create(
             {"name": "Zqxes bedspread", "type": "consu", "is_storable": True, "is_published": True}
         )
@@ -33,7 +33,9 @@ class TestShopSearchOnTheRealCluster(TransactionCase):
         cls.in_stock = Product.create(
             {"name": "Zqxes bedspread velvet quilted king size", "type": "consu", "is_published": True}
         )
-        cls.hidden = Product.create({"name": "Zqxes bedspread hidden", "type": "consu", "is_published": False})
+        cls.hidden = Product.create(
+            {"name": "Zqxes bedspread hidden", "type": "consu", "is_published": False}
+        )
         cls.website = cls.env["website"].get_current_website()
 
     def setUp(self):

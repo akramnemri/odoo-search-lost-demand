@@ -2,8 +2,9 @@
 
 The engines (names shared with the evaluation protocol, docs/evaluation/protocol.md §6.2):
 
-- `es_plain` — "Elasticsearch out of the box": `multi_match` with default parameters over the standard-analyzer
-  subfields `name.std`, `description.std`, `brand.std`; no fuzziness, synonyms, boosts or stock rule.
+- `es_plain` — "Elasticsearch out of the box": `multi_match` with default parameters over the
+  standard-analyzer subfields `name.std`, `description.std`, `brand.std`; no fuzziness, synonyms, boosts or
+  stock rule.
 - `es_tuned` — version 0, NOT tuned yet: the shop analyzers of the index (English stemming, synonyms set) on
   `name`, `brand`, `description` with weights 3 / 2 / 1 and typo tolerance (`fuzziness: AUTO`, first letter
   exact). It is the starting point of Task 3.5, which changes it one measured step at a time on dev queries.
@@ -47,7 +48,8 @@ class MalformedResponse(ValueError):
 @dataclass(frozen=True)
 class SearchFilters:
     website_id: int
-    category_ids: tuple[int, ...] = ()  # the selected category and its subcategories; empty: no category filter
+    # The selected category and its subcategories; empty: no category filter.
+    category_ids: tuple[int, ...] = ()
 
 
 def clean_query(text: str | None) -> str:

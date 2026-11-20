@@ -1,7 +1,7 @@
 """Host tests of addons/website_sale_lost_demand/services/query_builder.py (pure functions, no Elasticsearch).
 
-The full bodies of the three engines are pinned (snapshot tests, docs/ai/02_CODING_STANDARDS.md §3): any change
-to a query must change these tests too, which makes it visible in review and in the experiment log.
+The full bodies of the three engines are pinned (snapshot tests, docs/ai/02_CODING_STANDARDS.md §3): any
+change to a query must change these tests too, which makes it visible in review and in the experiment log.
 """
 
 from __future__ import annotations
@@ -136,7 +136,8 @@ def test_hit_ids_of_no_hits() -> None:
 
 
 @pytest.mark.parametrize(
-    "response", [{}, {"hits": {}}, {"hits": {"hits": [{"_index": "x"}]}}, {"hits": {"hits": [{"_id": "abc"}]}}]
+    "response",
+    [{}, {"hits": {}}, {"hits": {"hits": [{"_index": "x"}]}}, {"hits": {"hits": [{"_id": "abc"}]}}],
 )
 def test_hit_ids_refuse_an_odd_answer(response: dict) -> None:
     with pytest.raises(MalformedResponse):

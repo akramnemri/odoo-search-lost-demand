@@ -28,10 +28,9 @@ per breaker opening; single fallbacks are logged at debug level, without the que
 import logging
 import os
 
+from odoo.addons.website_sale.controllers.main import WebsiteSale
 from odoo.fields import Domain
 from odoo.http import request
-
-from odoo.addons.website_sale.controllers.main import WebsiteSale
 
 from ..services.config import ConfigError, load_test_key
 from ..services.es_client import EsService, EsUnavailable, shared_service
@@ -84,9 +83,7 @@ class WebsiteSaleLostDemand(WebsiteSale):
                 choice, search, ODOO_FALLBACK, type(error).__name__, options, post, website
             )
         products = self._lost_demand_products(hits.ids, options, post, website)
-        self._lost_demand_record(
-            choice, SearchOutcome(search, choice.engine, hits.ids, hits.took_ms)
-        )
+        self._lost_demand_record(choice, SearchOutcome(search, choice.engine, hits.ids, hits.took_ms))
         _logger.debug(
             "shop search: engine %s, %d hits, %d shown, took %s ms",
             choice.engine,
@@ -133,7 +130,7 @@ class WebsiteSaleLostDemand(WebsiteSale):
         return tuple(categories.ids)
 
     def _lost_demand_products(self, ranked_ids, options, post, website):
-        """The ranked products Odoo's own shop filters allow, in Elasticsearch's order (or the chosen sort)."""
+        """The ranked products Odoo's shop filters allow, in Elasticsearch's order (or the chosen sort)."""
         Product = request.env["product.template"].with_context(bin_size=True)
         if not ranked_ids:
             return Product

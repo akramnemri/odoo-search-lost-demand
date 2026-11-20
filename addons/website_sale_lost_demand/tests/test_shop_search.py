@@ -21,9 +21,13 @@ KEY = "test-load-test-key-0123456789"  # pragma: allowlist secret
 WORD = "zqxlamp"  # a word no other product of the test database contains
 # A product link is /shop/<product>, or /shop/<category>/<product> on a category page
 # (website_sale/models/product_template.py:1117, `_get_product_url`).
-_PRODUCT = re.compile(r'href="/shop/(?!category/|cart|checkout|wishlist|page/)(?:[a-z0-9-]+/)?[a-z0-9-]*?-(\d+)"')
+_PRODUCT = re.compile(
+    r'href="/shop/(?!category/|cart|checkout|wishlist|page/)(?:[a-z0-9-]+/)?[a-z0-9-]*?-(\d+)"'
+)
 _GRID = 'id="o_wsale_products_grid"'
-_COUNT = re.compile(r"Search results for </span>'<strong>[^<]*</strong>'\s*(?:<small[^>]*>\s*\((\d+)\)</small>)?")
+_COUNT = re.compile(
+    r"Search results for </span>'<strong>[^<]*</strong>'\s*(?:<small[^>]*>\s*\((\d+)\)</small>)?"
+)
 
 
 def config(**changes):
