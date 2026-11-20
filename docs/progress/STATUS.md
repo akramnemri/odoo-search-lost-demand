@@ -1,15 +1,17 @@
 # STATUS
 
-Updated: 2026-11-20 by agent session 8 — Task 3.2 (incremental sync): manual test passed (run by the agent), PR #35 open
+Updated: 2026-11-20 by agent session 9 — Task 3.3 (shop search through Elasticsearch, with fallback) implemented, PR open
 
 ## Current position
 - Milestone: M3 — Search engine (FR1–FR3, fallback, synonyms). M2 released 2026-11-19 (PR #32 4f62925, release PR
   #33 merge commit 8c7558a, tag `m2-catalog`); M1 released 2026-11-14 (PR #22, f3926a1, tag `m1-stack`)
-- M3 order: 3.1 → **3.2** → 3.3 → 3.4 → 3.5 → 3.6 → 3.7. Task 1.6 (interview) still open, in parallel
-- Task: **3.2 — incremental sync within 60 s (FR1)** — state: **manual test passed 2026-11-20 (run by the agent
-  on the supervisor's request); waiting for CI and the supervisor's "merge"** (plan accepted 2026-11-20)
-- Branch / PR: `feat/incremental-sync` (from `develop` 7a393ca) — PR #35
-- Local checkout: on `feat/incremental-sync`; ESCI in `data/raw/esci/` (3 files, verified)
+- M3 order: 3.1 → 3.2 → **3.3** → 3.4 → 3.5 → 3.6 → 3.7. Task 1.6 (interview) still open, in parallel
+- Task: **3.3 — shop search through Elasticsearch, with fallback** — state: **manual test run by the agent
+  2026-11-20; its finding (sold-out exact matches disappeared) fixed with the supervisor's option A and
+  re-checked live; waiting for CI and the supervisor's "merge"** (plan accepted 2026-11-20: "go as the
+  recommendations", after a second in-depth review)
+- Branch / PR: `feat/es-shop-search` (from `develop` 85102c8) — PR #36
+- Local checkout: on `feat/es-shop-search`; ESCI in `data/raw/esci/` (3 files, verified)
 - Repository: https://github.com/akramnemri/odoo-search-lost-demand (public, default branch `develop`)
 
 ## Milestone 0 exit check (2026-10-28)
@@ -21,7 +23,9 @@ Updated: 2026-11-20 by agent session 8 — Task 3.2 (incremental sync): manual t
 - `main` still holds only the prompt pack: the first promotion `develop` → `main` is Task 1.7 (tag `m1-stack`)
 
 ## Environment
-- Doctor: 55 OK, 1 WARN (free disk 34.0 GB), 0 FAIL, 2 SKIP — 2026-11-20 after the Task 3.2 manual test (new check `product
+- Doctor: 55 OK, 1 WARN (free disk 33.6 GB), 0 FAIL, 2 SKIP — 2026-11-20 after the Task 3.3 live checks (one run
+  about 2 min after restarting Elasticsearch showed 3 FAIL "no answer" on its Elasticsearch checks; the next run
+  was clean, cluster healthy); 55 OK after the Task 3.2 manual test (new check `product
   changes waiting`) (54 OK earlier that day; 52 OK, 1 WARN, 3 SKIP on 2026-11-19) (72 GB on 2026-11-14 after the supervisor freed
   space)
 - Stack: `uv run shop up|down|status|logs`; `compose.yaml` (project `odoo-search-lost-demand`); clean start from empty
@@ -71,7 +75,9 @@ Updated: 2026-11-20 by agent session 8 — Task 3.2 (incremental sync): manual t
   above — **the baseline every campaign restores**, protocol §8); `before-2-4a` (2026-11-14, 19.8 MB: module
   19.0.0.1.0, no catalog); `baseline-empty` (2026-11-06, 6.9 MB: 1 product, module not installed);
   `after-1-2a-manual-test` (2026-11-06, older: its integration user cannot create products)
-- Module `website_sale_lost_demand` **19.0.0.4.0** in `shop` (upgraded 2026-11-20 with `odoo module upgrade`, 10 s,
+- Module `website_sale_lost_demand` **19.0.0.5.0** in `shop` (Task 3.3 branch, upgraded 2026-11-20 after
+  `uv run shop env init` added `LOAD_TEST_KEY` to `.env` and `docker compose up -d odoo` recreated the container
+  so it reads `LOST_DEMAND_LOAD_TEST_KEY`; then `docker compose restart odoo`). 19.0.0.4.0 (upgraded 2026-11-20 with `odoo module upgrade`, 10 s,
   then `docker compose restart odoo`; 19.0.0.3.0 earlier that day, 19.0.0.2.0 since 2026-11-14). The upgrade logs
   three "Missing not-null constraint on lost_demand.index.queue.*" warnings from its first registry load (code
   ahead of the table); the columns are NOT NULL afterwards and a fresh install logs none. Snapshot `baseline-catalog` still holds
@@ -300,7 +306,8 @@ Updated: 2026-11-20 by agent session 8 — Task 3.2 (incremental sync): manual t
   recorded in `docs/setup/VERSIONS.md`. Tests: 441 tools (+31), 27 module (+12, 3 of them `es`, on test-only
   `shop-products-test*` indices removed after each test)
 
-- 3.2 — PR #35 open, waiting for CI and "merge". **Manual test passed 2026-11-20, run by the agent** on the
+- 3.2 — merged 2026-11-20 (PR #35, squash 85102c8, on the supervisor's "merge" after CI). **Manual test passed
+  2026-11-20, run by the agent** on the
   supervisor's request ("do the manual test for me"); the Odoo backend sign-in was not used (the agent enters no
   passwords), so backend steps ran through the same server code: (1) product 4242 set to 0 on hand by an
   inventory adjustment over JSON-2 (what "On Hand › Apply" calls) → index `free_qty 0`, `in_stock false` after
@@ -330,6 +337,53 @@ Updated: 2026-11-20 by agent session 8 — Task 3.2 (incremental sync): manual t
   `_send_to_index`). Report kit `docs/report/kit/` created (supervisor's request) and its rule added to
   `CLAUDE.md`. Tests: 462 tools (+21), 45 module (+18, 5 of them `es`)
 
+- 3.3 — implemented 2026-11-20 on `feat/es-shop-search`, PR #36. **Manual test run by the agent 2026-11-20** on
+  the supervisor's request (built-in browser for the public shop pages, scripts for the rest; no sign-in):
+  (1) "royal blue bedspreads" 1,000 results, a royal blue velvet bedspread first, category bar and price range
+  filled; page 2, "price low to high" sort, a category while searching (Bedding & Bath: only bedding hits),
+  "theottle cable" (throttle cables first), "windex" (Windex products first): all 200, no error;
+  (2) in-stock first: page 1 of three sold-out products' names is all in stock — **finding**: product 35's
+  exact name ranks it 1st with `es_tuned` but it is **absent** with the default `es_tuned_stock`: 14,664
+  in-stock products loosely match (typo tolerance, any word), the in-stock-first sort fills the 1,000 hits
+  before it; also the price sort and page 2 already show weak matches (a $2.99 eyeshadow for "royal blue
+  bedspreads"); (3) Elasticsearch stopped: "windex" in the browser shows Odoo's 36 results and its 2
+  categories, "theottle cable" Odoo's 0, no error page; started again: Elasticsearch results 97 s later (its
+  first answer, 1 s after start, was a 401 while its security index loaded, which re-opened the circuit for
+  30 s); while down, one warning per re-opening (every 30 s); doctor afterwards 55 OK, 0 FAIL.
+  **Fix (supervisor: "Option A", 2026-11-20):** `es_tuned_stock` asks Elasticsearch for the 1,000 best-scored
+  hits (sort `_score`, `template_id`) with `docvalue_fields: ["in_stock"]`, and `hit_ids(in_stock_first=True)`
+  puts in-stock ones first within them (stable): the stock rule reorders, never removes. Live re-check: the
+  three sold-out exact matches are back (pages 43–45 of 48, after every in-stock hit; page 1 all in stock).
+  Tests now 511 tools (+49 in 3.3), 64 module (+19: a sold-out best match shown after the in-stock ones on a
+  real page; on the real cluster, with room for one hit the sold-out best match is kept). One module run
+  errored on a 14 s page (12 s client timeout) while the supervisor's kind cluster `mlops-lab-*` was busy;
+  the re-run passed (same page 0.81 s). Module version unchanged (Python only); Odoo restarted.
+  Also found: `shop lint` (pre-commit `--all-files`) checks tracked files only — new files passed unchecked
+  until `git add`; fixed in 809df19
+  Built: `controllers/main.py` (`WebsiteSaleLostDemand`): `_shop_lookup_products` (website_sale/controllers/
+  main.py:239) — Elasticsearch ranks at most 1,000 template IDs (published, website, selected category and its
+  subcategories), Odoo re-filters them with `product.template._search_get_detail()`'s base domain as the shopper
+  and keeps Elasticsearch's order (or the sort the shopper picked); no text or engine `odoo` → `super()`; any
+  `EsUnavailable` / `ConfigError` / `MalformedResponse` → `super()` (native results). `_get_shop_domain`
+  (line 158): `super()` without the words AND id in the hits, so categories, attributes and price range follow.
+  `services/query_builder.py` (pure, snapshot-tested): `es_plain`, `es_tuned` v0 (untuned: shop analyzers,
+  name^3 brand^2 description, `fuzziness AUTO`, `prefix_length 1`), `es_tuned_stock` (in-stock first, rule (a),
+  default); ties by `template_id`, `_source: false`, `track_total_hits: false`. `services/shop_search.py`: engine
+  switch (`X-Lost-Demand-Key` = `LOAD_TEST_KEY`, `X-Lost-Demand-Engine`; with the key only, response header
+  `X-Lost-Demand-Engine-Used`, `odoo_fallback` on failure), one search through `guarded()`. `EsClient`: shopper
+  searches on their own 8-thread pool. Config `LOST_DEMAND_ES_SEARCH_MAX_HITS` (1,000, ≤ 10,000) and
+  `LOST_DEMAND_LOAD_TEST_KEY` (`.env.example`, compose, optional). Module 19.0.0.5.0. Design review findings
+  (category filter pushed to Elasticsearch, price kept Odoo-only, separate pool, `_get_shop_domain`) and the
+  test finding (category-page product links) in `docs/report/kit/engineering-log.md`. Tests: 505 tools (+43),
+  62 module (+17: 14 `HttpCase` on real `/shop` pages with a fake low-level client — order kept, unpublished
+  never shown, pages, category, chosen sort, typo with categories, no-hit, down, circuit, slow within budget,
+  switch with/without key —, 3 `es` on the real cluster: stemming, typo, in-stock rule). Live checks
+  (agent, 2026-11-20, observations, not recorded runs): `royal blue bedspreads` 0 results with `odoo`, 1,000 with
+  the Elasticsearch engines; `theottle cable` 0 → 768, throttle cables on top; warm pages median 246 ms
+  (`es_tuned_stock`) vs 453 ms (`odoo`), 18 requests each; Elasticsearch stopped: every page 200 with Odoo's
+  results (`odoo_fallback`), ~0.9 s for the first 3, then circuit open (one warning logged) ~0.3 s; started
+  again: Elasticsearch results 54 s later
+
 ## Latest results
 - **Product change → searchable in the index (FR1, target < 60 s)** (run `probe-products-20261120T174549Z`,
   commit 55767d6, `results/summary/freshness-products.md`): 30 changes (15 price, 15 stock), **30 visible, 0
@@ -347,6 +401,12 @@ Updated: 2026-11-20 by agent session 8 — Task 3.2 (incremental sync): manual t
   `baseline-search-20261119T154209Z`, git bc36eb3): every table row identical
 
 ## Decisions since last milestone
+- Task 3.3 manual-test finding (supervisor, 2026-11-20, "Option A"): the in-stock rule (a) applies after the
+  1,000-hit relevance cut, never before it; Task 3.5 still measures `minimum_should_match` and rule (b)
+- Task 3.3 plan accepted 2026-11-20 ("go as the recommendations", after the supervisor asked for a second,
+  deeper review): engines `es_plain`, `es_tuned` (v0, untuned) and `es_tuned_stock` (shoppers' default, in-stock
+  first by rule (a)); at most 1,000 hits per search; an explicit sort order sorts the hits with Odoo's order;
+  Elasticsearch shows published products only, also to internal users
 - Task 3.2 plan accepted 2026-11-20 ("go as the recommendations", after a deeper review): index the free
   quantity (definition version 2, rebuild once), the probe measures change → searchable in the index until
   Task 3.3 adds the shop page, refused rows kept and retried hourly (never dropped)
@@ -446,9 +506,27 @@ Updated: 2026-11-20 by agent session 8 — Task 3.2 (incremental sync): manual t
 - A local shop owner for interview #1 (Task 1.6) — start looking early
 
 ## Next step (exact)
-- **Supervisor: "merge" of PR #35 after CI** (manual test passed, run by the agent; details under Last completed
-  tasks). Optional, in a signed-in browser: the screenshots S3.1–S3.3. The original manual-test steps, for
-  reference:
+- **Supervisor: "merge" of PR #36 after CI** (manual test run by the agent, finding fixed with option A).
+  Task 3.5 must address what remains: sold-out exact matches sit after up to ~1,000 weak in-stock matches
+  (`minimum_should_match`, rule (b) "boosted"), and weak matches surface under the price sort. Then the next
+  task is 3.4 (NDCG harness). The original manual-test steps, kept for the supervisor's own run (the stack
+  runs module 19.0.0.5.0 with the fix):
+  1. Browser, `http://127.0.0.1:8069/shop?search=royal blue bedspreads` (Odoo alone finds nothing: baseline),
+     `theottle cable` (typo), `windex`: results, prices, pages; open page 2; pick "Price - Low to High" in the
+     sort menu; open a category from the left list while searching;
+  2. a sold-out product of the results sits after the in-stock ones (e.g. search a word of the Giftgarden shelf
+     from the 2.4b follow-up);
+  3. `docker compose stop elasticsearch`, search again: results (Odoo's own, e.g. `royal blue bedspreads` shows
+     none, `windex` 36), no error page; `docker compose start elasticsearch`: within ~1–2 min Elasticsearch
+     results return (breaker cooldown 30 s after Elasticsearch answers again);
+  4. optional: `uv run shop doctor`; read `docs/report/kit/odoo-overrides.md` § Task 3.3;
+  5. say "merge" (or what to change). Screenshots S3.7–S3.9 (`docs/report/kit/figures.md`) need a browser.
+- Known limits to decide later (not bugs of 3.3): the sort menu still says "Featured" while results are in
+  relevance order (a "Relevance" entry would be a template change); the Elasticsearch engines do not search the
+  internal reference (`default_code`), Odoo's does — a Task 3.5 candidate; typo tolerance makes totals large
+  (capped at 1,000) — `minimum_should_match` is a Task 3.5 experiment; the first search after a restart of
+  Elasticsearch can fall back once (cold caches, 518 ms measured)
+- Task 3.2's optional screenshots S3.1–S3.3 and its manual-test steps, for reference:
   1. Odoo › Inventory › a product › "On Hand" › set the quantity to 0 (or Settings › Website, change a price);
      within a minute `GET shop-products/_search?q=template_id:<id>` (Kibana Dev Tools, read-only) shows
      `free_qty: 0`, `in_stock: false` (shop ordering by stock comes with Task 3.3);
@@ -459,7 +537,6 @@ Updated: 2026-11-20 by agent session 8 — Task 3.2 (incremental sync): manual t
   4. `uv run shop probe products` → read p50/p95 (last run: p95 2.19 s), then `uv run shop doctor`
      (`product changes waiting` OK);
   5. read `docs/report/kit/odoo-overrides.md` (the file asked for the report)
-- Then, on "merge": squash-merge; next task 3.3 (shop search through Elasticsearch, with fallback)
 - Supervisor: old product indices (`shop-products-v1..v3`, ~70 MB each) are kept; say when to delete them
 - Idea for M4/M6 (not decided): Odoo's "Get notified when back in stock" form on out-of-stock pages is an explicit
   lost-demand signal (a shopper asking for a missing product); consider it as an extra event

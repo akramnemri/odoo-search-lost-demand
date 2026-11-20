@@ -12,7 +12,14 @@ import pytest
 
 from services.breaker import BreakerState
 from services.config import EsConfig
-from services.es_client import POOL_WORKERS, ClusterStatus, EsClient, EsUnavailable, describe_error
+from services.es_client import (
+    POOL_WORKERS,
+    SEARCH_POOL_WORKERS,
+    ClusterStatus,
+    EsClient,
+    EsUnavailable,
+    describe_error,
+)
 
 
 class FakeTransportError(Exception):
@@ -239,7 +246,7 @@ def test_guarded_returns_after_the_deadline_and_counts_a_failure(fast_service: E
 
 
 def test_hanging_calls_do_not_pile_up(fast_service: EsClient, hanging: FakeRaw) -> None:
-    calls = POOL_WORKERS + 3  # more calls than workers: the extra ones wait in the queue
+    calls = SEARCH_POOL_WORKERS + 3  # more calls than workers: the extra ones wait in the queue
     started = time.monotonic()
 
     for _ in range(calls):
@@ -247,4 +254,16 @@ def test_hanging_calls_do_not_pile_up(fast_service: EsClient, hanging: FakeRaw) 
             fast_service.guarded(lambda client: client.info())
 
     assert time.monotonic() - started < calls * 0.05 + 1
-    assert len(hanging.calls) <= POOL_WORKERS  # queued calls were cancelled, never sent
+    assert len(hanging.calls) <= SEARCH_POOL_WORKERS  # queued calls were cancelled, never sent
+
+
+def test_shopper_calls_do_not_wait_behind_background_jobs(raw: FakeRaw) -> None:
+    """Every background worker hangs (the sync job on a dead DNS lookup): a shopper's call still runs."""
+    service = EsClient(CONFIG, client=raw, errors=(FakeTransportError,))
+    release = threading.Event()
+    for _ in range(POOL_WORKERS):
+        service._pool.submit(release.wait, 5)
+    try:
+        assert service.guarded(lambda client: client.info()) == {"version": {"number": "9.5.5"}}
+    finally:
+        release.set()

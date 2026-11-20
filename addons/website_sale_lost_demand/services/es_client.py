@@ -39,6 +39,10 @@ ADMIN_TIMEOUT_SECONDS = 120.0
 # Calls hanging in a DNS lookup occupy a worker until it gives up; when all are busy, new calls wait in the
 # queue and hit their deadline, so a dead cluster never piles up threads.
 POOL_WORKERS = 4
+# Shopper searches have their own workers (Task 3.3): the sync job's bulk requests (up to 120 s) and the
+# settings page never make a shopper's search queue behind them. In the threaded development server all
+# requests share one process; with Odoo workers (load tests) every process has its own pools.
+SEARCH_POOL_WORKERS = 8
 
 
 class EsUnavailable(Exception):
@@ -64,6 +68,8 @@ class ClusterStatus:
 class EsService(Protocol):
     """What the Odoo glue needs; tests replace it with a fake (tests/fake_es.py)."""
 
+    config: EsConfig
+
     def cluster_status(self, refresh: bool = False) -> ClusterStatus: ...
 
     def product_index_status(self) -> IndexStatus: ...
@@ -71,6 +77,8 @@ class EsService(Protocol):
     def admin_call(self, operation: Callable[[Any], T], timeout: float = ...) -> T: ...
 
     def client_errors(self) -> tuple[type[Exception], ...]: ...
+
+    def guarded(self, operation: Callable[[Any], T], timeout: float | None = None) -> T: ...
 
 
 def _body(response: Any) -> Mapping[str, Any]:
@@ -106,10 +114,13 @@ class EsClient:
         self._cached: tuple[float, ClusterStatus] | None = None
         self.breaker = CircuitBreaker(config.breaker_failures, config.breaker_reset_seconds, clock)
         self._pool = ThreadPoolExecutor(max_workers=POOL_WORKERS, thread_name_prefix="lost-demand-es")
+        self._search_pool = ThreadPoolExecutor(
+            max_workers=SEARCH_POOL_WORKERS, thread_name_prefix="lost-demand-search"
+        )
 
-    def _within(self, seconds: float, call: Callable[[], T]) -> T:
-        """Run `call` in the pool; raise DeadlineExceeded when it has not finished after `seconds`."""
-        future = self._pool.submit(call)
+    def _within(self, seconds: float, call: Callable[[], T], pool: ThreadPoolExecutor | None = None) -> T:
+        """Run `call` in a pool; raise DeadlineExceeded when it has not finished after `seconds`."""
+        future = (pool or self._pool).submit(call)
         try:
             return future.result(timeout=seconds)
         except FutureTimeout:
@@ -203,7 +214,7 @@ class EsClient:
     def client_errors(self) -> tuple[type[Exception], ...]:
         return self._client_errors()
 
-    # --- shopper requests (used from Task 3.3) ---
+    # --- shopper requests (Task 3.3: services/shop_search.py) ---
 
     def guarded(self, operation: Callable[[Any], T], timeout: float | None = None) -> T:
         """Run `operation(client)` through the circuit breaker; raise EsUnavailable instead of a client error.
@@ -215,7 +226,11 @@ class EsClient:
             raise EsUnavailable("circuit open: Elasticsearch failed recently")
         seconds = timeout or self.config.search_timeout
         try:
-            result = self._within(seconds, lambda: operation(self._raw().options(request_timeout=seconds)))
+            result = self._within(
+                seconds,
+                lambda: operation(self._raw().options(request_timeout=seconds)),
+                pool=self._search_pool,
+            )
         except (*self._client_errors(), DeadlineExceeded) as error:
             if self.breaker.record_failure():
                 _logger.warning("Elasticsearch circuit opened: %s", describe_error(error))

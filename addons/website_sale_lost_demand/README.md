@@ -37,6 +37,16 @@ dropped. *Settings › Website › Product changes* shows the backlog. The index
 19.0.0.3.0 must be rebuilt once (changes wait until then). Which Odoo methods are extended, and why:
 `docs/report/kit/odoo-overrides.md`. Measure the delay with `uv run shop probe products`.
 
+Version `19.0.0.5.0` (Task 3.3) makes the **shop search run on Elasticsearch** (`/shop?search=...`).
+Elasticsearch ranks the products (at most 1,000 per search); Odoo keeps only those its own shop rules allow
+(published, website, company, category, tags, price, attributes) and shows them in Elasticsearch's order, or
+in the sort the shopper picked; pages, totals and the category and attribute filters follow. Engines
+(`services/query_builder.py`): `es_plain` (out of the box), `es_tuned` (v0: stemming, synonyms, weights,
+typo tolerance; tuned in Task 3.5) and `es_tuned_stock` (the same; among its 1,000 most relevant hits,
+in-stock products first: the default).
+Any Elasticsearch problem — error, no answer within 500 ms, open circuit — gives Odoo's own search results
+instead; shoppers never see an error. Searches without text (category pages) stay Odoo's.
+
 ## Layout
 
 | Path | Content |
@@ -45,6 +55,9 @@ dropped. *Settings › Website › Product changes* shows the backlog. The index
 | `services/es_client.py` | `EsClient`: `cluster_status()` and `product_index_status()` for the settings page, `admin_client()` for the rebuild, `guarded()` for shopper calls |
 | `services/breaker.py` | Circuit breaker: closed → open after N failures → half-open trial → closed |
 | `services/product_index.py` | Index definition loader, documents, versioned names, rebuild with count check and alias swap |
+| `services/query_builder.py` | Shop search queries per engine (pure functions), query cleaning, response parsing |
+| `services/shop_search.py` | One shop search through `guarded()`; the evaluation's engine switch (load-test key) |
+| `controllers/main.py` | `/shop` search override: Elasticsearch ranks, Odoo filters and keeps the order, fallback to `super()` |
 | `services/index_sync.py` | Incremental sync: bulk index/delete through the alias (`require_alias`), per-item errors, retry delays, "index ready?" check |
 | `elastic/products/` | Index settings and analyzers, mapping, synonyms seed (JSON; the index is built from these) |
 | `models/product_index.py` | `lost_demand.product.index`: reads products (free quantity per website warehouse) in batches of 500 and runs the rebuild under the sync lock |
@@ -68,13 +81,15 @@ stored in the Odoo database.
 | `LOST_DEMAND_ES_PASSWORD` | required | `ODOO_APP_ES_PASSWORD` of `.env` |
 | `LOST_DEMAND_ES_SEARCH_TIMEOUT_MS` | 500 | deadline of a shopper call, then fallback |
 | `LOST_DEMAND_ES_STATUS_TIMEOUT_MS` | 2000 | deadline of the whole status check of the settings page |
-
-Timeouts are hard deadlines: each call runs in a small worker pool (4 threads) and the caller stops waiting
-when the deadline passes. The client's own `request_timeout` does not cover the DNS lookup, which takes ~8 s
-when the `elasticsearch` container is stopped.
 | `LOST_DEMAND_ES_HEALTH_CACHE_SECONDS` | 10 | reuse of the last status |
 | `LOST_DEMAND_ES_BREAKER_FAILURES` | 3 | consecutive failures that open the circuit |
 | `LOST_DEMAND_ES_BREAKER_RESET_SECONDS` | 30 | wait before one trial call |
+| `LOST_DEMAND_ES_SEARCH_MAX_HITS` | 1000 | ranked products asked per shop search (at most 10,000) |
+| `LOST_DEMAND_LOAD_TEST_KEY` | empty | `LOAD_TEST_KEY` of `.env`; with it, a request sending `X-Lost-Demand-Key` may choose the engine with `X-Lost-Demand-Engine` (`odoo`, `es_plain`, `es_tuned`, `es_tuned_stock`) and gets `X-Lost-Demand-Engine-Used` back (`odoo_fallback` when Elasticsearch failed). Empty or shorter than 16 characters: headers ignored |
+
+Timeouts are hard deadlines: each call runs in a small worker pool (4 threads; shopper searches have their own
+8) and the caller stops waiting when the deadline passes. The client's own `request_timeout` does not cover
+the DNS lookup, which takes ~8 s when the `elasticsearch` container is stopped.
 
 ## Tests
 

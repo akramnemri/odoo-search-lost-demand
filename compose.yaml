@@ -125,6 +125,8 @@ services:
       LOST_DEMAND_ES_URL: http://elasticsearch:9200
       LOST_DEMAND_ES_USERNAME: odoo_app
       LOST_DEMAND_ES_PASSWORD: ${ODOO_APP_ES_PASSWORD:?missing in .env - run uv run shop env init}
+      # Optional (Task 3.3): unlocks the evaluation's engine switch on shop searches; empty = switch off.
+      LOST_DEMAND_LOAD_TEST_KEY: ${LOAD_TEST_KEY:-}
     volumes:
       - odoo-data:/var/lib/odoo
       - ./addons:/mnt/extra-addons:ro

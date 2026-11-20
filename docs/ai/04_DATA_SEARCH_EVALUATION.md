@@ -193,6 +193,16 @@ Notes:
 
 All engines apply the same filters: `published = true`, current website, plus FR5 filters.
 
+As built (Task 3.3, `services/query_builder.py`, bodies pinned by snapshot tests): `es_plain` as above; `es_tuned`
+**v0, not tuned yet** = `multi_match` `best_fields` over `name^3`, `brand^2`, `description` (shop analyzers:
+stemming + synonyms) with `fuzziness: AUTO`, `prefix_length: 1`; `es_tuned_stock` = `es_tuned`'s 1,000
+best-scored hits, then in-stock ones first within them, by score in each group (rule (a) applied **after** the
+cut: supervisor's option A, 2026-11-20 — sorting by stock before the cut let weak in-stock matches push a
+sold-out exact match out of the results; the module reads `in_stock` with `docvalue_fields`), the shop's
+default. All sort ties by `template_id` (reproducible order), return IDs only (`_source: false`,
+`track_total_hits: false`), at most 1,000 hits. Task 3.5 changes `es_tuned`
+one experiment at a time and records each change here.
+
 **Tuning space** (dev set only, one change per experiment, each recorded in `docs/evaluation/experiments.md`
 with its NDCG@10 and run ID): analyzers and stemmer, field boosts, `best_fields` vs `cross_fields` vs `most_fields`,
 fuzziness (`AUTO`, `prefix_length`), phrase boost on name, brand exact-match boost, `minimum_should_match`, synonyms seed.
