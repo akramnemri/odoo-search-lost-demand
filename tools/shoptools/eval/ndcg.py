@@ -52,7 +52,14 @@ from shoptools.data import slice_builder
 from shoptools.doctor.system import RealSystem
 from shoptools.envfile import parse_env
 from shoptools.eval import metrics
-from shoptools.eval.baseline_search import BaselineError, parse_shop_page, read_id_map
+from shoptools.eval.baseline_search import (
+    ENGINE_HEADER,
+    ENGINE_USED_HEADER,
+    KEY_HEADER,
+    BaselineError,
+    parse_shop_page,
+    read_id_map,
+)
 
 DEV = "dev"
 REFUSED_SETS = ("test", "test-typo")
@@ -72,9 +79,6 @@ SLICE_MANIFEST = slice_builder.PROCESSED_DIR / "slice-manifest.json"
 DATA_FILES = (slice_builder.DEV_FILE, slice_builder.QRELS_FILE)
 SLICE_CONFIG = Path("tools") / "shoptools" / "data" / "slice.toml"
 PRODUCT_ALIAS = "shop-products"
-KEY_HEADER = "X-Lost-Demand-Key"
-ENGINE_HEADER = "X-Lost-Demand-Engine"
-ENGINE_USED_HEADER = "X-Lost-Demand-Engine-Used"
 TIMEOUT_SECONDS = 30
 RETRY_PAUSE_SECONDS = 2.0
 PROGRESS_EVERY = 50
