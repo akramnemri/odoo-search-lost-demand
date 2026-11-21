@@ -248,3 +248,17 @@ def test_the_table_keeps_the_dirty_mark_and_singular_result() -> None:
 
     assert f"git `{'a' * 12}-dirty`" in summary
     assert "1 result; expected: #1" in summary
+
+
+def test_parse_links_with_non_ascii_slugs_and_category_paths() -> None:
+    """Task 3.4: Odoo keeps letters such as a Cyrillic "kha" in a slug; on a category page the link holds the
+    category too. Neither may be skipped (a missed product silently lowers a ranking metric)."""
+    grid = (
+        '<a href="/shop/size-9-х-3-6-inches-14601">a</a>'
+        '<a href="/shop/rain-jacket-灰色-us-l-5129">b</a>'
+        '<a href="/shop/bedding-bath-5/quilt-set-77">c</a>'
+        '<a href="/shop/plain-12">d</a>'
+    )
+    parsed = bs.parse_shop_page(page("x", 4, []).replace("</section>", grid + "</section>"))
+
+    assert parsed.template_ids == [14601, 5129, 77, 12]

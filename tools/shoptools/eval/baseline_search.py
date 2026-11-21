@@ -73,7 +73,10 @@ _COUNT = re.compile(
 _FUZZY = re.compile(
     r"No results found for '<span>([^<]*)</span>'\.\s*Showing results for '<span>([^<]*)</span>'"
 )
-_PRODUCT = re.compile(r'href="/shop/(?!category/|cart|checkout|wishlist|page/)[a-z0-9-]*?-(\d+)"')
+# A product link: /shop/<slug>-<id>, or /shop/<category>/<slug>-<id> on a category page
+# (website_sale/models/product_template.py:1117). Odoo keeps non-ASCII letters in slugs (12 of the 19,869
+# catalog products have Chinese, Hindi or Cyrillic ones, found in Task 3.4): a slug is anything but / ? # ".
+_PRODUCT = re.compile(r'href="/shop/(?!category/|cart|checkout|wishlist|page/)(?:[^"/?#]+/)?[^"/?#]*?-(\d+)"')
 _GRID = 'id="o_wsale_products_grid"'
 
 
