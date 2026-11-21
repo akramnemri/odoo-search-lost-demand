@@ -93,3 +93,5 @@ sequenceDiagram
 | S3.7 | Shop › `/shop?search=royal blue bedspreads` | results found by Elasticsearch (Odoo's own search finds none for the plural, baseline screenshot 3) | to capture |
 | S3.8 | Shop › `/shop?search=theottle cable` | throttle cables despite the typo, with the category list | to capture |
 | S3.9 | Shop, Elasticsearch stopped | same search still answers (Odoo's results), no error page | to capture |
+| S3.10 | Terminal | `uv run shop eval ndcg --engine all --mode both`: progress, per-engine NDCG@10 with intervals, Holm p-values | to capture |
+| S3.11 | `results/summary/ndcg-dev-both.md` (rendered) | the generated dev table with the consistency section | to capture |

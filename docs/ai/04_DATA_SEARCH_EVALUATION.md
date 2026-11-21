@@ -354,6 +354,15 @@ write the summary to `results/summary/`, and report in `docs/evaluation/results.
   test between engines on per-query scores; report differences and p-values.
 - The test set is run **once**, after the configuration freeze (Task 8.1).
 - Threats: labels reflect Amazon's catalog; our catalog is a slice; Odoo's native ordering is not relevance-based by design.
+- As built (Task 3.4): `tools/shoptools/eval/metrics.py` (NDCG@10, judged@10, condensed NDCG@10, percentile bootstrap,
+  paired randomization test, Holm) and `tools/shoptools/eval/ndcg.py`: `uv run shop eval ndcg --set dev --engine
+  <list>|all --mode http|direct|both [--limit N]`. `--set test`/`test-typo` are refused until Task 8.2. `http` sends
+  the evaluation headers (key + engine) and stops the run if Elasticsearch fails twice for a query (one retry);
+  `direct` loads the module's `query_builder.py` from its file (same query code, same 1,000-hit cut and stock rule).
+  A ranking is one shop page (`shop_ppg`, 21): NDCG@10 and judged@10 use its first 10, condensed NDCG@10 the whole
+  page. Seeded streams `ndcg-bootstrap:<engine>`, `ndcg-difference:<a>-<b>`, `ndcg-permutation:<a>-<b>` (mode-free:
+  identical scores give identical intervals in both modes). Inputs checked against `slice-manifest.json`. Table:
+  `results/summary/ndcg-dev-<mode>.md` (generated; `--limit` runs write only their run folder).
 
 ### 11.2 Lost-demand detection — hidden catalog (target: ≥ 80 % of hidden products flagged)
 

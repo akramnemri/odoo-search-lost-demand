@@ -1,14 +1,15 @@
 # STATUS
 
-Updated: 2026-11-20 by agent session 9 — Task 3.3 merged (PR #36); Task 3.4 (NDCG harness) started
+Updated: 2026-11-21 by agent session 9 — Task 3.4 (NDCG harness) implemented, dev baseline run twice, PR open
 
 ## Current position
 - Milestone: M3 — Search engine (FR1–FR3, fallback, synonyms). M2 released 2026-11-19 (PR #32 4f62925, release PR
   #33 merge commit 8c7558a, tag `m2-catalog`); M1 released 2026-11-14 (PR #22, f3926a1, tag `m1-stack`)
 - M3 order: 3.1 → 3.2 → 3.3 → **3.4** → 3.5 → 3.6 → 3.7. Task 1.6 (interview) still open, in parallel
-- Task: **3.4 — minimal NDCG harness** — state: **in progress** (plan accepted 2026-11-20: "go as the
-  recommendations", after a second in-depth review)
-- Branch / PR: `feat/ndcg-harness` (from `develop` b807c00) — PR not opened yet
+- Task: **3.4 — minimal NDCG harness** — state: **implemented, dev run twice with identical results; waiting for
+  the supervisor's manual test** (plan accepted 2026-11-20: "go as the recommendations", after a second in-depth
+  review)
+- Branch / PR: `feat/ndcg-harness` (from `develop` b807c00) — PR to `develop` (number in the task report)
 - Local checkout: on `feat/ndcg-harness`; ESCI in `data/raw/esci/` (3 files, verified)
 - Repository: https://github.com/akramnemri/odoo-search-lost-demand (public, default branch `develop`)
 
@@ -383,7 +384,31 @@ Updated: 2026-11-20 by agent session 9 — Task 3.3 merged (PR #36); Task 3.4 (N
   results (`odoo_fallback`), ~0.9 s for the first 3, then circuit open (one warning logged) ~0.3 s; started
   again: Elasticsearch results 54 s later
 
+- 3.4 — implemented 2026-11-21 on `feat/ndcg-harness`, PR open, waiting for the supervisor's manual test.
+  Built: `tools/shoptools/eval/metrics.py` (NDCG@10 with ESCI gains, judged@10, condensed NDCG@10, percentile
+  bootstrap 10,000, paired randomization test 10,000, Holm) and `tools/shoptools/eval/ndcg.py` + `uv run shop eval
+  ndcg --set dev --engine <list>|all --mode http|direct|both [--limit N]`: `http` = real `/shop` pages through the
+  Task 3.3 evaluation headers (fallback retried once, then the run stops and writes nothing); `direct` =
+  Elasticsearch as `shop_tools` with the module's own `query_builder.py` loaded from its file; `both` adds the
+  consistency check; dev only (test sets refused until Task 8.2); inputs checked against the slice manifest and
+  the protocol's gains; run folder `run.json` (04 §12 fields: git, seed, versions, data SHA-256, shop and index
+  state, machine), `rankings.jsonl`, `scores.json`; table `results/summary/ndcg-dev-<mode>.md`. Found and fixed
+  during the task (details in `docs/report/kit/engineering-log.md`): the shared page parser skipped product
+  links with non-ASCII slugs (12 products, 4 judged for dev queries; found by the consistency check), and the
+  Task 2.5 baseline harness had silently measured Elasticsearch since Task 3.3 (no engine header): it now asks
+  for engine `odoo` and checks the answer; re-run 2026-11-21 (run `baseline-search-20261121T112213Z`, git
+  49e3979): every row identical to the committed table (kept). A first full NDCG run stopped when Docker
+  Desktop stopped (nothing written). Tests: 557 tools (+46: metrics 18, harness 22, parser 1, baseline fetcher 5);
+  no module change (module stays 19.0.0.5.0)
+
 ## Latest results
+- **NDCG@10 on the dev queries, all engines, both modes** (run `ndcg-dev-both-20261121T113222Z`, git 49e3979,
+  `results/summary/ndcg-dev-both.md`; reproduced by run `ndcg-dev-both-20261121T112458Z`: identical rows,
+  identical `scores.json`, rankings identical but for `took_ms`): http mode `odoo` 0.3247, `es_plain` 0.5000,
+  `es_tuned` (v0, untuned) 0.5216, `es_tuned_stock` 0.4599; `es_tuned` − `es_plain` +0.0216, interval crosses 0
+  (Holm p 0.11: no claim); both Elasticsearch engines above `odoo` (Holm p 0.0003); the stock rule costs about
+  0.06 (protocol: a product trade-off, to report); `odoo` shows no result for 73 queries (= the 2.5 baseline);
+  direct and http agree on 300/300 top 10s. **Dev only: a tuning baseline for Task 3.5, not a reported result**
 - **Product change → searchable in the index (FR1, target < 60 s)** (run `probe-products-20261120T174549Z`,
   commit 55767d6, `results/summary/freshness-products.md`): 30 changes (15 price, 15 stock), **30 visible, 0
   timeouts, p50 1.12 s, p95 2.19 s, max 4.38 s**. Index level only: the shop page searches Elasticsearch from
@@ -509,7 +534,11 @@ Updated: 2026-11-20 by agent session 9 — Task 3.3 merged (PR #36); Task 3.4 (N
 - A local shop owner for interview #1 (Task 1.6) — start looking early
 
 ## Next step (exact)
-- **Task 3.4 in progress** on `feat/ndcg-harness`. Task 3.5 must address what remains of the 3.3 finding: sold-out exact matches sit after up to ~1,000 weak in-stock matches
+- **Supervisor: manual test of Task 3.4** (PR from `feat/ndcg-harness`): (1) `uv run shop eval ndcg --engine all
+  --mode both` (about 7 min; the stack up, Kibana not needed); (2) open `results/summary/ndcg-dev-both.md`;
+  (3) run it again and compare the table rows (`git diff results/summary/ndcg-dev-both.md` shows only the run
+  line); optional: `--mode direct` alone (under a minute), `--set test` (refused); then "merge"
+- Task 3.5 (next) must address what remains of the 3.3 finding: sold-out exact matches sit after up to ~1,000 weak in-stock matches
   (`minimum_should_match`, rule (b) "boosted"), and weak matches surface under the price sort. The original manual-test steps, kept for the supervisor's own run (the stack
   runs module 19.0.0.5.0 with the fix):
   1. Browser, `http://127.0.0.1:8069/shop?search=royal blue bedspreads` (Odoo alone finds nothing: baseline),
