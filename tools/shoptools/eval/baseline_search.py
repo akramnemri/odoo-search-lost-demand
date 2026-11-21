@@ -16,6 +16,10 @@ Two sets of queries, **dev data only** (the test queries and their products stay
    replaced by another word, or shows an exact match on page 1, by query length. These rates show how often
    the failures of the hand-picked examples happen, so the examples are not a cherry-picked story.
 
+Since Task 3.3 the shop's search runs on Elasticsearch: every request asks for Odoo's own search with the
+evaluation headers (`X-Lost-Demand-Key` = `LOAD_TEST_KEY` of `.env`, `X-Lost-Demand-Engine: odoo`) and the run
+stops if the shop answers with any other engine (`X-Lost-Demand-Engine-Used`).
+
 Outputs: `results/<run-id>/observations.json` and `run.json` (git-ignored), and the generated table
 `results/summary/baseline-search.md` (committed; a `--no-dev` run leaves it unchanged). Requests are
 read-only.
@@ -44,6 +48,7 @@ from typing import Any
 from shoptools import snapshot, stack
 from shoptools.data import slice_builder
 from shoptools.data.normalize import normalize_query
+from shoptools.envfile import parse_env
 
 QUERY_FILE = Path("docs") / "report" / "notes" / "baseline-queries.toml"
 SUMMARY_FILE = Path("results") / "summary" / "baseline-search.md"
@@ -73,7 +78,10 @@ _COUNT = re.compile(
 _FUZZY = re.compile(
     r"No results found for '<span>([^<]*)</span>'\.\s*Showing results for '<span>([^<]*)</span>'"
 )
-_PRODUCT = re.compile(r'href="/shop/(?!category/|cart|checkout|wishlist|page/)[a-z0-9-]*?-(\d+)"')
+# A product link: /shop/<slug>-<id>, or /shop/<category>/<slug>-<id> on a category page
+# (website_sale/models/product_template.py:1117). Odoo keeps non-ASCII letters in slugs (12 of the 19,869
+# catalog products have Chinese, Hindi or Cyrillic ones, found in Task 3.4): a slug is anything but / ? # ".
+_PRODUCT = re.compile(r'href="/shop/(?!category/|cart|checkout|wishlist|page/)(?:[^"/?#]+/)?[^"/?#]*?-(\d+)"')
 _GRID = 'id="o_wsale_products_grid"'
 
 
@@ -105,17 +113,45 @@ def parse_shop_page(page: str) -> SearchPage:
     )
 
 
-def http_fetcher(base_url: str = stack.ODOO_URL) -> Fetch:
+# Evaluation headers of the module (Task 3.3, services/shop_search.py): honoured only with the right key.
+KEY_HEADER = "X-Lost-Demand-Key"
+ENGINE_HEADER = "X-Lost-Demand-Engine"
+ENGINE_USED_HEADER = "X-Lost-Demand-Engine-Used"
+LOAD_TEST_KEY = "LOAD_TEST_KEY"
+NATIVE_ENGINE = "odoo"
+
+
+def load_test_key(repo_root: Path) -> str:
+    env_path = repo_root / ".env"
+    key = parse_env(env_path.read_text(encoding="utf-8")).get(LOAD_TEST_KEY, "") if env_path.is_file() else ""
+    if not key:
+        raise BaselineError(
+            f".env has no {LOAD_TEST_KEY}: run `uv run shop env init`, then `docker compose up -d odoo`"
+        )
+    return key
+
+
+def http_fetcher(key: str, base_url: str = stack.ODOO_URL) -> Fetch:
+    """Pages of Odoo's own search: since Task 3.3 the shop answers with Elasticsearch unless asked."""
+
     def fetch(query: str) -> str:
         url = f"{base_url}/shop?{urllib.parse.urlencode({'search': query})}"
-        request = urllib.request.Request(url, headers={"User-Agent": "shoptools-baseline-search"})
+        headers = {"User-Agent": "shoptools-baseline-search", KEY_HEADER: key, ENGINE_HEADER: NATIVE_ENGINE}
         try:
-            with urllib.request.urlopen(request, timeout=TIMEOUT_SECONDS) as response:
-                return response.read().decode("utf-8")
+            with urllib.request.urlopen(
+                urllib.request.Request(url, headers=headers), timeout=TIMEOUT_SECONDS
+            ) as r:
+                page, used = r.read().decode("utf-8"), r.headers.get(ENGINE_USED_HEADER)
         except (urllib.error.URLError, TimeoutError) as error:
             raise BaselineError(
                 f"the shop at {base_url} did not answer: {error} (run `uv run shop up`)"
             ) from error
+        if used != NATIVE_ENGINE:
+            raise BaselineError(
+                f"the shop answered {query!r} with engine {used or 'unknown (key not accepted?)'}, not "
+                "Odoo's own search: check LOAD_TEST_KEY in .env and `docker compose up -d odoo`"
+            )
+        return page
 
     return fetch
 
@@ -302,7 +338,7 @@ def run_baseline_search(
         dev = read_dev_data(repo_root)
         esci_of = read_id_map(repo_root)
         picked = load_hand_picked(repo_root / QUERY_FILE, dev)
-        fetch = fetch or http_fetcher()
+        fetch = fetch or http_fetcher(load_test_key(repo_root))
         write(f"Hand-picked queries: {len(picked)} (+ controls), through /shop?search=\n")
         hand = []
         for entry in picked:
@@ -327,7 +363,7 @@ def run_baseline_search(
         "run_id": run_id,
         "command": "uv run shop eval baseline-search" + ("" if with_dev else " --no-dev"),
         "git": snapshot.git_sha(repo_root),
-        "engine": "odoo (native website_sale search, http mode)",
+        "engine": "odoo (native website_sale search, http mode; X-Lost-Demand-Engine: odoo since Task 3.3)",
         "shop": stack.ODOO_URL,
         "database_state": f"snapshot {SNAPSHOT} (catalog of Task 2.4b)",
         "inputs": {

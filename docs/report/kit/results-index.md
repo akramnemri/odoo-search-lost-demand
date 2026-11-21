@@ -13,7 +13,7 @@ uncommitted code is marked `-dirty` and is not citable.
 | Baseline: Odoo's native search on dev queries (zero-result rate, exact on page 1) | 04 §11.1 context | `uv run shop eval baseline-search` | `results/summary/baseline-search.md` | `results/baseline-search-*` | done (M2), reproduced 2026-11-19 |
 | Product change → searchable delay (p50/p95/max) | FR1, 04 §11.4 | `uv run shop probe products --count 30` | `results/summary/freshness-products.md` | `results/probe-products-*` | first run 2026-11-20 (Task 3.2, index level; shop-page level after Task 3.3) |
 | Full rebuild time (19,869 products) | FR1, 01 §8 | `uv run shop index rebuild` | printed + `local/logs/index-rebuild.log` | — | recorded in STATUS (17–28 s); not a protocol result |
-| NDCG@10 for `odoo`, `es_plain`, `es_tuned` (dev) | 04 §11.1 | Task 3.4 harness | — | — | planned (M3) |
+| NDCG@10 for `odoo`, `es_plain`, `es_tuned`, `es_tuned_stock` (dev: tuning baseline, `es_tuned` v0 untuned), paired differences, http/direct consistency | 04 §11.1, protocol §6 | `uv run shop eval ndcg --engine all --mode both` | `results/summary/ndcg-dev-both.md` | `results/ndcg-dev-both-*` | dev baseline 2026-11-21 (Task 3.4), reproduced by a second run (identical rows); the reported numbers are the test-set run of Task 8.2 |
 | Hidden-product detection recall | 04 §11.2 | M6 | — | — | planned |
 | Search page p95, ES `took` p95 | 04 §11.3 | Locust (M5) | — | — | planned |
 | Event → Kibana delay | 04 §11.4 | probe events (M4) | — | — | planned |

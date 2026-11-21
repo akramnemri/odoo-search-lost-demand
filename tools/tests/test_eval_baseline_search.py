@@ -248,3 +248,61 @@ def test_the_table_keeps_the_dirty_mark_and_singular_result() -> None:
 
     assert f"git `{'a' * 12}-dirty`" in summary
     assert "1 result; expected: #1" in summary
+
+
+def test_parse_links_with_non_ascii_slugs_and_category_paths() -> None:
+    """Task 3.4: Odoo keeps letters such as a Cyrillic "kha" in a slug; on a category page the link holds the
+    category too. Neither may be skipped (a missed product silently lowers a ranking metric)."""
+    grid = (
+        '<a href="/shop/size-9-х-3-6-inches-14601">a</a>'
+        '<a href="/shop/rain-jacket-灰色-us-l-5129">b</a>'
+        '<a href="/shop/bedding-bath-5/quilt-set-77">c</a>'
+        '<a href="/shop/plain-12">d</a>'
+    )
+    parsed = bs.parse_shop_page(page("x", 4, []).replace("</section>", grid + "</section>"))
+
+    assert parsed.template_ids == [14601, 5129, 77, 12]
+
+
+class _Response:
+    def __init__(self, used: str | None) -> None:
+        self.headers = {bs.ENGINE_USED_HEADER: used} if used else {}
+
+    def read(self) -> bytes:
+        return page("lamp", 1, [5]).encode()
+
+    def __enter__(self) -> _Response:
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        return None
+
+
+def test_fetch_asks_for_odoos_own_search(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Task 3.3 made Elasticsearch the shop's default: the baseline must ask for engine odoo explicitly."""
+    seen: dict[str, str] = {}
+
+    def fake_urlopen(request, timeout):
+        seen.update(dict(request.header_items()))
+        return _Response("odoo")
+
+    monkeypatch.setattr(bs.urllib.request, "urlopen", fake_urlopen)
+
+    assert "Search results for" in bs.http_fetcher("a-test-key-of-some-length")("lamp")
+    assert seen["X-lost-demand-engine"] == "odoo"
+    assert seen["X-lost-demand-key"] == "a-test-key-of-some-length"
+
+
+@pytest.mark.parametrize("used", ["es_tuned_stock", "odoo_fallback", None])
+def test_fetch_refuses_any_other_engine(monkeypatch: pytest.MonkeyPatch, used: str | None) -> None:
+    monkeypatch.setattr(bs.urllib.request, "urlopen", lambda request, timeout: _Response(used))
+
+    with pytest.raises(bs.BaselineError, match="not Odoo's own search"):
+        bs.http_fetcher("a-test-key-of-some-length")("lamp")
+
+
+def test_missing_load_test_key(tmp_path: Path) -> None:
+    (tmp_path / ".env").write_text("RAM_PROFILE=standard\n", encoding="utf-8")
+
+    with pytest.raises(bs.BaselineError, match="LOAD_TEST_KEY"):
+        bs.load_test_key(tmp_path)
