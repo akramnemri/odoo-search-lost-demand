@@ -189,6 +189,9 @@ def test_one_fallback_is_retried(repo: Path, engines: FakeEngines) -> None:
     assert code == 0
     meta = json.loads((_run_folders(repo)[0] / "run.json").read_text(encoding="utf-8"))
     assert meta["fallback_retries"] == 1
+    assert meta["fallback_retried"] == [["odoo", 2]]  # the first engine of the run, query "garden chair"
+    table = (repo / "results" / "summary" / "ndcg-dev-http.md").read_text(encoding="utf-8")
+    assert "Fallback retries in http mode: 1 (odoo query 2)" in table
 
 
 def test_a_second_fallback_stops_the_run_and_writes_nothing(repo: Path, engines: FakeEngines, capsys) -> None:
@@ -379,3 +382,20 @@ def test_shop_facts(repo: Path) -> None:
         19869,
         1828,
     )
+
+
+def test_progress_is_flushed_at_once(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A run takes minutes; redirected to a log file, its progress must not wait for the end."""
+    events: list[str] = []
+
+    class Stream:
+        def write(self, text: str) -> None:
+            events.append("write")
+
+        def flush(self) -> None:
+            events.append("flush")
+
+    monkeypatch.setattr(ndcg.sys, "stdout", Stream())
+    ndcg._print("  http: 50/1200 rankings\n")
+
+    assert events == ["write", "flush"]

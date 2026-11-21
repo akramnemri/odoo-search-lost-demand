@@ -6,10 +6,10 @@ Updated: 2026-11-21 by agent session 9 — Task 3.4 (NDCG harness) implemented, 
 - Milestone: M3 — Search engine (FR1–FR3, fallback, synonyms). M2 released 2026-11-19 (PR #32 4f62925, release PR
   #33 merge commit 8c7558a, tag `m2-catalog`); M1 released 2026-11-14 (PR #22, f3926a1, tag `m1-stack`)
 - M3 order: 3.1 → 3.2 → 3.3 → **3.4** → 3.5 → 3.6 → 3.7. Task 1.6 (interview) still open, in parallel
-- Task: **3.4 — minimal NDCG harness** — state: **implemented, dev run twice with identical results; waiting for
-  the supervisor's manual test** (plan accepted 2026-11-20: "go as the recommendations", after a second in-depth
+- Task: **3.4 — minimal NDCG harness** — state: **manual test passed 2026-11-21 (run by the agent on the
+  supervisor's request); waiting for CI and the supervisor's "merge"** (plan accepted 2026-11-20: "go as the recommendations", after a second in-depth
   review)
-- Branch / PR: `feat/ndcg-harness` (from `develop` b807c00) — PR to `develop` (number in the task report)
+- Branch / PR: `feat/ndcg-harness` (from `develop` b807c00) — PR #37
 - Local checkout: on `feat/ndcg-harness`; ESCI in `data/raw/esci/` (3 files, verified)
 - Repository: https://github.com/akramnemri/odoo-search-lost-demand (public, default branch `develop`)
 
@@ -384,7 +384,17 @@ Updated: 2026-11-21 by agent session 9 — Task 3.4 (NDCG harness) implemented, 
   results (`odoo_fallback`), ~0.9 s for the first 3, then circuit open (one warning logged) ~0.3 s; started
   again: Elasticsearch results 54 s later
 
-- 3.4 — implemented 2026-11-21 on `feat/ndcg-harness`, PR open, waiting for the supervisor's manual test.
+- 3.4 — PR #37, waiting for CI and "merge". **Manual test passed 2026-11-21, run by the agent** on the
+  supervisor's request: (1) `uv run shop eval ndcg --engine all --mode both` at 4f5ea13 (440 s): the generated
+  table differs from the committed one only in its run line; (2) the table read: run line with a clean commit,
+  method notes, "dev only" warning, both modes, comparisons, consistency 300/300; (3) a second run (432 s):
+  every table row identical to the first; it had one Elasticsearch fallback in http mode (a single missed
+  500 ms deadline, no circuit opening, nothing in the Odoo log), answered by the engine on the retry; (4)
+  `--mode direct` alone 34 s with the same numbers; `--set test` and `--engine odoo --mode direct` refused with
+  their messages. Improvements from the test: progress lines are flushed at once (a redirected log stayed empty
+  until the end), and the run records which (engine, query) needed a retry (`run.json`
+  `fallback_retried`, table note). Tests 558 tools.
+  Implementation (2026-11-21):
   Built: `tools/shoptools/eval/metrics.py` (NDCG@10 with ESCI gains, judged@10, condensed NDCG@10, percentile
   bootstrap 10,000, paired randomization test 10,000, Holm) and `tools/shoptools/eval/ndcg.py` + `uv run shop eval
   ndcg --set dev --engine <list>|all --mode http|direct|both [--limit N]`: `http` = real `/shop` pages through the
@@ -534,10 +544,11 @@ Updated: 2026-11-21 by agent session 9 — Task 3.4 (NDCG harness) implemented, 
 - A local shop owner for interview #1 (Task 1.6) — start looking early
 
 ## Next step (exact)
-- **Supervisor: manual test of Task 3.4** (PR from `feat/ndcg-harness`): (1) `uv run shop eval ndcg --engine all
-  --mode both` (about 7 min; the stack up, Kibana not needed); (2) open `results/summary/ndcg-dev-both.md`;
-  (3) run it again and compare the table rows (`git diff results/summary/ndcg-dev-both.md` shows only the run
-  line); optional: `--mode direct` alone (under a minute), `--set test` (refused); then "merge"
+- **Supervisor: "merge" of PR #37 after CI** (manual test passed, run by the agent). The manual-test steps,
+  for the supervisor's own run: (1) `uv run shop eval ndcg --engine all --mode both` (about 7 min; the stack up,
+  Kibana not needed); (2) open `results/summary/ndcg-dev-both.md`; (3) run it again and compare the table rows
+  (`git diff results/summary/ndcg-dev-both.md` shows only the run line); optional: `--mode direct` alone
+  (under a minute), `--set test` (refused). Next task: 3.5 (relevance tuning v1)
 - Task 3.5 (next) must address what remains of the 3.3 finding: sold-out exact matches sit after up to ~1,000 weak in-stock matches
   (`minimum_should_match`, rule (b) "boosted"), and weak matches surface under the price sort. The original manual-test steps, kept for the supervisor's own run (the stack
   runs module 19.0.0.5.0 with the fix):

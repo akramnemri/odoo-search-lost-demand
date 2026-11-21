@@ -306,7 +306,8 @@ def read_shop_facts(call: Call, es: EsPost) -> ShopFacts:
 class ModeResult:
     mode: str
     rankings: dict[str, dict[int, Ranking]] = field(default_factory=dict)  # engine -> query id -> ranking
-    retries: int = 0  # http queries answered by Odoo's fallback once, then by the engine
+    retried: list[tuple[str, int]] = field(default_factory=list)  # (engine, query id) answered by the
+    # fallback once, then by the engine: a missed 500 ms deadline worth looking at (Task 3.3)
 
 
 def _modes(mode: str) -> tuple[str, ...]:
@@ -357,7 +358,8 @@ def collect(
         for query_id, text in queries:
             ranking, retried = _fetch_checked(fetch, engine, text, sleep)
             result.rankings[engine][query_id] = ranking
-            result.retries += int(retried)
+            if retried:
+                result.retried.append((engine, query_id))
             done += 1
             if done % PROGRESS_EVERY == 0 or done == total:
                 elapsed = clock() - started
@@ -544,8 +546,10 @@ def render_summary(
             )
         lines.append("")
     if meta.get("fallback_retries"):
+        retried = ", ".join(f"{engine} query {query_id}" for engine, query_id in meta["fallback_retried"])
         lines.append(
-            f"Fallback retries in http mode: {meta['fallback_retries']} (each succeeded on the retry)."
+            f"Fallback retries in http mode: {meta['fallback_retries']} ({retried}), each answered by the "
+            "engine on the retry; the scores use the retry's ranking."
         )
         lines.append("")
     return "\n".join(lines)
@@ -623,16 +627,23 @@ def connect(
     return Connections(fetchers=fetchers, facts=facts)
 
 
+def _print(text: str) -> None:
+    # Flushed at once: a run takes minutes, and its progress must show in a log file, not only at the end.
+    sys.stdout.write(text)
+    sys.stdout.flush()
+
+
 def run_ndcg(
     repo_root: Path,
     set_name: str = DEV,
     engines: Sequence[str] = DEFAULT_ENGINES,
     mode: str = HTTP,
     limit: int | None = None,
-    write: Callable[[str], None] = sys.stdout.write,
+    write: Callable[[str], None] | None = None,
     connections: Connections | None = None,
     sleep: Callable[[float], None] = time.sleep,
 ) -> int:
+    write = write or _print
     try:
         return _run(repo_root, set_name, engines, mode, limit, write, connections, sleep)
     except NdcgError as error:
@@ -738,7 +749,8 @@ def _run(
         "shop": asdict(connections.facts),
         "machine": _machine(repo_root),
         "queries": len(queries),
-        "fallback_retries": sum(result.retries for result in results),
+        "fallback_retries": sum(len(result.retried) for result in results),
+        "fallback_retried": [list(item) for result in results for item in result.retried],
         "started_at": started_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
         "ended_at": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "seconds": round(seconds, 1),
