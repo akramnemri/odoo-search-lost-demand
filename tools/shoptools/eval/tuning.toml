@@ -109,3 +109,22 @@ engine = "es_tuned"
 goal = "none"
 hypothesis = "The two changes kept in stage 1 together: tie-breaker 0.3 and the internal-reference match."
 changes = { tie_breaker = 0.3, ref_exact_boost = 10.0 }
+
+# --- stage 3: the stock rule, defined 2026-11-27 after stage 2 (c01-combined kept) -------------------------
+# Parent: c01-combined with the stock engine and rule (a) "tiered"; each variant uses rule (b) "boosted".
+
+[variants.s01-boosted-1-2]
+stage = 3
+parent = "c01-combined"
+engine = "es_tuned_stock"
+goal = "none"
+hypothesis = "In-stock scores x1.2: a mild preference that keeps very relevant sold-out products near the top."
+changes = { stock_rule = "boosted", stock_factor = 1.2 }
+
+[variants.s02-boosted-2-0]
+stage = 3
+parent = "c01-combined"
+engine = "es_tuned_stock"
+goal = "none"
+hypothesis = "In-stock scores x2.0: a strong preference, close to rule (a) for most queries."
+changes = { stock_rule = "boosted", stock_factor = 2.0 }
