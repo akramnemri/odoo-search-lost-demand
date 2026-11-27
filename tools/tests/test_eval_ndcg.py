@@ -399,3 +399,23 @@ def test_progress_is_flushed_at_once(monkeypatch: pytest.MonkeyPatch) -> None:
     ndcg._print("  http: 50/1200 rankings\n")
 
     assert events == ["write", "flush"]
+
+
+def test_progress_never_fails_on_a_narrow_console_encoding(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Windows writes a redirected stdout as cp1252, which has no "Δ" (Task 3.5 runs crashed on it)."""
+    written: list[str] = []
+
+    class Stream:
+        encoding = "cp1252"
+
+        def write(self, text: str) -> None:
+            text.encode("cp1252")  # what the real stream does: fails on a character cp1252 lacks
+            written.append(text)
+
+        def flush(self) -> None:
+            return None
+
+    monkeypatch.setattr(ndcg.sys, "stdout", Stream())
+    ndcg._print("Δ dev +0.0090\n")
+
+    assert written == ["? dev +0.0090\n"]
