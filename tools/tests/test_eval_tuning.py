@@ -300,3 +300,16 @@ def test_budget_is_enforced(repo: Path, capsys: pytest.CaptureFixture[str]) -> N
 def test_unknown_variant(repo: Path, capsys: pytest.CaptureFixture[str]) -> None:
     assert tuning.run_tune(repo, "e99", write=lambda _: None, context=_context()) == 1
     assert "unknown variant" in capsys.readouterr().err
+
+
+def test_table_is_rewritten_from_the_run_folders(repo: Path) -> None:
+    assert tuning.run_tune(repo, "e01-exact-words", write=lambda _: None, context=_context()) == 0
+    (repo / tuning.SUMMARY_FILE).unlink()
+
+    assert tuning.run_tune(repo, None, write=lambda _: None, table_only=True) == 0
+    assert "`e01-exact-words`" in (repo / tuning.SUMMARY_FILE).read_text(encoding="utf-8")
+
+
+def test_table_needs_a_run(repo: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    assert tuning.run_tune(repo, None, write=lambda _: None, table_only=True) == 1
+    assert "nothing to tabulate" in capsys.readouterr().err

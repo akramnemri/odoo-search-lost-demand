@@ -378,6 +378,9 @@ def _add_eval_arguments(parser: argparse.ArgumentParser) -> None:
     )
     tune.add_argument("variant", nargs="?", help="a variant of tools/shoptools/eval/tuning.toml")
     tune.add_argument("--list", action="store_true", help="list the variants and their decisions")
+    tune.add_argument(
+        "--table", action="store_true", help="rewrite the table from the run folders; run nothing"
+    )
     ndcg_parser.add_argument(
         "--limit",
         type=int,
@@ -391,7 +394,9 @@ def _run_eval(namespace: argparse.Namespace) -> int:
     if repo_root is None:
         return 1
     if namespace.eval_kind == "tune":
-        return tuning.run_tune(repo_root, namespace.variant, list_only=namespace.list)
+        return tuning.run_tune(
+            repo_root, namespace.variant, list_only=namespace.list, table_only=namespace.table
+        )
     if namespace.eval_kind == "ndcg":
         engines = (
             ndcg.ALL_ENGINES

@@ -46,6 +46,17 @@ TUNED_MATCH = {
     }
 }
 
+# TUNED_V1 (Task 3.5, ADR-020): v0 + tie_breaker 0.3, either the words or the internal reference.
+V1_MATCH = {
+    "bool": {
+        "should": [
+            {"multi_match": {**TUNED_MATCH["multi_match"], "tie_breaker": 0.3}},
+            {"term": {"ref": {"value": "royal blue bedspread", "case_insensitive": True, "boost": 10.0}}},
+        ],
+        "minimum_should_match": 1,
+    }
+}
+
 
 def test_plain_engine_is_elasticsearch_out_of_the_box() -> None:
     assert build_search(ES_PLAIN, "royal blue bedspread", FILTERS, 1000) == {
@@ -70,8 +81,20 @@ def test_plain_engine_is_elasticsearch_out_of_the_box() -> None:
 
 
 def test_tuned_engine_v0() -> None:
-    assert build_search(ES_TUNED, "royal blue bedspread", FILTERS, 50) == {
+    from services.query_builder import TUNED_V0
+
+    assert build_search(ES_TUNED, "royal blue bedspread", FILTERS, 50, tuned=TUNED_V0) == {
         "query": {"bool": {"must": [TUNED_MATCH], "filter": SHOP_FILTERS}},
+        "sort": ["_score", {"template_id": "asc"}],
+        "size": 50,
+        "_source": False,
+        "track_total_hits": False,
+    }
+
+
+def test_tuned_engine_v1_is_the_shops() -> None:
+    assert build_search(ES_TUNED, "royal blue bedspread", FILTERS, 50) == {
+        "query": {"bool": {"must": [V1_MATCH], "filter": SHOP_FILTERS}},
         "sort": ["_score", {"template_id": "asc"}],
         "size": 50,
         "_source": False,
@@ -82,7 +105,7 @@ def test_tuned_engine_v0() -> None:
 def test_stock_engine_cuts_by_score_and_reads_the_stock_flag() -> None:
     """Option A (2026-11-20): Elasticsearch ranks by score only; the stock rule applies after the cut."""
     assert build_search(ES_TUNED_STOCK, "royal blue bedspread", FILTERS, 50) == {
-        "query": {"bool": {"must": [TUNED_MATCH], "filter": SHOP_FILTERS}},
+        "query": {"bool": {"must": [V1_MATCH], "filter": SHOP_FILTERS}},
         "sort": ["_score", {"template_id": "asc"}],
         "size": 50,
         "_source": False,
@@ -189,13 +212,13 @@ def _tuned_body(**changes: object) -> dict:
     return build_search(ES_TUNED, "blue lamp", FILTERS, 10, tuned=replace(TUNED_V0, **changes))
 
 
-def test_v0_is_the_shop_default_until_task_3_5_chooses() -> None:
-    from services.query_builder import TUNED, TUNED_V0
+def test_v1_is_v0_with_the_two_kept_changes() -> None:
+    from dataclasses import replace
 
-    assert TUNED == TUNED_V0
-    assert build_search(ES_TUNED, "royal blue bedspread", FILTERS, 50, tuned=TUNED_V0) == build_search(
-        ES_TUNED, "royal blue bedspread", FILTERS, 50
-    )
+    from services.query_builder import TUNED, TUNED_V0, TUNED_V1
+
+    assert TUNED == TUNED_V1 == replace(TUNED_V0, tie_breaker=0.3, ref_exact_boost=10.0)
+    assert TUNED_V1.stock_rule == "tiered"  # rule (a) stays (experiments.md, stage 3)
 
 
 def test_exact_words_leave_fuzziness_out() -> None:

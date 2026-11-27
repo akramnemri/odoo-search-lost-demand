@@ -7,8 +7,9 @@ The engines (names shared with the evaluation protocol, docs/evaluation/protocol
   stock rule.
 - `es_tuned` — the shop analyzers of the index (English stemming, synonyms set) with the settings of a
   `TunedConfig`. `TUNED_V0` (Task 3.3, not tuned): `name`, `brand`, `description` with weights 3 / 2 / 1 and
-  typo tolerance (`fuzziness: AUTO`, first letter exact). Task 3.5 measures variants of it on the dev queries
-  (`uv run shop eval tune`, tools/shoptools/eval/tuning.toml); `TUNED` is the configuration the shop uses.
+  typo tolerance (`fuzziness: AUTO`, first letter exact). Task 3.5 measured variants of it on the dev queries
+  (`uv run shop eval tune`, tools/shoptools/eval/tuning.toml) and chose `TUNED_V1` (ADR-020): v0 plus a
+  `tie_breaker` of 0.3 and the internal-reference match. `TUNED` is the configuration the shop uses.
 - `es_tuned_stock` — `es_tuned` with the in-stock rule of FR3. Implementation (a) "tiered", applied to the
   most relevant hits only: Elasticsearch returns the `size` best-scored products, then every in-stock one
   among them comes before every sold-out one, by score within each group (`hit_ids(in_stock_first=True)`).
@@ -94,8 +95,11 @@ class TunedConfig:
 
 
 TUNED_V0 = TunedConfig()
-# The configuration the shop uses. Task 3.5 replaces it with the one chosen on the dev queries (ADR-020).
-TUNED = TUNED_V0
+# Chosen in Task 3.5 on the dev queries by the pre-registered rule (docs/evaluation/experiments.md, ADR-020):
+# v0 plus a tie-breaker (30 % of the other fields' scores) and the exact internal-reference match.
+TUNED_V1 = TunedConfig(tie_breaker=0.3, ref_exact_boost=10.0)
+# The configuration the shop uses.
+TUNED = TUNED_V1
 
 
 @dataclass(frozen=True)

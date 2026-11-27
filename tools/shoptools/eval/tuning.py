@@ -358,7 +358,7 @@ def render_summary(runs: Sequence[Mapping[str, Any]], budget: int) -> str:
             f"{typo['diff']['mean']:+.4f} | "
             f"{dev['parent']['mean_hits']:.0f} → {dev['variant']['mean_hits']:.0f} | "
             f"{result['reference']['parent']:.0%} → {result['reference']['variant']:.0%} | "
-            f"{dev['variant']['in_stock_top10']:.1%} | {_short(dev['variant']['took_p95'], 0)} ms | "
+            f"{dev['variant']['in_stock_top10']:.2%} | {_short(dev['variant']['took_p95'], 0)} ms | "
             f"**{result['decision']}** — {result['reason']} |"
         )
     lines += [
@@ -446,13 +446,28 @@ def run_tune(
     list_only: bool = False,
     write: Callable[[str], None] | None = None,
     context: Context | None = None,
+    table_only: bool = False,
 ) -> int:
     write = write or ndcg._print
     try:
+        if table_only:
+            return _write_table(repo_root, write)
         return _run(repo_root, name, list_only, write, context)
     except (TuneError, ndcg.NdcgError) as error:
         print(f"shop eval tune: {error}", file=sys.stderr)
         return 1
+
+
+def _write_table(repo_root: Path, write: Callable[[str], None]) -> int:
+    """Rewrite the table from the run folders without running anything (for example after a format change)."""
+    query_builder = ndcg.load_module_file(repo_root / ndcg.QUERY_BUILDER, "lost_demand_query_builder")
+    budget, _ = load_variants(repo_root / TUNING_FILE, {"v0": query_builder.TUNED_V0})
+    runs = latest_runs(repo_root)
+    if not runs:
+        raise TuneError("no experiment has run yet: nothing to tabulate")
+    ndcg._write_text(repo_root / SUMMARY_FILE, render_summary(runs, budget))
+    write(f"Table: {SUMMARY_FILE.as_posix()} ({len(runs)} variants)\n")
+    return 0
 
 
 def _run(
