@@ -1,18 +1,17 @@
 # STATUS
 
-Updated: 2026-11-27 by agent session 10 — Task 3.5 (relevance tuning) done: TUNED_V1 chosen, PR open
+Updated: 2026-11-27 by agent session 10 — Task 3.5 merged (PR #38); Task 3.6 (synonym management) started
 
 ## Current position
 - Milestone: M3 — Search engine (FR1–FR3, fallback, synonyms). M2 released 2026-11-19 (PR #32 4f62925, release PR
   #33 merge commit 8c7558a, tag `m2-catalog`); M1 released 2026-11-14 (PR #22, f3926a1, tag `m1-stack`)
-- M3 order: 3.1 → 3.2 → 3.3 → 3.4 → **3.5** → 3.6 → 3.7. Task 1.6 (interview) still open, in parallel
-- Task: **3.5 — relevance tuning v1 (FR2, FR3)** — state: **configuration approved and stock rule (a) kept by
-  the supervisor (2026-11-27, ADR-020 Accepted); waiting for CI, then squash-merge (supervisor's "merge after
-  CI")** (plan accepted 2026-11-27: "go as the
-  recommendations", after a second in-depth review)
-- Branch / PR: `feat/relevance-tuning` (from `develop` b68a5cc) — PR to `develop` (number in the task report)
-- Local checkout: on `feat/relevance-tuning`; ESCI in `data/raw/esci/` (3 files, verified); the supervisor's
-  interim demo script `docs/report/notes/M3-demo.md` stays local and untracked (never committed unless asked)
+- M3 order: 3.1 → 3.2 → 3.3 → 3.4 → 3.5 → **3.6** → 3.7. Task 1.6 (interview) still open, in parallel
+- Task: **3.6 — synonym management (FR2, Administrator)** — state: **in progress** (plan accepted 2026-11-27:
+  "go as the recommendations", after a second in-depth review that added the literal-word bonus)
+- Branch / PR: `feat/synonyms` (from `develop` 899f714) — PR not opened yet
+- Local checkout: on `feat/synonyms`; ESCI in `data/raw/esci/` (3 files, verified); the supervisor's
+  interim demo script `docs/report/notes/M3-demo.md` stays local and untracked (never committed unless asked;
+  listed in `.git/info/exclude`, local only)
 - Repository: https://github.com/akramnemri/odoo-search-lost-demand (public, default branch `develop`)
 
 ## Milestone 0 exit check (2026-10-28)
@@ -414,7 +413,8 @@ Updated: 2026-11-27 by agent session 10 — Task 3.5 (relevance tuning) done: TU
   Desktop stopped (nothing written). Tests: 557 tools (+46: metrics 18, harness 22, parser 1, baseline fetcher 5);
   no module change (module stays 19.0.0.5.0)
 
-- 3.5 — done 2026-11-27 on `feat/relevance-tuning`, PR open, waiting for the supervisor's review. Built:
+- 3.5 — merged 2026-11-27 (PR #38, squash 899f714, by the agent on the supervisor's "Merge now" after all six
+  checks were green; configuration approved, stock rule (a) kept). Built:
   `TunedConfig` in `services/query_builder.py` (fields, match type, fuzziness, prefix_length, tie_breaker,
   minimum_should_match, name phrase bonus, internal-reference match, stock rule tiered/boosted), `TUNED_V0` kept,
   **`TUNED_V1` = v0 + `tie_breaker` 0.3 + exact case-insensitive `ref` match** is the shop's configuration
@@ -467,6 +467,13 @@ Updated: 2026-11-27 by agent session 10 — Task 3.5 (relevance tuning) done: TU
   `baseline-search-20261119T154209Z`, git bc36eb3): every table row identical
 
 ## Decisions since last milestone
+- Task 3.6 plan accepted 2026-11-27 ("go as the recommendations", after the supervisor asked for a deeper review
+  and a mitigation of over-broad rules): Odoo is the source of truth, the sync job pushes the whole set when it
+  differs (no Elasticsearch call on save); no analyzer change, Odoo adds singular/plural forms; a general-
+  vocabulary seed list measured on dev before/after (pre-registered: no loss above 0.005 on dev or dev-typo);
+  administrators only; **literal-word bonus**: a second scoring of the shopper's own words without synonyms
+  (`analyzer: shop_index`), so products matching the typed words rank above synonym-only matches (laptop before
+  pc); neutral for queries without synonyms (verified on test resources, to be verified on all dev queries)
 - Task 3.5 configuration approved (supervisor, 2026-11-27, "Approve, merge after CI"): `TUNED_V1`, ADR-020
   Accepted
 - Task 3.5 stock rule (supervisor, 2026-11-27, "Keep rule (a)"): `es_tuned_stock` keeps rule (a) "tiered"
@@ -588,11 +595,8 @@ Updated: 2026-11-27 by agent session 10 — Task 3.5 (relevance tuning) done: TU
 - A local shop owner for interview #1 (Task 1.6) — start looking early
 
 ## Next step (exact)
-- **Supervisor: review of Task 3.5** (PR from `feat/relevance-tuning`): (1) read `docs/evaluation/experiments.md`
-  (method, rule, interpretation) and `results/summary/tuning-dev.md` (one row per experiment); (2) approve the
-  configuration `TUNED_V1` (ADR-020 → Accepted) or ask for changes; (3) decide the stock rule: keep (a) "tiered"
-  — **decided 2026-11-27: keep rule (a)**; (4) optional: try a reference in the shop (`/shop?search=` with a product's internal reference) and a
-  typo query; then "merge". Remaining budget: 1 experiment (keep it for a follow-up only if asked)
+- **Task 3.6 in progress** on `feat/synonyms`. Tuning budget of Task 3.5: 14 of 15 used (the last slot is not
+  used by 3.6, which measures with `shop eval ndcg --compare-to`)
 - Task 3.4's manual-test steps, for reference: (1) `uv run shop eval ndcg --engine all --mode both` (about 7 min; the stack up,
   Kibana not needed); (2) open `results/summary/ndcg-dev-both.md`; (3) run it again and compare the table rows
   (`git diff results/summary/ndcg-dev-both.md` shows only the run line); optional: `--mode direct` alone
