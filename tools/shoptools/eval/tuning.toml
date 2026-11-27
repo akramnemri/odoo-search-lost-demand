@@ -1,0 +1,100 @@
+# Task 3.5 — relevance tuning experiments on the dev queries (docs/evaluation/experiments.md).
+# Pre-registered: stage 1 was committed before any run; stage 2 and 3 are added after the stage before them, by
+# the rules written in experiments.md. Run one with `uv run shop eval tune <name>`; list them with `--list`.
+#
+# Each variant is its parent's configuration (`v0` = TUNED_V0 of the module's query_builder.py, or another
+# variant) with `changes` applied. Keys of `changes` are the fields of `TunedConfig`; "none" leaves a lever out.
+# goal: "none" (judged on dev NDCG), "typo" (dev-typo NDCG), "tail" (fewer weak matches), "reference" (a
+# product's internal reference finds it).
+
+budget = 15  # experiment runs on dev, final `both` run not counted (plan D3)
+
+# --- stage 1: one change at a time, each against v0 ---------------------------------------------------------
+
+[variants.e01-exact-words]
+stage = 1
+parent = "v0"
+engine = "es_tuned"
+goal = "none"
+hypothesis = "Typo tolerance also matches near-miss words; dev queries rarely contain typos, so exact words may rank better on dev and worse on dev-typo."
+changes = { fuzziness = "none" }
+
+[variants.e02-prefix-0]
+stage = 1
+parent = "v0"
+engine = "es_tuned"
+goal = "typo"
+hypothesis = "Letting the first letter be wrong too finds first-letter typos (the typo model makes them)."
+changes = { prefix_length = 0 }
+
+[variants.e03-prefix-2]
+stage = 1
+parent = "v0"
+engine = "es_tuned"
+goal = "none"
+hypothesis = "Two exact first letters cut many accidental near-miss matches at a small typo cost."
+changes = { prefix_length = 2 }
+
+[variants.e04-most-fields]
+stage = 1
+parent = "v0"
+engine = "es_tuned"
+goal = "none"
+hypothesis = "Adding the scores of all fields rewards products whose name, brand and description all match."
+changes = { match_type = "most_fields" }
+
+[variants.e05-tie-breaker]
+stage = 1
+parent = "v0"
+engine = "es_tuned"
+goal = "none"
+hypothesis = "Best field plus 30 % of the others: a middle way between best_fields and most_fields."
+changes = { tie_breaker = 0.3 }
+
+[variants.e06-cross-fields]
+stage = 1
+parent = "v0"
+engine = "es_tuned"
+goal = "none"
+hypothesis = "Treating name, brand and description as one field lets a query's words match across them (no typo tolerance: Elasticsearch refuses fuzziness with cross_fields)."
+changes = { match_type = "cross_fields", fuzziness = "none" }
+
+[variants.e07-most-words]
+stage = 1
+parent = "v0"
+engine = "es_tuned"
+goal = "tail"
+hypothesis = "Requiring most query words (all of 1-2 words, 75 % beyond) removes the long tail of weak matches seen in Task 3.3."
+changes = { minimum_should_match = "2<75%" }
+
+[variants.e08-name-phrase]
+stage = 1
+parent = "v0"
+engine = "es_tuned"
+goal = "none"
+hypothesis = "A bonus when the query's words appear together in the product name lifts exact products."
+changes = { name_phrase_boost = 2.0 }
+
+[variants.e09-less-description]
+stage = 1
+parent = "v0"
+engine = "es_tuned"
+goal = "none"
+hypothesis = "Long descriptions mention many things; half their weight should reduce off-topic matches."
+changes = { fields = ["name^3", "brand^2", "description^0.5"] }
+
+[variants.e10-name-exact-words]
+stage = 1
+parent = "v0"
+engine = "es_tuned"
+goal = "none"
+hypothesis = "A bonus for the name's unstemmed words (name.std) favours products that use the shopper's exact word form."
+changes = { fields = ["name^3", "name.std^1", "brand^2", "description"] }
+
+[variants.e11-reference]
+stage = 1
+parent = "v0"
+engine = "es_tuned"
+goal = "reference"
+hypothesis = "Odoo's own search finds a product by its internal reference; an exact, case-insensitive match on it should cost nothing on dev."
+changes = { ref_exact_boost = 10.0 }

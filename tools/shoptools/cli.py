@@ -27,7 +27,7 @@ from shoptools.data import esci, slice_builder
 from shoptools.doctor.expected import VERSIONS_FILE, find_repo_root, load_expected
 from shoptools.doctor.report import SECTIONS, run_doctor
 from shoptools.envfile import PROFILES, init_env
-from shoptools.eval import baseline_search, ndcg
+from shoptools.eval import baseline_search, ndcg, tuning
 
 ACTION_METAVAR = "<action>"
 
@@ -372,6 +372,12 @@ def _add_eval_arguments(parser: argparse.ArgumentParser) -> None:
         default=ndcg.HTTP,
         help="http: real /shop page (reported numbers); direct: Elasticsearch only; both: both + consistency",
     )
+    tune = kinds.add_parser(
+        "tune",
+        help="one relevance-tuning experiment on the dev queries (Task 3.5; read-only, direct mode)",
+    )
+    tune.add_argument("variant", nargs="?", help="a variant of tools/shoptools/eval/tuning.toml")
+    tune.add_argument("--list", action="store_true", help="list the variants and their decisions")
     ndcg_parser.add_argument(
         "--limit",
         type=int,
@@ -384,6 +390,8 @@ def _run_eval(namespace: argparse.Namespace) -> int:
     repo_root = _repo_root("eval")
     if repo_root is None:
         return 1
+    if namespace.eval_kind == "tune":
+        return tuning.run_tune(repo_root, namespace.variant, list_only=namespace.list)
     if namespace.eval_kind == "ndcg":
         engines = (
             ndcg.ALL_ENGINES
