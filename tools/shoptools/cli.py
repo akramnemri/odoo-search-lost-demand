@@ -359,7 +359,7 @@ def _add_eval_arguments(parser: argparse.ArgumentParser) -> None:
         "--set",
         dest="query_set",
         default=ndcg.DEV,
-        help="query set: dev (test and test-typo are refused until the freeze, Task 8.2)",
+        help="query set: dev or dev-typo (test and test-typo are refused until the freeze, Task 8.2)",
     )
     ndcg_parser.add_argument(
         "--engine",
@@ -380,6 +380,11 @@ def _add_eval_arguments(parser: argparse.ArgumentParser) -> None:
     tune.add_argument("--list", action="store_true", help="list the variants and their decisions")
     tune.add_argument(
         "--table", action="store_true", help="rewrite the table from the run folders; run nothing"
+    )
+    ndcg_parser.add_argument(
+        "--compare-to",
+        default=None,
+        help="an earlier run folder name (results/ndcg-...): paired difference with it on the same queries",
     )
     ndcg_parser.add_argument(
         "--limit",
@@ -403,7 +408,14 @@ def _run_eval(namespace: argparse.Namespace) -> int:
             if namespace.engine == "all"
             else tuple(name.strip() for name in namespace.engine.split(",") if name.strip())
         )
-        return ndcg.run_ndcg(repo_root, namespace.query_set, engines, namespace.mode, namespace.limit)
+        return ndcg.run_ndcg(
+            repo_root,
+            namespace.query_set,
+            engines,
+            namespace.mode,
+            namespace.limit,
+            compare_to=namespace.compare_to,
+        )
     return baseline_search.run_baseline_search(repo_root, with_dev=not namespace.no_dev)
 
 

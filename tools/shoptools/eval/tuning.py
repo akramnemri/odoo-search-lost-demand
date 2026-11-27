@@ -35,7 +35,6 @@ from typing import Any
 
 from shoptools import snapshot
 from shoptools.data import slice_builder
-from shoptools.data.typos import make_typo
 from shoptools.eval import metrics, ndcg
 
 TUNING_FILE = Path("tools") / "shoptools" / "eval" / "tuning.toml"
@@ -126,16 +125,7 @@ def resolve(name: str, variants: Mapping[str, Variant], builtins: Mapping[str, A
         raise TuneError(f"variant {name}: {error}") from error
 
 
-def dev_typo_queries(
-    queries: Sequence[tuple[int, str]], seed: int, min_letters: int
-) -> list[tuple[int, str]]:
-    """The dev queries with one seeded typo each (protocol §6.3 model; unchanged without a long word)."""
-    rng = slice_builder.derived_rng(seed, "dev-typos")
-    typed = []
-    for query_id, text in queries:
-        typo = make_typo(text, rng, min_letters)
-        typed.append((query_id, typo.text if typo is not None else text))
-    return typed
+dev_typo_queries = ndcg.dev_typo_queries  # moved to ndcg (Task 3.6): `shop eval ndcg --set dev-typo`
 
 
 def reference_sample(

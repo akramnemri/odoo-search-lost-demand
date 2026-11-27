@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+Search synonyms (Task 3.6, FR2): list, form, search view, action and menu for administrators
+(base.group_system, like the other Website configuration menus). The menu sits under Website > Configuration,
+next to eCommerce (website/views/res_config_settings_views.xml, menu_website_global_configuration).
+-->
+<odoo>
+    <record id="lost_demand_synonym_view_list" model="ir.ui.view">
+        <field name="name">lost_demand.synonym.list</field>
+        <field name="model">lost_demand.synonym</field>
+        <field name="arch" type="xml">
+            <list string="Search synonyms">
+                <field name="terms"/>
+                <field name="rule_type"/>
+                <field name="targets" optional="show"/>
+                <field name="search_line" optional="show"/>
+                <field name="note" optional="hide"/>
+                <field name="active" widget="boolean_toggle"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="lost_demand_synonym_view_form" model="ir.ui.view">
+        <field name="name">lost_demand.synonym.form</field>
+        <field name="model">lost_demand.synonym</field>
+        <field name="arch" type="xml">
+            <form string="Search synonym">
+                <sheet>
+                    <widget name="web_ribbon" title="Archived" bg_color="text-bg-danger" invisible="active"/>
+                    <group>
+                        <group>
+                            <field name="rule_type" widget="radio"/>
+                            <field name="terms" placeholder="sneakers, trainers"/>
+                            <field name="targets" placeholder="hooded sweatshirt"
+                                   invisible="rule_type != 'one_way'" required="rule_type == 'one_way'"/>
+                            <field name="active" invisible="1"/>
+                        </group>
+                        <group>
+                            <field name="search_line"/>
+                            <field name="note"/>
+                        </group>
+                    </group>
+                    <div class="text-muted">
+                        <p>
+                            <b>Same meaning</b>: a search for any of the words also finds the others.
+                            <b>One-way</b>: a search for the words also finds "Also search for", not the reverse
+                            (a broader term should usually be one-way).
+                        </p>
+                        <p>
+                            A rule works for the next search, within a few seconds, without rebuilding the index.
+                            Products that contain the words the shopper typed stay ranked before products found
+                            only through a synonym. A rule changes every search that contains its words: keep
+                            each rule to words that truly mean the same thing.
+                        </p>
+                    </div>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="lost_demand_synonym_view_search" model="ir.ui.view">
+        <field name="name">lost_demand.synonym.search</field>
+        <field name="model">lost_demand.synonym</field>
+        <field name="arch" type="xml">
+            <search string="Search synonyms">
+                <field name="terms"/>
+                <field name="targets"/>
+                <filter name="one_way" string="One-way" domain="[('rule_type', '=', 'one_way')]"/>
+                <separator/>
+                <filter name="inactive" string="Archived" domain="[('active', '=', False)]"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_lost_demand_synonym" model="ir.actions.act_window">
+        <field name="name">Search synonyms</field>
+        <field name="res_model">lost_demand.synonym</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Add a synonym rule</p>
+            <p>Words that mean the same thing for your shoppers, for example "sofa, couch".</p>
+        </field>
+    </record>
+
+    <menuitem id="menu_lost_demand_synonym"
+              name="Search synonyms"
+              parent="website.menu_website_global_configuration"
+              action="action_lost_demand_synonym"
+              groups="base.group_system"
+              sequence="60"/>
+</odoo>

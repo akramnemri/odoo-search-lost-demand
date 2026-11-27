@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+Starting synonym list (Task 3.6, protocol §3): general shop vocabulary only (US/UK variants and everyday
+equivalents), written without looking at the dev or test queries; frozen with the configuration (Task 8.1),
+its size reported. noupdate: an upgrade never overwrites what the administrator changed. Ambiguous words are
+one-way ("torch" is also a blowtorch, "tap" also a tap dance), so they only widen in the safe direction.
+-->
+<odoo noupdate="1">
+    <record id="synonym_seed_tv" model="lost_demand.synonym">
+        <field name="terms">tv, television</field>
+        <field name="note">Seed (Task 3.6): general vocabulary</field>
+    </record>
+    <record id="synonym_seed_cell_phone" model="lost_demand.synonym">
+        <field name="terms">cell phone, cellphone, mobile phone</field>
+        <field name="note">Seed (Task 3.6): US/UK</field>
+    </record>
+    <record id="synonym_seed_sneakers" model="lost_demand.synonym">
+        <field name="terms">sneakers, trainers</field>
+        <field name="note">Seed (Task 3.6): US/UK, roadmap example</field>
+    </record>
+    <record id="synonym_seed_sofa" model="lost_demand.synonym">
+        <field name="terms">sofa, couch</field>
+        <field name="note">Seed (Task 3.6): general vocabulary</field>
+    </record>
+    <record id="synonym_seed_hoodie" model="lost_demand.synonym">
+        <field name="terms">hoodie, hooded sweatshirt</field>
+        <field name="note">Seed (Task 3.6): general vocabulary</field>
+    </record>
+    <record id="synonym_seed_pants" model="lost_demand.synonym">
+        <field name="terms">pants, trousers</field>
+        <field name="note">Seed (Task 3.6): US/UK</field>
+    </record>
+    <record id="synonym_seed_sweater" model="lost_demand.synonym">
+        <field name="terms">sweater, pullover</field>
+        <field name="note">Seed (Task 3.6): general vocabulary</field>
+    </record>
+    <record id="synonym_seed_torch" model="lost_demand.synonym">
+        <field name="rule_type">one_way</field>
+        <field name="terms">torch</field>
+        <field name="targets">flashlight</field>
+        <field name="note">Seed (Task 3.6): UK; one-way (a torch is also a blowtorch)</field>
+    </record>
+    <record id="synonym_seed_diaper" model="lost_demand.synonym">
+        <field name="terms">diaper, nappy</field>
+        <field name="note">Seed (Task 3.6): US/UK</field>
+    </record>
+    <record id="synonym_seed_tap" model="lost_demand.synonym">
+        <field name="rule_type">one_way</field>
+        <field name="terms">tap</field>
+        <field name="targets">faucet</field>
+        <field name="note">Seed (Task 3.6): UK; one-way (tap has other meanings)</field>
+    </record>
+    <record id="synonym_seed_stroller" model="lost_demand.synonym">
+        <field name="terms">stroller, pram, pushchair</field>
+        <field name="note">Seed (Task 3.6): US/UK</field>
+    </record>
+    <record id="synonym_seed_laptop" model="lost_demand.synonym">
+        <field name="terms">laptop, notebook computer</field>
+        <field name="note">Seed (Task 3.6): general vocabulary ("notebook" alone is also paper)</field>
+    </record>
+    <record id="synonym_seed_glasses" model="lost_demand.synonym">
+        <field name="terms">eyeglasses, spectacles</field>
+        <field name="note">Seed (Task 3.6): general vocabulary</field>
+    </record>
+    <record id="synonym_seed_fridge" model="lost_demand.synonym">
+        <field name="terms">refrigerator, fridge</field>
+        <field name="note">Seed (Task 3.6): general vocabulary</field>
+    </record>
+    <record id="synonym_seed_backpack" model="lost_demand.synonym">
+        <field name="terms">backpack, rucksack, knapsack</field>
+        <field name="note">Seed (Task 3.6): US/UK</field>
+    </record>
+    <record id="synonym_seed_trash_can" model="lost_demand.synonym">
+        <field name="terms">trash can, garbage can, waste bin</field>
+        <field name="note">Seed (Task 3.6): US/UK</field>
+    </record>
+    <record id="synonym_seed_earbuds" model="lost_demand.synonym">
+        <field name="terms">earbuds, earphones</field>
+        <field name="note">Seed (Task 3.6): general vocabulary</field>
+    </record>
+    <record id="synonym_seed_duvet" model="lost_demand.synonym">
+        <field name="terms">duvet, comforter</field>
+        <field name="note">Seed (Task 3.6): US/UK</field>
+    </record>
+    <record id="synonym_seed_nightstand" model="lost_demand.synonym">
+        <field name="terms">nightstand, bedside table</field>
+        <field name="note">Seed (Task 3.6): US/UK</field>
+    </record>
+    <record id="synonym_seed_bedspread" model="lost_demand.synonym">
+        <field name="terms">bedspread, coverlet</field>
+        <field name="note">Seed (Task 3.6): general vocabulary</field>
+    </record>
+</odoo>

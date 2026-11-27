@@ -93,3 +93,22 @@ Found by the manual test (agent, 2026-11-20):
 | A lower-weighted copy of the name field (`name.std`) changed nothing at all | `best_fields` keeps only the best field's score; the stemmed name, weighted higher, always wins | none (dropped by the rule) | know how a scoring mode combines fields before adding fields to it |
 | The variant that removed the weak tail ("most words must match") hurt typo queries | a typo can make a required word miss | dropped by the rule; the weak tail remains an open point (ADR-020) | a precision lever and typo tolerance interact: measure both |
 | `es_plain`, whose query did not change, moved by 0.0001 between 21 and 27 November (one query: ranks 9 and 10 swapped) | BM25 statistics include deleted copies of updated documents until Elasticsearch merges segments, so near-ties can flip between days (within a day, runs are identical) | none needed now; before the M8 test campaign, rebuild the index (fresh segments) right before the runs — noted in STATUS | "same index" means same segments too: rebuild before a measurement that must be exactly reproducible |
+
+## M3 — Task 3.6 (synonyms)
+
+Found during the design review, on the cluster with throwaway resources (before code):
+
+| Problem | Cause | Fix | Lesson |
+|---|---|---|---|
+| A rule "sneakers, trainers" would not expand "trainer" | the search analyzer applies synonyms before stemming: rules match only the exact forms they list | Odoo sends each term with its simple singular/plural form, shown to the administrator | test the analyzer chain with `_analyze` before designing on top of it |
+| Moving synonyms after stemming would fix forms but merge unrelated words | the stemmer turns "trainers" into "train" (a toy train would bring sneakers) | not done: analyzer unchanged, no rebuild | a "cleaner" fix can be worse: check what the stemmer really does |
+| Elasticsearch stored "=>" as a valid rule | its synonyms API hardly validates rule text | validation in Odoo with clear messages | never rely on the remote system to validate input |
+| With a rule "laptop, pc", a search for "pc" listed laptops first (the supervisor's concern, confirmed) | the rarer word gets a higher score (BM25 idf), so synonym matches can outrank the typed word | `TUNED_V2`: the typed words scored again without synonyms (`analyzer: shop_index`), boost 3; proved neutral without synonyms on all dev and dev-typo queries | measure a countermeasure's side effects on everything else, not only on the case it fixes |
+
+Found while building and testing:
+
+| Problem | Cause | Fix | Lesson |
+|---|---|---|---|
+| The settings view referred to the synonyms action before it existed | manifest data files load in order | synonym views listed before the settings view | an XML reference needs its target loaded first |
+| The ndcg comparison test lost a run | two fake runs in the same second got the same run id (real runs take minutes) | the test renames the first run folder | timestamps are not unique ids under fast tests |
+| The upgrade logged "missing not-null constraint" for the new model | the registry's first load runs before the table exists (same as Task 3.2) | none needed: the columns are NOT NULL afterwards (checked with `information_schema`) | read a warning's cause before acting on it |

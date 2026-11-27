@@ -118,3 +118,29 @@ few sold-out products in the top 10.
 excludes zero — a modest gain. The kept changes were chosen on these queries, so the dev gain is optimistic; the
 reported comparison of `odoo`, `es_plain` and `es_tuned` is the test-set run after the freeze (Task 8.2). Negative
 results are kept in the table on purpose.
+
+## Task 3.6 — the starting synonym list (pre-registered 2026-11-27, before the measurement)
+
+The list (`addons/website_sale_lost_demand/data/lost_demand_synonym_data.xml`, 20 rules) is general shop
+vocabulary written without looking at the dev or test queries (protocol §3). Ambiguous words are one-way.
+Each term is sent with its simple singular or plural form (the search analyzer applies synonyms before stemming;
+see `services/synonyms.py`). The shop's query is `TUNED_V2` = `TUNED_V1` + the literal-word bonus (products
+matching the typed words rank before synonym-only matches); with an empty synonyms set it gives the same page 1
+as `TUNED_V1` on all 300 dev and 300 dev-typo queries, for both tuned engines (checked 2026-11-27 before this
+section was written).
+
+Measurement: `uv run shop eval ndcg --mode direct --engine es_tuned,es_tuned_stock`, on `--set dev` and
+`--set dev-typo`, once with the empty set (before), then after the list is loaded and sent, with
+`--compare-to <before run>` (paired difference, same queries; the runs are minutes apart, so only the synonyms
+differ). **Rule:** the list is kept if `es_tuned` loses no more than 0.005 NDCG@10 on dev and on dev-typo;
+otherwise it is reported and the supervisor decides. This is not a tuning experiment (no keep/drop of rules
+one by one, the Task 3.5 budget is not used); the list's real effect is reported on the test set after the
+freeze (Task 8.2), including the vocabulary-mismatch subset (protocol §6.4).
+
+**Result (2026-11-27).** Before: runs `ndcg-dev-direct-20261127T045354Z` and `ndcg-dev-typo-direct-20261127T045452Z`
+(empty set, commit `1a43662`); after loading and sending the 20 rules: runs `ndcg-dev-direct-20261127T045735Z` and
+`ndcg-dev-typo-direct-20261127T045843Z`, each compared with its "before" run. The numbers are in the comparison
+sections of `results/summary/ndcg-dev-direct.md` and `results/summary/ndcg-dev-typo-direct.md`: on both sets the
+change of `es_tuned` is far inside the pre-registered limit, so **the list is kept**. As expected for general
+vocabulary, few dev queries contain a rule's words; the list's effect is for shoppers who use these words, and
+the vocabulary-mismatch subset of the test set (Task 8.2) will measure it on real queries.

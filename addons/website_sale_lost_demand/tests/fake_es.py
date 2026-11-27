@@ -21,7 +21,11 @@ DOWN = ClusterStatus(
 
 
 class FakeEsError(Exception):
-    """Stands for the client's ApiError/TransportError."""
+    """Stands for the client's ApiError/TransportError (`status_code` like ApiError's)."""
+
+    def __init__(self, message="", status_code=None):
+        super().__init__(message)
+        self.status_code = status_code
 
 
 class _Indices:
@@ -40,6 +44,27 @@ class _Indices:
         return {self._cluster.index: {"mappings": {"_meta": meta}}}
 
 
+class _Synonyms:
+    """Synonyms sets by name (Task 3.6): a missing set answers 404, like Elasticsearch."""
+
+    def __init__(self, cluster):
+        self._cluster = cluster
+        self.sets = {}
+        self.puts = []
+
+    def get_synonym(self, id, size):
+        self._cluster.check()
+        if id not in self.sets:
+            raise FakeEsError("resource_not_found_exception", status_code=404)
+        return {"count": len(self.sets[id]), "synonyms_set": list(self.sets[id])}
+
+    def put_synonym(self, id, synonyms_set):
+        self._cluster.check()
+        self.puts.append((id, list(synonyms_set)))
+        self.sets[id] = list(synonyms_set)
+        return {"result": "updated"}
+
+
 class FakeCluster:
     """An index behind an alias that keeps documents in a dict; `down=True` makes every call fail;
     `refuse` maps a template ID to the error Elasticsearch gives for its item."""
@@ -51,6 +76,7 @@ class FakeCluster:
         self.refuse = {}
         self.bulk_calls = []
         self.indices = _Indices(self)
+        self.synonyms = _Synonyms(self)
 
     def check(self):
         if self.down:

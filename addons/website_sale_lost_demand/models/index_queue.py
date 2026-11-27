@@ -104,7 +104,11 @@ class LostDemandIndexQueue(models.Model):
 
     @api.model
     def _cron_send_to_index(self):
-        """Scheduled action (every minute, and on trigger). Commits after each batch."""
+        """Scheduled action (every minute, and on trigger). Commits after each batch.
+
+        Synonyms first (Task 3.6): they do not depend on the product index (a rebuild or a definition change
+        never makes a new rule wait), and the call never raises."""
+        self.env["lost_demand.synonym"]._sync_to_search()
         result = self._send_to_index(commit=True)
         if result.sent or result.failed:
             _logger.info("Product index sync: %s sent, %s refused", result.sent, result.failed)

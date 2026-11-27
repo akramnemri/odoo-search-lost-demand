@@ -91,6 +91,18 @@
                             </div>
                         </div>
                     </setting>
+                    <setting id="lost_demand_synonyms" string="Search synonyms"
+                             help="Words that mean the same thing for your shoppers (sofa, couch). Rules are kept in Odoo and sent to the search within seconds, without rebuilding the index.">
+                        <div class="content-group">
+                            <div class="mt8">
+                                <field name="lost_demand_synonyms_message"/>
+                            </div>
+                            <div class="mt8">
+                                <button name="%(website_sale_lost_demand.action_lost_demand_synonym)d" type="action"
+                                        string="Manage synonyms" class="btn-link" icon="oi-arrow-right"/>
+                            </div>
+                        </div>
+                    </setting>
                 </block>
             </xpath>
         </field>

@@ -49,6 +49,7 @@ from typing import Any
 
 from shoptools import odoodb, snapshot, stack
 from shoptools.data import slice_builder
+from shoptools.data.typos import make_typo
 from shoptools.doctor.system import RealSystem
 from shoptools.envfile import parse_env
 from shoptools.eval import metrics
@@ -62,6 +63,10 @@ from shoptools.eval.baseline_search import (
 )
 
 DEV = "dev"
+DEV_TYPO = (
+    "dev-typo"  # the dev queries with one seeded typo each, made at run time (Task 3.5, stream dev-typos)
+)
+SETS = (DEV, DEV_TYPO)
 REFUSED_SETS = ("test", "test-typo")
 ODOO = "odoo"
 DEFAULT_ENGINES = (ODOO, "es_plain", "es_tuned")
@@ -555,10 +560,111 @@ def render_summary(
     return "\n".join(lines)
 
 
-def _command(set_name: str, engines: Sequence[str], mode: str, limit: int | None) -> str:
+def dev_typo_queries(
+    queries: Sequence[tuple[int, str]], seed: int, min_letters: int
+) -> list[tuple[int, str]]:
+    """The dev queries with one seeded typo each (protocol §6.3 model; unchanged without a long word)."""
+    rng = slice_builder.derived_rng(seed, "dev-typos")
+    typed = []
+    for query_id, text in queries:
+        typo = make_typo(text, rng, min_letters)
+        typed.append((query_id, typo.text if typo is not None else text))
+    return typed
+
+
+@dataclass(frozen=True)
+class RunComparison:
+    mode: str
+    engine: str
+    queries: int
+    changed_top10: int  # queries whose top 10 differs between the two runs
+    difference: metrics.Interval  # this run − the other run, per query
+    p_value: float
+
+
+def compare_runs(
+    repo_root: Path,
+    other_run: str,
+    set_name: str,
+    scores: Mapping[str, Mapping[str, Sequence[Mapping[str, Any]]]],
+    results: Sequence[ModeResult],
+    seed: int,
+) -> list[RunComparison]:
+    """Paired comparison with an earlier run on the same queries (Task 3.6: before and after a change of the
+    Elasticsearch state, such as synonyms, which the tuning harness cannot vary within one run)."""
+    folder = repo_root / "results" / other_run
+    try:
+        other_meta = json.loads((folder / "run.json").read_text(encoding="utf-8"))
+        other_scores = json.loads((folder / "scores.json").read_text(encoding="utf-8"))
+        other_lines = (folder / "rankings.jsonl").read_text(encoding="utf-8").splitlines()
+    except (OSError, ValueError) as error:
+        raise NdcgError(f"cannot read run {other_run} ({error}): give a folder name of results/") from error
+    if other_meta.get("config", {}).get("set") != set_name:
+        raise NdcgError(f"run {other_run} used another query set; compare runs of the --set {set_name}")
+    other_rankings: dict[tuple[str, str, int], list[str]] = {}
+    for line in other_lines:
+        row = json.loads(line)
+        other_rankings[(row["mode"], row["engine"], row["query_id"])] = row["products"][: metrics.CUTOFF]
+    rows = []
+    for result in results:
+        for engine, current in scores.get(result.mode, {}).items():
+            before = other_scores.get(result.mode, {}).get(engine)
+            if before is None:
+                continue
+            now = {item["query_id"]: item["ndcg"] for item in current if item["ndcg"] is not None}
+            then = {item["query_id"]: item["ndcg"] for item in before if item["ndcg"] is not None}
+            label = f"ndcg-compare:{result.mode}:{engine}"
+            comparison = metrics.compare(
+                "this",
+                "other",
+                now,
+                then,
+                slice_builder.derived_rng(seed, label + ":difference"),
+                slice_builder.derived_rng(seed, label + ":permutation"),
+            )
+            changed = sum(
+                1
+                for query_id, ranking in result.rankings.get(engine, {}).items()
+                if ranking.products[: metrics.CUTOFF] != other_rankings.get((result.mode, engine, query_id))
+            )
+            rows.append(
+                RunComparison(
+                    result.mode,
+                    engine,
+                    comparison.queries,
+                    changed,
+                    comparison.difference,
+                    comparison.p_value,
+                )
+            )
+    return rows
+
+
+def render_comparison(other_run: str | None, rows: Sequence[RunComparison]) -> str:
+    if not other_run:
+        return ""
+    lines = [
+        f"## Compared with run `{other_run}` (this run − that run, same queries)",
+        "",
+        "| Mode | Engine | Queries | Top 10 changed | Mean difference [95 % CI] | p (randomization) |",
+        "|---|---|---|---|---|---|",
+    ]
+    for row in rows:
+        lines.append(
+            f"| {row.mode} | `{row.engine}` | {row.queries} | {row.changed_top10} | "
+            f"{_signed(row.difference)} | {row.p_value:.4f} |"
+        )
+    return "\n".join(lines) + "\n"
+
+
+def _command(
+    set_name: str, engines: Sequence[str], mode: str, limit: int | None, compare_to: str | None = None
+) -> str:
     parts = ["uv run shop eval ndcg", f"--set {set_name}", f"--engine {','.join(engines)}", f"--mode {mode}"]
     if limit is not None:
         parts.append(f"--limit {limit}")
+    if compare_to:
+        parts.append(f"--compare-to {compare_to}")
     return " ".join(parts)
 
 
@@ -645,10 +751,11 @@ def run_ndcg(
     write: Callable[[str], None] | None = None,
     connections: Connections | None = None,
     sleep: Callable[[float], None] = time.sleep,
+    compare_to: str | None = None,
 ) -> int:
     write = write or _print
     try:
-        return _run(repo_root, set_name, engines, mode, limit, write, connections, sleep)
+        return _run(repo_root, set_name, engines, mode, limit, write, connections, sleep, compare_to)
     except NdcgError as error:
         print(f"shop eval ndcg: {error}", file=sys.stderr)
         return 1
@@ -663,14 +770,15 @@ def _run(
     write: Callable[[str], None],
     connections: Connections | None,
     sleep: Callable[[float], None],
+    compare_to: str | None = None,
 ) -> int:
     if set_name in REFUSED_SETS:
         raise NdcgError(
             f"the {set_name} set is run once, after the configuration freeze (Task 8.2, protocol §3 and §8); "
             "use --set dev"
         )
-    if set_name != DEV:
-        raise NdcgError(f"unknown set {set_name!r}: use --set dev")
+    if set_name not in SETS:
+        raise NdcgError(f"unknown set {set_name!r}: use --set {' or --set '.join(SETS)}")
     unknown = [engine for engine in engines if engine not in ALL_ENGINES]
     if unknown or not engines:
         raise NdcgError(f"unknown engine(s) {unknown}: choose from {', '.join(ALL_ENGINES)} or all")
@@ -695,7 +803,10 @@ def _run(
         )
     seed = slice_config.seed
     dev = read_dev_set(repo_root)
-    queries = dev.queries[:limit] if limit else dev.queries
+    queries = dev.queries
+    if set_name == DEV_TYPO:
+        queries = dev_typo_queries(queries, seed, slice_config.min_word_letters)
+    queries = queries[:limit] if limit else queries
     try:
         esci_of = read_id_map(repo_root)
     except BaselineError as error:
@@ -717,6 +828,7 @@ def _run(
             engine: [asdict(item) for item in items] for engine, items in scores.items()
         }
     agreement = consistency(results[0], results[1], dev.judgments) if mode == BOTH else []
+    compared = compare_runs(repo_root, compare_to, set_name, all_scores, results, seed) if compare_to else []
 
     seconds = time.monotonic() - started
     git = snapshot.git_sha(repo_root)
@@ -726,7 +838,7 @@ def _run(
         "kind": "ndcg",
         "git_sha": git.removesuffix("-dirty"),
         "git_dirty": git.endswith("-dirty"),
-        "command": _command(set_name, engines, mode, limit),
+        "command": _command(set_name, engines, mode, limit, compare_to),
         "config": {
             "set": set_name,
             "engines": list(engines),
@@ -754,6 +866,7 @@ def _run(
         "queries": len(queries),
         "fallback_retries": sum(len(result.retried) for result in results),
         "fallback_retried": [list(item) for result in results for item in result.retried],
+        "compared_to": compare_to,
         "started_at": started_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
         "ended_at": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "seconds": round(seconds, 1),
@@ -771,11 +884,16 @@ def _run(
     _write_text(folder / "rankings.jsonl", "\n".join(rankings) + "\n")
     _write_text(folder / "scores.json", json.dumps(all_scores, indent=1) + "\n")
     _write_text(folder / "run.json", json.dumps(meta, indent=2) + "\n")
-    summary = render_summary(meta, sections, agreement)
+    summary = render_summary(meta, sections, agreement) + render_comparison(compare_to, compared)
     for title, summaries, comparisons in sections:
         write(f"{title}: " + "; ".join(f"{item.engine} {_interval(item.ndcg)}" for item in summaries) + "\n")
         for item in comparisons:
             write(f"  {item.first} - {item.second}: {_signed(item.difference)}, p Holm {item.p_holm:.4f}\n")
+    for row in compared:
+        write(
+            f"  vs {compare_to}: {row.mode} {row.engine} {_signed(row.difference)}, p {row.p_value:.4f}, "
+            f"{row.changed_top10} of {row.queries} top 10s changed\n"
+        )
     if limit is not None:  # a quick look must not replace the committed table
         write(f"Done in {seconds:.0f} s. Run folder: results/{run_id}/ (table unchanged: --limit)\n")
         return 0

@@ -14,8 +14,10 @@ Task 3.2: incremental sync within 60 s: product, variant, category and stock cha
 the same transaction; a cron job (triggered at once) sends them in bulk, with retries; backlog in settings.
 Task 3.3: shop search through Elasticsearch (engines es_plain, es_tuned, es_tuned_stock): Elasticsearch ranks,
 Odoo filters with its own rules and keeps the order; any Elasticsearch problem falls back to Odoo's search.
-    """,
-    "version": "19.0.0.5.0",
+Task 3.6: search synonyms managed in Odoo (Website > Configuration > Search synonyms), sent to
+Elasticsearch's synonyms set by the sync job; typed words rank before synonym-only matches.
+""",
+    "version": "19.0.0.6.0",
     "category": "Website/Website",
     "author": "Lost Demand Project",
     "license": "LGPL-3",
@@ -27,8 +29,10 @@ Odoo filters with its own rules and keeps the order; any Elasticsearch problem f
         "security/website_sale_lost_demand_groups.xml",
         "security/ir.model.access.csv",
         "data/ir_cron_data.xml",
+        "views/synonym_views.xml",
         "views/res_config_settings_views.xml",
         "views/product_template_views.xml",
+        "data/lost_demand_synonym_data.xml",
     ],
     "installable": True,
     "application": False,

@@ -174,6 +174,11 @@ Notes:
   Verify on the running Basic cluster that the synonyms API works; if it does not, fall back to file or inline synonyms
   regenerated from Odoo plus the reload-search-analyzers API, and record the decision.
 - Synonym sets apply at search time only (`updateable: true`): updates need no reindex.
+- As built (Task 3.6, ADR-021): the rules live in Odoo (`lost_demand.synonym`) and the sync job replaces the set
+  `shop-synonyms` when it differs; synonyms run before the stemmer, so Odoo sends each term with its simple
+  singular/plural form; `TUNED_V2` adds the literal-word bonus (the typed words scored again with `shop_index`, no
+  synonyms) so typed-word matches rank before synonym-only ones; test indices use their own set
+  (`IndexNames.synonyms_set`). Starting list: 20 rules, `data/lost_demand_synonym_data.xml`.
 - `*.std` subfields (standard analyzer) let the **plain** engine represent "Elasticsearch out of the box" without a second index.
 - As built (Tasks 3.1–3.2): no `color` field (Odoo has none); `free_qty` = what the shop can sell (on hand minus
   reserved, website warehouse, Odoo's own rule) replaced `qty_available` in definition version 2 (Task 3.2);

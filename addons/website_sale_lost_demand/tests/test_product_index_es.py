@@ -14,9 +14,22 @@ from ..models import res_config_settings as settings_module
 from ..services.config import load_config
 from ..services.es_client import EsClient
 from ..services.index_sync import send_changes
-from ..services.product_index import SYNONYMS_SET, IndexNames, load_definition, read_status
+from ..services.product_index import IndexNames, load_definition, read_status
 
-TEST_NAMES = IndexNames(alias="shop-products-test", prefix="shop-products-test-v")
+# Own synonyms set too (Task 3.6): a test never changes the shop's synonyms.
+TEST_NAMES = IndexNames(
+    alias="shop-products-test", prefix="shop-products-test-v", synonyms_set="shop-synonyms-test"
+)
+
+
+def drop_test_resources(client):
+    """Test indices first (a set in use cannot be deleted), then the test synonyms set."""
+    for index in client.indices.get_alias(index=TEST_NAMES.prefix + "*").body:
+        if TEST_NAMES.version_of(index) is not None:
+            client.indices.delete(index=index)
+    sets = client.synonyms.get_synonyms_sets(size=1000).body.get("results", [])
+    if any(entry.get("synonyms_set") == TEST_NAMES.synonyms_set for entry in sets):
+        client.synonyms.delete_synonym(id=TEST_NAMES.synonyms_set)
 
 
 @tagged("post_install", "-at_install", "es")
@@ -38,9 +51,7 @@ class TestRebuildOnTheRealCluster(TransactionCase):
 
     @classmethod
     def _drop_test_indices(cls):
-        for index in cls.client.indices.get_alias(index=TEST_NAMES.prefix + "*").body:
-            if TEST_NAMES.version_of(index) is not None:
-                cls.client.indices.delete(index=index)
+        drop_test_resources(cls.client)
 
     def _rebuild(self):
         self.patch(settings_module, "get_es_service", lambda: self.service)
@@ -65,7 +76,11 @@ class TestRebuildOnTheRealCluster(TransactionCase):
         document = self.client.get(index=TEST_NAMES.alias, id=str(self.product.id)).body["_source"]
         self.assertEqual((document["brand"], document["in_stock"]), ("Acme", False))
         sets = self.client.synonyms.get_synonyms_sets(size=1000).body["results"]
-        self.assertIn(SYNONYMS_SET, [entry["synonyms_set"] for entry in sets])
+        self.assertIn(TEST_NAMES.synonyms_set, [entry["synonyms_set"] for entry in sets])
+        settings = self.client.indices.get_settings(index="shop-products-test-v2").body
+        (index_settings,) = settings.values()
+        synonym_filter = index_settings["settings"]["index"]["analysis"]["filter"]["shop_synonyms"]
+        self.assertEqual(synonym_filter["synonyms_set"], TEST_NAMES.synonyms_set)  # never the shop's set
 
     def test_analyzers_stem_and_fold(self):
         self._rebuild()
