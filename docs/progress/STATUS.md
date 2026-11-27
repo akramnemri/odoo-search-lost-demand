@@ -8,7 +8,7 @@ Updated: 2026-11-27 by agent session 10 — Task 3.5 (relevance tuning) done: TU
 - M3 order: 3.1 → 3.2 → 3.3 → 3.4 → **3.5** → 3.6 → 3.7. Task 1.6 (interview) still open, in parallel
 - Task: **3.5 — relevance tuning v1 (FR2, FR3)** — state: **experiments run, `TUNED_V1` chosen by the
   pre-registered rule and wired; waiting for the supervisor's review of the experiment log, approval of the
-  configuration (ADR-020, Proposed) and the stock-rule decision** (plan accepted 2026-11-27: "go as the
+  configuration (ADR-020, Proposed); stock rule decided: (a) kept (supervisor, 2026-11-27)** (plan accepted 2026-11-27: "go as the
   recommendations", after a second in-depth review)
 - Branch / PR: `feat/relevance-tuning` (from `develop` b68a5cc) — PR to `develop` (number in the task report)
 - Local checkout: on `feat/relevance-tuning`; ESCI in `data/raw/esci/` (3 files, verified); the supervisor's
@@ -467,6 +467,8 @@ Updated: 2026-11-27 by agent session 10 — Task 3.5 (relevance tuning) done: TU
   `baseline-search-20261119T154209Z`, git bc36eb3): every table row identical
 
 ## Decisions since last milestone
+- Task 3.5 stock rule (supervisor, 2026-11-27, "Keep rule (a)"): `es_tuned_stock` keeps rule (a) "tiered"
+  (every in-stock product before every sold-out one); rule (b) ×1.2 not chosen (ADR-020)
 - Task 3.5 plan accepted 2026-11-27 ("go as the recommendations", after a second, deeper review): query
   settings as data (`TunedConfig`, `TUNED_V0` kept, the winner `TUNED_V1`); `uv run shop eval tune <variant>`
   compares a variant with its parent in direct mode on dev and on a run-time **dev-typo** set (protocol typo
@@ -587,8 +589,7 @@ Updated: 2026-11-27 by agent session 10 — Task 3.5 (relevance tuning) done: TU
 - **Supervisor: review of Task 3.5** (PR from `feat/relevance-tuning`): (1) read `docs/evaluation/experiments.md`
   (method, rule, interpretation) and `results/summary/tuning-dev.md` (one row per experiment); (2) approve the
   configuration `TUNED_V1` (ADR-020 → Accepted) or ask for changes; (3) decide the stock rule: keep (a) "tiered"
-  (the rule's result, protocol default) or choose (b) ×1.2 (better dev NDCG, about 5 % sold-out products in the
-  top 10); (4) optional: try a reference in the shop (`/shop?search=` with a product's internal reference) and a
+  — **decided 2026-11-27: keep rule (a)**; (4) optional: try a reference in the shop (`/shop?search=` with a product's internal reference) and a
   typo query; then "merge". Remaining budget: 1 experiment (keep it for a follow-up only if asked)
 - Task 3.4's manual-test steps, for reference: (1) `uv run shop eval ndcg --engine all --mode both` (about 7 min; the stack up,
   Kibana not needed); (2) open `results/summary/ndcg-dev-both.md`; (3) run it again and compare the table rows

@@ -1,7 +1,8 @@
 # ADR-020 — The tuned search configuration (`TUNED_V1`) and the stock rule
 
-- Status: Proposed (2026-11-27, agent, Task 3.5) — to be accepted by the supervisor after reviewing the
-  experiment log (roadmap Task 3.5: "the supervisor reviews the experiment log and approves the configuration")
+- Status: Proposed (2026-11-27, agent, Task 3.5) — the stock rule is decided (supervisor, 2026-11-27: "Keep
+  rule (a)"); the configuration `TUNED_V1` awaits the supervisor's approval after reviewing the experiment log
+  (roadmap Task 3.5: "the supervisor reviews the experiment log and approves the configuration")
 - Date: 2026-11-27
 - Source: `docs/ai/05_ROADMAP.md` Task 3.5; `docs/ai/04_DATA_SEARCH_EVALUATION.md` §6; protocol §6
 
@@ -22,7 +23,7 @@ first; the protocol (04 §6) makes rule (a) "tiered" the default unless the supe
   (`c01-combined`) was measured as one variant and passed the same rule.
 - **Stock rule (a) "tiered" stays** for `es_tuned_stock`, as the rule required: rule (b) with in-stock scores ×1.2
   gained clearly but put slightly fewer than the pre-registered 95 % in-stock products in the top 10; ×2.0 gained
-  too little. The supervisor may still choose (b) ×1.2 (see Consequences).
+  too little. **Supervisor's decision (2026-11-27): keep rule (a)** — rule (b) ×1.2 was not chosen.
 - Every number: `results/summary/tuning-dev.md` (generated from the run folders `results/tune-*`).
 
 Dropped, with the reason the rule computed (same table): typo tolerance off or `cross_fields` (large loss on the
@@ -36,7 +37,8 @@ set), `most_fields` (loss on dev), the name phrase bonus, a lighter description 
   together with sold-out exact matches sitting after the in-stock ones under rule (a).
 - Rule (a) has a visible relevance cost because the ESCI labels ignore stock (a product trade-off, reported).
   Rule (b) ×1.2 roughly halves that cost on the dev queries but no longer guarantees in-stock first; choosing it
-  is a product decision for the supervisor (FR3 wording), recorded here if taken.
+  is a product decision for the supervisor (FR3 wording): on 2026-11-27 the supervisor kept rule (a), so the
+  shop shows every in-stock product before every sold-out one and reports the relevance cost.
 - Dev numbers of the chosen configuration are optimistic (it was chosen on them); the reported comparison is the
   test-set run after the freeze (Task 8.2). Synonyms (Task 3.6) come on top of `TUNED_V1`.
 
