@@ -629,7 +629,10 @@ def connect(
 
 def _print(text: str) -> None:
     # Flushed at once: a run takes minutes, and its progress must show in a log file, not only at the end.
-    sys.stdout.write(text)
+    # Redirected to a file on Windows, stdout is cp1252: a character it lacks ("Δ") is replaced, never fatal
+    # (Task 3.5: eleven runs crashed on their last line, after their results were written).
+    encoding = getattr(sys.stdout, "encoding", None) or "utf-8"
+    sys.stdout.write(text.encode(encoding, errors="replace").decode(encoding))
     sys.stdout.flush()
 
 

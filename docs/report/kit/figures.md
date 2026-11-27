@@ -95,3 +95,4 @@ sequenceDiagram
 | S3.9 | Shop, Elasticsearch stopped | same search still answers (Odoo's results), no error page | to capture |
 | S3.10 | Terminal | `uv run shop eval ndcg --engine all --mode both`: progress, per-engine NDCG@10 with intervals, Holm p-values | to capture |
 | S3.11 | `results/summary/ndcg-dev-both.md` (rendered) | the generated dev table with the consistency section | to capture |
+| S3.12 | `results/summary/tuning-dev.md` (rendered) | the tuning table: one row per experiment, decision column | to capture |

@@ -5,15 +5,19 @@ The engines (names shared with the evaluation protocol, docs/evaluation/protocol
 - `es_plain` — "Elasticsearch out of the box": `multi_match` with default parameters over the
   standard-analyzer subfields `name.std`, `description.std`, `brand.std`; no fuzziness, synonyms, boosts or
   stock rule.
-- `es_tuned` — version 0, NOT tuned yet: the shop analyzers of the index (English stemming, synonyms set) on
-  `name`, `brand`, `description` with weights 3 / 2 / 1 and typo tolerance (`fuzziness: AUTO`, first letter
-  exact). It is the starting point of Task 3.5, which changes it one measured step at a time on dev queries.
-- `es_tuned_stock` — `es_tuned` with the in-stock rule of FR3, implementation (a) "tiered", applied to the
+- `es_tuned` — the shop analyzers of the index (English stemming, synonyms set) with the settings of a
+  `TunedConfig`. `TUNED_V0` (Task 3.3, not tuned): `name`, `brand`, `description` with weights 3 / 2 / 1 and
+  typo tolerance (`fuzziness: AUTO`, first letter exact). Task 3.5 measured variants of it on the dev queries
+  (`uv run shop eval tune`, tools/shoptools/eval/tuning.toml) and chose `TUNED_V1` (ADR-020): v0 plus a
+  `tie_breaker` of 0.3 and the internal-reference match. `TUNED` is the configuration the shop uses.
+- `es_tuned_stock` — `es_tuned` with the in-stock rule of FR3. Implementation (a) "tiered", applied to the
   most relevant hits only: Elasticsearch returns the `size` best-scored products, then every in-stock one
   among them comes before every sold-out one, by score within each group (`hit_ids(in_stock_first=True)`).
   The shop's default engine. Cut first, then the stock rule (supervisor's option A, 2026-11-20): sorting by
   stock inside Elasticsearch before the cut let thousands of weak in-stock matches push a sold-out exact
-  match out of the results entirely (manual test of Task 3.3).
+  match out of the results entirely (manual test of Task 3.3). Implementation (b) "boosted" (measured in
+  Task 3.5): the score of an in-stock product is multiplied by `stock_factor` (scale-free: scores vary by
+  query, roughly 25-50 for the top hits).
 
 Every engine applies the same filters: published products of the current website (a product without a
 website is on every website), and the selected category with its subcategories. Odoo filters the hits again
@@ -43,10 +47,59 @@ MAX_QUERY_CHARS = 200  # docs/ai/02_CODING_STANDARDS.md §11
 
 PLAIN_FIELDS = ("name.std", "description.std", "brand.std")
 TUNED_FIELDS = ("name^3", "brand^2", "description")
+MATCH_TYPES = ("best_fields", "most_fields", "cross_fields")
+TIERED, BOOSTED = "tiered", "boosted"
+STOCK_RULES = (TIERED, BOOSTED)
 
 
 class MalformedResponse(ValueError):
     """Elasticsearch answered, but not with the shape of a search response."""
+
+
+@dataclass(frozen=True)
+class TunedConfig:
+    """The settings of the `es_tuned` query (and of `es_tuned_stock`, which adds the stock rule).
+
+    Each field is one lever of docs/ai/04_DATA_SEARCH_EVALUATION.md §6; None leaves the lever out.
+    """
+
+    fields: tuple[str, ...] = TUNED_FIELDS  # analysed fields with their weights (`field^weight`)
+    match_type: str = "best_fields"  # multi_match type: best_fields, most_fields or cross_fields
+    fuzziness: str | None = "AUTO"  # typo tolerance; None: exact words only (required by cross_fields)
+    prefix_length: int = 1  # first letters that must be exact when fuzziness is on
+    tie_breaker: float | None = None  # best_fields: share of the other fields' scores added (0 to 1)
+    minimum_should_match: str | None = None  # how many query words must match, e.g. "2<75%"
+    name_phrase_boost: float | None = None  # extra score when the words appear together in the name
+    ref_exact_boost: float | None = None  # a query equal to a product's internal reference finds it
+    stock_rule: str = TIERED  # es_tuned_stock only: tiered (a) or boosted (b)
+    stock_factor: float = 1.0  # boosted rule: in-stock scores are multiplied by this
+
+    def __post_init__(self) -> None:
+        if not self.fields:
+            raise ValueError("at least one field")
+        if self.match_type not in MATCH_TYPES:
+            raise ValueError(f"match_type must be one of {MATCH_TYPES}")
+        if self.match_type == "cross_fields" and self.fuzziness is not None:
+            raise ValueError("cross_fields does not support fuzziness: set fuzziness to None")
+        if self.prefix_length < 0:
+            raise ValueError("prefix_length must be >= 0")
+        if self.tie_breaker is not None and not 0 <= self.tie_breaker <= 1:
+            raise ValueError("tie_breaker must be between 0 and 1")
+        if self.stock_rule not in STOCK_RULES:
+            raise ValueError(f"stock_rule must be one of {STOCK_RULES}")
+        if self.stock_factor <= 0:
+            raise ValueError("stock_factor must be positive")
+        for boost in (self.name_phrase_boost, self.ref_exact_boost):
+            if boost is not None and boost <= 0:
+                raise ValueError("boosts must be positive")
+
+
+TUNED_V0 = TunedConfig()
+# Chosen in Task 3.5 on the dev queries by the pre-registered rule (docs/evaluation/experiments.md, ADR-020):
+# v0 plus a tie-breaker (30 % of the other fields' scores) and the exact internal-reference match.
+TUNED_V1 = TunedConfig(tie_breaker=0.3, ref_exact_boost=10.0)
+# The configuration the shop uses.
+TUNED = TUNED_V1
 
 
 @dataclass(frozen=True)
@@ -83,41 +136,70 @@ def _filters(filters: SearchFilters) -> list[dict[str, Any]]:
     return clauses
 
 
-def _match(engine: str, text: str) -> dict[str, Any]:
+def _tuned_match(text: str, tuned: TunedConfig) -> dict[str, Any]:
+    multi_match: dict[str, Any] = {"query": text, "fields": list(tuned.fields), "type": tuned.match_type}
+    if tuned.fuzziness is not None:
+        multi_match["fuzziness"] = tuned.fuzziness
+        multi_match["prefix_length"] = tuned.prefix_length
+    if tuned.tie_breaker is not None:
+        multi_match["tie_breaker"] = tuned.tie_breaker
+    if tuned.minimum_should_match is not None:
+        multi_match["minimum_should_match"] = tuned.minimum_should_match
+    match = {"multi_match": multi_match}
+    if tuned.ref_exact_boost is None:
+        return match
+    # Either the words match, or the whole query is a product's internal reference (Odoo's own search finds a
+    # product by its reference; `ref` is a keyword field, compared without case).
+    reference = {"term": {"ref": {"value": text, "case_insensitive": True, "boost": tuned.ref_exact_boost}}}
+    return {"bool": {"should": [match, reference], "minimum_should_match": 1}}
+
+
+def _query(engine: str, text: str, filters: SearchFilters, tuned: TunedConfig) -> dict[str, Any]:
     if engine == ES_PLAIN:
-        return {"multi_match": {"query": text, "fields": list(PLAIN_FIELDS)}}
-    return {
-        "multi_match": {
-            "query": text,
-            "fields": list(TUNED_FIELDS),
-            "type": "best_fields",
-            "fuzziness": "AUTO",
-            "prefix_length": 1,
+        plain = {"multi_match": {"query": text, "fields": list(PLAIN_FIELDS)}}
+        return {"bool": {"must": [plain], "filter": _filters(filters)}}
+    query: dict[str, Any] = {"bool": {"must": [_tuned_match(text, tuned)], "filter": _filters(filters)}}
+    if tuned.name_phrase_boost is not None:
+        query["bool"]["should"] = [
+            {"match_phrase": {"name": {"query": text, "boost": tuned.name_phrase_boost}}}
+        ]
+    if engine == ES_TUNED_STOCK and tuned.stock_rule == BOOSTED:
+        return {
+            "function_score": {
+                "query": query,
+                "functions": [{"filter": {"term": {"in_stock": True}}, "weight": tuned.stock_factor}],
+                "score_mode": "multiply",
+                "boost_mode": "multiply",
+            }
         }
-    }
+    return query
 
 
-def build_search(engine: str, text: str, filters: SearchFilters, size: int) -> dict[str, Any]:
-    """The `_search` body of one shop search. `text` must already be cleaned (`clean_query`) and not empty."""
+def build_search(
+    engine: str, text: str, filters: SearchFilters, size: int, tuned: TunedConfig | None = None
+) -> dict[str, Any]:
+    """The `_search` body of one shop search. `text` must already be cleaned (`clean_query`) and not empty.
+    `tuned` replaces the shop's configuration (`TUNED`) for the evaluation only."""
     if engine not in ES_ENGINES:
         raise ValueError(f"not an Elasticsearch engine: {engine!r}")
     if not text:
         raise ValueError("empty query: the shop lists products without Elasticsearch")
+    tuned = tuned or TUNED
     body: dict[str, Any] = {
-        "query": {"bool": {"must": [_match(engine, text)], "filter": _filters(filters)}},
+        "query": _query(engine, text, filters, tuned),
         "sort": ["_score", {"template_id": "asc"}],
         "size": size,
         "_source": False,
         "track_total_hits": False,
     }
-    if stock_first(engine):
+    if stock_first(engine, tuned):
         body["docvalue_fields"] = ["in_stock"]  # read from doc values: no `_source` needed
     return body
 
 
-def stock_first(engine: str) -> bool:
-    """True when the engine puts in-stock products first among its hits (FR3)."""
-    return engine == ES_TUNED_STOCK
+def stock_first(engine: str, tuned: TunedConfig | None = None) -> bool:
+    """True when the engine puts in-stock products first among its hits after the cut (FR3, rule (a))."""
+    return engine == ES_TUNED_STOCK and (tuned or TUNED).stock_rule == TIERED
 
 
 def hit_ids(response: Mapping[str, Any], in_stock_first: bool = False) -> list[int]:

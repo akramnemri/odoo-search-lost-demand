@@ -14,6 +14,7 @@ uncommitted code is marked `-dirty` and is not citable.
 | Product change → searchable delay (p50/p95/max) | FR1, 04 §11.4 | `uv run shop probe products --count 30` | `results/summary/freshness-products.md` | `results/probe-products-*` | first run 2026-11-20 (Task 3.2, index level; shop-page level after Task 3.3) |
 | Full rebuild time (19,869 products) | FR1, 01 §8 | `uv run shop index rebuild` | printed + `local/logs/index-rebuild.log` | — | recorded in STATUS (17–28 s); not a protocol result |
 | NDCG@10 for `odoo`, `es_plain`, `es_tuned`, `es_tuned_stock` (dev: tuning baseline, `es_tuned` v0 untuned), paired differences, http/direct consistency | 04 §11.1, protocol §6 | `uv run shop eval ndcg --engine all --mode both` | `results/summary/ndcg-dev-both.md` | `results/ndcg-dev-both-*` | dev baseline 2026-11-21 (Task 3.4), reproduced by a second run (identical rows); the reported numbers are the test-set run of Task 8.2 |
+| Relevance tuning: 14 pre-registered experiments, Δ NDCG@10 vs parent on dev and dev-typo, decisions by rule | 04 §6, protocol §6 (dev only) | `uv run shop eval tune <variant>`; `--table` | `results/summary/tuning-dev.md` | `results/tune-*` | done 2026-11-27 (Task 3.5); method and interpretation in `docs/evaluation/experiments.md`, choice in ADR-020 |
 | Hidden-product detection recall | 04 §11.2 | M6 | — | — | planned |
 | Search page p95, ES `took` p95 | 04 §11.3 | Locust (M5) | — | — | planned |
 | Event → Kibana delay | 04 §11.4 | probe events (M4) | — | — | planned |

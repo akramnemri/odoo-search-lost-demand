@@ -46,6 +46,17 @@ TUNED_MATCH = {
     }
 }
 
+# TUNED_V1 (Task 3.5, ADR-020): v0 + tie_breaker 0.3, either the words or the internal reference.
+V1_MATCH = {
+    "bool": {
+        "should": [
+            {"multi_match": {**TUNED_MATCH["multi_match"], "tie_breaker": 0.3}},
+            {"term": {"ref": {"value": "royal blue bedspread", "case_insensitive": True, "boost": 10.0}}},
+        ],
+        "minimum_should_match": 1,
+    }
+}
+
 
 def test_plain_engine_is_elasticsearch_out_of_the_box() -> None:
     assert build_search(ES_PLAIN, "royal blue bedspread", FILTERS, 1000) == {
@@ -70,8 +81,20 @@ def test_plain_engine_is_elasticsearch_out_of_the_box() -> None:
 
 
 def test_tuned_engine_v0() -> None:
-    assert build_search(ES_TUNED, "royal blue bedspread", FILTERS, 50) == {
+    from services.query_builder import TUNED_V0
+
+    assert build_search(ES_TUNED, "royal blue bedspread", FILTERS, 50, tuned=TUNED_V0) == {
         "query": {"bool": {"must": [TUNED_MATCH], "filter": SHOP_FILTERS}},
+        "sort": ["_score", {"template_id": "asc"}],
+        "size": 50,
+        "_source": False,
+        "track_total_hits": False,
+    }
+
+
+def test_tuned_engine_v1_is_the_shops() -> None:
+    assert build_search(ES_TUNED, "royal blue bedspread", FILTERS, 50) == {
+        "query": {"bool": {"must": [V1_MATCH], "filter": SHOP_FILTERS}},
         "sort": ["_score", {"template_id": "asc"}],
         "size": 50,
         "_source": False,
@@ -82,7 +105,7 @@ def test_tuned_engine_v0() -> None:
 def test_stock_engine_cuts_by_score_and_reads_the_stock_flag() -> None:
     """Option A (2026-11-20): Elasticsearch ranks by score only; the stock rule applies after the cut."""
     assert build_search(ES_TUNED_STOCK, "royal blue bedspread", FILTERS, 50) == {
-        "query": {"bool": {"must": [TUNED_MATCH], "filter": SHOP_FILTERS}},
+        "query": {"bool": {"must": [V1_MATCH], "filter": SHOP_FILTERS}},
         "sort": ["_score", {"template_id": "asc"}],
         "size": 50,
         "_source": False,
@@ -176,3 +199,96 @@ def test_in_stock_first_keeps_the_score_order_within_each_group() -> None:
 def test_in_stock_first_refuses_a_hit_without_the_flag(hit: dict) -> None:
     with pytest.raises(MalformedResponse):
         hit_ids({"hits": {"hits": [hit]}}, in_stock_first=True)
+
+
+# --- TunedConfig: the levers of Task 3.5 ---
+
+
+def _tuned_body(**changes: object) -> dict:
+    from dataclasses import replace
+
+    from services.query_builder import TUNED_V0
+
+    return build_search(ES_TUNED, "blue lamp", FILTERS, 10, tuned=replace(TUNED_V0, **changes))
+
+
+def test_v1_is_v0_with_the_two_kept_changes() -> None:
+    from dataclasses import replace
+
+    from services.query_builder import TUNED, TUNED_V0, TUNED_V1
+
+    assert TUNED == TUNED_V1 == replace(TUNED_V0, tie_breaker=0.3, ref_exact_boost=10.0)
+    assert TUNED_V1.stock_rule == "tiered"  # rule (a) stays (experiments.md, stage 3)
+
+
+def test_exact_words_leave_fuzziness_out() -> None:
+    match = _tuned_body(fuzziness=None)["query"]["bool"]["must"][0]["multi_match"]
+
+    assert "fuzziness" not in match and "prefix_length" not in match
+
+
+def test_match_type_tie_breaker_and_minimum_words() -> None:
+    match = _tuned_body(match_type="most_fields", tie_breaker=0.3, minimum_should_match="2<75%")["query"][
+        "bool"
+    ]["must"][0]["multi_match"]
+
+    assert (match["type"], match["tie_breaker"], match["minimum_should_match"]) == (
+        "most_fields",
+        0.3,
+        "2<75%",
+    )
+
+
+def test_name_phrase_bonus_is_optional_score() -> None:
+    query = _tuned_body(name_phrase_boost=2.0)["query"]["bool"]
+
+    assert query["should"] == [{"match_phrase": {"name": {"query": "blue lamp", "boost": 2.0}}}]
+    assert "minimum_should_match" not in query  # the phrase only adds score, it is not required
+
+
+def test_reference_match_is_an_alternative_to_the_words() -> None:
+    core = _tuned_body(ref_exact_boost=10.0)["query"]["bool"]["must"][0]["bool"]
+
+    assert core["minimum_should_match"] == 1
+    assert core["should"][1] == {
+        "term": {"ref": {"value": "blue lamp", "case_insensitive": True, "boost": 10.0}}
+    }
+
+
+def test_boosted_stock_rule_multiplies_in_stock_scores_and_keeps_elasticsearch_order() -> None:
+    from dataclasses import replace
+
+    from services.query_builder import BOOSTED, TUNED_V0
+
+    tuned = replace(TUNED_V0, stock_rule=BOOSTED, stock_factor=1.5)
+    body = build_search(ES_TUNED_STOCK, "blue lamp", FILTERS, 10, tuned=tuned)
+
+    scored = body["query"]["function_score"]
+    assert scored["functions"] == [{"filter": {"term": {"in_stock": True}}, "weight": 1.5}]
+    assert (scored["score_mode"], scored["boost_mode"]) == ("multiply", "multiply")
+    assert "docvalue_fields" not in body
+    assert not stock_first(ES_TUNED_STOCK, tuned)
+    # The boost belongs to the stock engine only.
+    assert "function_score" not in build_search(ES_TUNED, "blue lamp", FILTERS, 10, tuned=tuned)["query"]
+
+
+@pytest.mark.parametrize(
+    ("changes", "message"),
+    [
+        ({"match_type": "cross_fields"}, "does not support fuzziness"),
+        ({"match_type": "phrase"}, "match_type"),
+        ({"fields": ()}, "at least one field"),
+        ({"prefix_length": -1}, "prefix_length"),
+        ({"tie_breaker": 1.5}, "tie_breaker"),
+        ({"stock_rule": "random"}, "stock_rule"),
+        ({"stock_factor": 0}, "stock_factor"),
+        ({"name_phrase_boost": -1.0}, "boosts"),
+    ],
+)
+def test_invalid_settings_are_refused(changes: dict, message: str) -> None:
+    from dataclasses import replace
+
+    from services.query_builder import TUNED_V0
+
+    with pytest.raises(ValueError, match=message):
+        replace(TUNED_V0, **changes)

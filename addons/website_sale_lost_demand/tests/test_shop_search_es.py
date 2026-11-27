@@ -31,7 +31,12 @@ class TestShopSearchOnTheRealCluster(TransactionCase):
         )
         # In stock: a product without stock tracking is never sold out.
         cls.in_stock = Product.create(
-            {"name": "Zqxes bedspread velvet quilted king size", "type": "consu", "is_published": True}
+            {
+                "name": "Zqxes bedspread velvet quilted king size",
+                "type": "consu",
+                "is_published": True,
+                "default_code": "XJV-5531",
+            }
         )
         cls.hidden = Product.create(
             {"name": "Zqxes bedspread hidden", "type": "consu", "is_published": False}
@@ -76,3 +81,14 @@ class TestShopSearchOnTheRealCluster(TransactionCase):
         """Option A (manual test, 2026-11-20): with room for one hit, the most relevant product is kept even
         though it is sold out and a weaker in-stock match exists."""
         self.assertEqual(self.search(ES_TUNED_STOCK, "zqxes bedspread", size=1), [self.sold_out.id])
+
+    def test_internal_reference_finds_the_product(self):
+        """TUNED_V1 (Task 3.5): a query equal to a product's internal reference finds it, case-insensitively,
+        like Odoo's own search does; the words-only v0 query finds nothing."""
+        from ..services import query_builder
+
+        self.assertEqual(self.search(ES_TUNED, "xjv-5531"), [self.in_stock.id])
+        filters = SearchFilters(website_id=self.website.id)
+        body = query_builder.build_search(ES_TUNED, "xjv-5531", filters, 10, tuned=query_builder.TUNED_V0)
+        hits = self.client.search(index=TEST_NAMES.alias, body=body).body["hits"]["hits"]
+        self.assertNotIn(str(self.in_stock.id), [hit["_id"] for hit in hits])
