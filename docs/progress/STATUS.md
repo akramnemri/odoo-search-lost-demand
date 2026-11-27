@@ -1,14 +1,15 @@
 # STATUS
 
-Updated: 2026-11-27 by agent session 10 — Task 3.5 merged (PR #38); Task 3.6 (synonym management) started
+Updated: 2026-11-27 by agent session 10 — Task 3.6 (synonym management) done, PR open
 
 ## Current position
 - Milestone: M3 — Search engine (FR1–FR3, fallback, synonyms). M2 released 2026-11-19 (PR #32 4f62925, release PR
   #33 merge commit 8c7558a, tag `m2-catalog`); M1 released 2026-11-14 (PR #22, f3926a1, tag `m1-stack`)
 - M3 order: 3.1 → 3.2 → 3.3 → 3.4 → 3.5 → **3.6** → 3.7. Task 1.6 (interview) still open, in parallel
-- Task: **3.6 — synonym management (FR2, Administrator)** — state: **in progress** (plan accepted 2026-11-27:
-  "go as the recommendations", after a second in-depth review that added the literal-word bonus)
-- Branch / PR: `feat/synonyms` (from `develop` 899f714) — PR not opened yet
+- Task: **3.6 — synonym management (FR2, Administrator)** — state: **implemented, live-checked, automated
+  checks passed; waiting for the supervisor's manual test** (plan accepted 2026-11-27: "go as the
+  recommendations", after a second in-depth review that added the literal-word bonus)
+- Branch / PR: `feat/synonyms` (from `develop` 899f714) — PR to `develop` (number in the task report)
 - Local checkout: on `feat/synonyms`; ESCI in `data/raw/esci/` (3 files, verified); the supervisor's
   interim demo script `docs/report/notes/M3-demo.md` stays local and untracked (never committed unless asked;
   listed in `.git/info/exclude`, local only)
@@ -434,7 +435,29 @@ Updated: 2026-11-27 by agent session 10 — Task 3.5 merged (PR #38); Task 3.6 (
   reference finds its product with v1, not with v0); one module run failed on my own test data (the reference
   shared letters with a test product name) and passed after the fix
 
+- 3.6 — done 2026-11-27 on `feat/synonyms`, PR open, waiting for the supervisor's manual test. Built:
+  model `lost_demand.synonym` (Website › Configuration › Search synonyms, Settings group only): "same meaning"
+  and "one-way" rules, validated with clear messages (`services/synonyms.py`), each term sent with its simple
+  singular/plural form (the "Sent to search" line shows it); create/write/unlink → pre-commit trigger of the
+  product sync job, which first makes the set `shop-synonyms` equal to the active rules (one comparison, whole-
+  set replacement when it differs; repairs a lost set; never raises); Settings › Website block "Search
+  synonyms" (count, state, "Manage synonyms"); 20 starting rules of general vocabulary (`noupdate`); **literal-
+  word bonus** `TUNED_V2` = v1 + `literal_boost` 3 (typed words scored again with `shop_index`, no synonyms) —
+  same page 1 as v1 on all 300 dev and 300 dev-typo queries for both tuned engines without synonyms, took p95
+  +10–25 ms (88–93 ms); `IndexNames.synonyms_set` (test indices use `shop-synonyms-test`); `shop eval ndcg
+  --set dev-typo` and `--compare-to <run>`; ADR-021 (Proposed); module **19.0.0.6.0** (upgraded in `shop`,
+  Odoo restarted; the upgrade's "missing not-null constraint" warnings are the known first-load ones: columns
+  NOT NULL afterwards). Starting list measured (pre-registered): dev −0.0002, dev-typo +0.0002 for `es_tuned`
+  (limit −0.005) → kept. Live check (agent, odoo shell, temporary rule removed afterwards): a rule "laptop, pc"
+  worked within ~4 s without reindexing ("laptop" 338 → 698 results, "pc" 441 → 694) and the first products
+  stayed those containing the typed word; set back to 20 rules; Settings shows "20 active rules, sent to
+  search". Tests: 640 tools (+34), 78 module (+13; my first run had two wrong expectations — the plural forms —
+  fixed)
+
 ## Latest results
+- **Starting synonym list on dev** (runs `ndcg-dev-direct-20261127T045735Z` vs `…045354Z`, `ndcg-dev-typo-direct-
+  20261127T045843Z` vs `…045452Z`, commit 1a43662; comparison sections of `results/summary/ndcg-dev-direct.md` and
+  `ndcg-dev-typo-direct.md`): `es_tuned` −0.0002 on dev, +0.0002 on dev-typo (pre-registered limit −0.005): kept
 - **Relevance tuning on dev** (`results/summary/tuning-dev.md`, 14 runs `results/tune-*` from clean commits;
   method `docs/evaluation/experiments.md`): see the table; decisions computed by the pre-registered rule
 - **NDCG@10 on dev with `TUNED_V1`** (run `ndcg-dev-both-20261127T025204Z`, git a1cb6d6,
@@ -595,8 +618,14 @@ Updated: 2026-11-27 by agent session 10 — Task 3.5 merged (PR #38); Task 3.6 (
 - A local shop owner for interview #1 (Task 1.6) — start looking early
 
 ## Next step (exact)
-- **Task 3.6 in progress** on `feat/synonyms`. Tuning budget of Task 3.5: 14 of 15 used (the last slot is not
-  used by 3.6, which measures with `shop eval ndcg --compare-to`)
+- **Supervisor: manual test of Task 3.6** (PR from `feat/synonyms`; the stack runs module 19.0.0.6.0):
+  (1) Odoo › Website › Configuration › **Search synonyms**: the 20 starting rules; open one: "Sent to search";
+  (2) try an invalid rule ("sofa" alone, or "a => b") → a clear message, nothing saved;
+  (3) the roadmap's check: "sneakers, trainers" is already a starting rule — search the shop for `trainers`:
+  sneakers are found (or add your own rule, e.g. "laptop, pc", and search `pc` within a few seconds: more results,
+  PC products still first); (4) Settings › Website › "Search synonyms": "N active rules, sent to search";
+  (5) optional: archive a rule and search again; read ADR-021; then "merge". Tuning budget of Task 3.5: 14 of 15
+  used (3.6 measured with `shop eval ndcg --compare-to`, not a tuning slot)
 - Task 3.4's manual-test steps, for reference: (1) `uv run shop eval ndcg --engine all --mode both` (about 7 min; the stack up,
   Kibana not needed); (2) open `results/summary/ndcg-dev-both.md`; (3) run it again and compare the table rows
   (`git diff results/summary/ndcg-dev-both.md` shows only the run line); optional: `--mode direct` alone

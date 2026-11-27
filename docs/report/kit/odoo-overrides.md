@@ -33,6 +33,8 @@ Updated at every task that adds or changes an extension point (rule in `CLAUDE.m
 | 3.2 | `res.config.settings` | — (new fields) | fields | outbox backlog: waiting, refused, oldest |
 | 3.3 | `WebsiteSale` controller (`/shop`) | `_shop_lookup_products` | replace, `super()` as fallback | Elasticsearch ranks; Odoo filters with its own domain and keeps the order |
 | 3.3 | `WebsiteSale` controller (`/shop`) | `_get_shop_domain` | override (`super()` called, then narrowed) | categories, attributes and price range describe the products Elasticsearch found |
+| 3.6 | `lost_demand.synonym` (new model) | — (new model, views, menu under Website › Configuration) | model + views | search synonyms managed by administrators; changes trigger the sync job |
+| 3.6 | `res.config.settings` | — (new fields and an action button) | fields + view block | synonym rule count, sync state, "Manage synonyms" |
 
 New models (ours, not inherited): `lost_demand.product.index` (abstract: reads products, full rebuild) and
 `lost_demand.index.queue` (the outbox).
@@ -204,3 +206,26 @@ wrong shape: `super()` answers. A warning is logged once per breaker opening.
 
 Not changed: the search-bar autocomplete (`/website/snippet/autocomplete`, FR4 later) and category pages without
 search text stay Odoo's.
+
+## Task 3.6 — synonyms managed in Odoo (FR2)
+
+No Odoo method is overridden: Task 3.6 **adds** a model and plugs into Odoo's own mechanisms.
+
+- **New model `lost_demand.synonym`** (`models/synonym.py`): `terms`, `rule_type` (same meaning / one-way),
+  `targets`, `active`, `note`, computed `search_line` (the exact line sent). Validation with `@api.constrains`
+  raising `ValidationError` (Odoo's standard way to refuse a save with a message). `create`, `write` and `unlink`
+  call `super()` first, then register a **pre-commit callback** (`cr.precommit`, `odoo/sql_db.py`) that triggers the
+  product sync job (`ir.cron._trigger()`, `base/models/ir_cron.py:735`) — the same pattern as the product outbox of
+  Task 3.2, so nothing calls Elasticsearch inside the administrator's save, and a rolled-back save triggers nothing.
+- **The sync** runs inside our existing scheduled action (`lost_demand.index.queue._cron_send_to_index`): synonyms
+  first (they do not depend on the product index), then product changes. It never raises (Odoo deactivates a cron
+  job that keeps failing) and stores its last state in an `ir.config_parameter`.
+- **Views**: list, form and search views, an `ir.actions.act_window` and a `menuitem` under
+  `website.menu_website_global_configuration` (`website/views/res_config_settings_views.xml:251`), restricted to
+  `base.group_system`; access rights in `ir.model.access.csv`.
+- **Data**: 20 starting rules in `data/lost_demand_synonym_data.xml` with `noupdate="1"`, so a module upgrade never
+  overwrites the administrator's edits.
+- **Settings**: two computed fields on `res.config.settings` and a button of type `action` to the synonyms list.
+
+The ranking side (typed words before synonym-only matches) is in our query code, not in Odoo: see
+`services/query_builder.py` (`literal_boost`) and ADR-021.

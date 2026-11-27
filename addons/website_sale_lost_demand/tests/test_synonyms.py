@@ -77,7 +77,7 @@ class TestSynonyms(TransactionCase):
         self.Synonym._sync_to_search()
 
         self.assertEqual(state, f"in sync: {SEED_RULES + 1} rules")
-        self.assertEqual(self.pushed()[f"ld-{rule.id}"], "zqxsofa, zqxcouch")
+        self.assertEqual(self.pushed()[f"ld-{rule.id}"], "zqxsofa, zqxsofas, zqxcouch, zqxcouches")
         self.assertNotIn(f"ld-{archived.id}", self.pushed())
         self.assertEqual(len(self.cluster.synonyms.puts), 1)  # the second sync found nothing to change
         self.assertEqual(self.env["ir.config_parameter"].sudo().get_param(STATE_PARAM), state)
@@ -88,7 +88,7 @@ class TestSynonyms(TransactionCase):
 
         rule.write({"terms": "zqxsofa, zqxsettee"})
         self.Synonym._sync_to_search()
-        self.assertEqual(self.pushed()[f"ld-{rule.id}"], "zqxsofa, zqxsettee")
+        self.assertEqual(self.pushed()[f"ld-{rule.id}"], "zqxsofa, zqxsofas, zqxsettee, zqxsettees")
 
         rule.unlink()
         self.Synonym._sync_to_search()

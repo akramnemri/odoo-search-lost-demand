@@ -136,3 +136,11 @@ differ). **Rule:** the list is kept if `es_tuned` loses no more than 0.005 NDCG@
 otherwise it is reported and the supervisor decides. This is not a tuning experiment (no keep/drop of rules
 one by one, the Task 3.5 budget is not used); the list's real effect is reported on the test set after the
 freeze (Task 8.2), including the vocabulary-mismatch subset (protocol §6.4).
+
+**Result (2026-11-27).** Before: runs `ndcg-dev-direct-20261127T045354Z` and `ndcg-dev-typo-direct-20261127T045452Z`
+(empty set, commit `1a43662`); after loading and sending the 20 rules: runs `ndcg-dev-direct-20261127T045735Z` and
+`ndcg-dev-typo-direct-20261127T045843Z`, each compared with its "before" run. The numbers are in the comparison
+sections of `results/summary/ndcg-dev-direct.md` and `results/summary/ndcg-dev-typo-direct.md`: on both sets the
+change of `es_tuned` is far inside the pre-registered limit, so **the list is kept**. As expected for general
+vocabulary, few dev queries contain a rule's words; the list's effect is for shoppers who use these words, and
+the vocabulary-mismatch subset of the test set (Task 8.2) will measure it on real queries.

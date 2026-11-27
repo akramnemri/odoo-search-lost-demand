@@ -96,3 +96,5 @@ sequenceDiagram
 | S3.10 | Terminal | `uv run shop eval ndcg --engine all --mode both`: progress, per-engine NDCG@10 with intervals, Holm p-values | to capture |
 | S3.11 | `results/summary/ndcg-dev-both.md` (rendered) | the generated dev table with the consistency section | to capture |
 | S3.12 | `results/summary/tuning-dev.md` (rendered) | the tuning table: one row per experiment, decision column | to capture |
+| S3.13 | Odoo › Website › Configuration › Search synonyms | the list of the 20 starting rules, and a rule's form with "Sent to search" | to capture |
+| S3.14 | Shop, a rule "laptop, pc" | `/shop?search=pc`: more results, PC products still first (typed words rank first) | to capture |
