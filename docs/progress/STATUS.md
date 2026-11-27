@@ -1,14 +1,16 @@
 # STATUS
 
-Updated: 2026-11-27 by agent session 10 — Task 3.4 merged (PR #37); Task 3.5 (relevance tuning) started
+Updated: 2026-11-27 by agent session 10 — Task 3.5 (relevance tuning) done: TUNED_V1 chosen, PR open
 
 ## Current position
 - Milestone: M3 — Search engine (FR1–FR3, fallback, synonyms). M2 released 2026-11-19 (PR #32 4f62925, release PR
   #33 merge commit 8c7558a, tag `m2-catalog`); M1 released 2026-11-14 (PR #22, f3926a1, tag `m1-stack`)
 - M3 order: 3.1 → 3.2 → 3.3 → 3.4 → **3.5** → 3.6 → 3.7. Task 1.6 (interview) still open, in parallel
-- Task: **3.5 — relevance tuning v1 (FR2, FR3)** — state: **in progress** (plan accepted 2026-11-27: "go as the
+- Task: **3.5 — relevance tuning v1 (FR2, FR3)** — state: **experiments run, `TUNED_V1` chosen by the
+  pre-registered rule and wired; waiting for the supervisor's review of the experiment log, approval of the
+  configuration (ADR-020, Proposed) and the stock-rule decision** (plan accepted 2026-11-27: "go as the
   recommendations", after a second in-depth review)
-- Branch / PR: `feat/relevance-tuning` (from `develop` b68a5cc) — PR not opened yet
+- Branch / PR: `feat/relevance-tuning` (from `develop` b68a5cc) — PR to `develop` (number in the task report)
 - Local checkout: on `feat/relevance-tuning`; ESCI in `data/raw/esci/` (3 files, verified); the supervisor's
   interim demo script `docs/report/notes/M3-demo.md` stays local and untracked (never committed unless asked)
 - Repository: https://github.com/akramnemri/odoo-search-lost-demand (public, default branch `develop`)
@@ -412,7 +414,36 @@ Updated: 2026-11-27 by agent session 10 — Task 3.4 merged (PR #37); Task 3.5 (
   Desktop stopped (nothing written). Tests: 557 tools (+46: metrics 18, harness 22, parser 1, baseline fetcher 5);
   no module change (module stays 19.0.0.5.0)
 
+- 3.5 — done 2026-11-27 on `feat/relevance-tuning`, PR open, waiting for the supervisor's review. Built:
+  `TunedConfig` in `services/query_builder.py` (fields, match type, fuzziness, prefix_length, tie_breaker,
+  minimum_should_match, name phrase bonus, internal-reference match, stock rule tiered/boosted), `TUNED_V0` kept,
+  **`TUNED_V1` = v0 + `tie_breaker` 0.3 + exact case-insensitive `ref` match** is the shop's configuration
+  (module 19.0.0.5.0, Python only; Odoo restarted); `tools/shoptools/eval/tuning.py` + `uv run shop eval tune
+  <variant> | --list | --table` (variant vs parent in direct mode on dev and a run-time **dev-typo** set, stream
+  `dev-typos`; paired difference with halves, hits, in-stock share, took p95, reference@1 on 50 seeded
+  products; decision computed by the pre-registered rule); `tuning.toml` (stage 1 committed before any run at
+  6d6c3c4, stage 2 at acc8e29, stage 3 at 0e59ad4); `docs/evaluation/experiments.md` (method, rule,
+  interpretation, no numbers); ADR-020 (Proposed). **14 experiments of a budget of 15**: kept the tie-breaker
+  and the reference match (and their combination `c01`); dropped 9 (typo tolerance off, `cross_fields`, prefix
+  0 and 2, "most words must match" — which did cut the weak tail but lost on typo queries —, `most_fields`,
+  phrase bonus, lighter description, unstemmed name); stock rule (b) ×1.2 gained clearly but kept 94.99 % in
+  stock in the top 10 (threshold 95 %), ×2.0 gained too little: **rule (a) stays** by the rule — the supervisor
+  may still choose (b) ×1.2. Fixed during the task: console output crashed on "Δ" in a Windows log (results
+  already written; safe output now); the table rounded 94.99 % to 95.0 % (two decimals now); the local demo
+  script made runs dirty (now in `.git/info/exclude`, local only). Tests: 603 tools, 65 module (+1 `es`: a
+  reference finds its product with v1, not with v0); one module run failed on my own test data (the reference
+  shared letters with a test product name) and passed after the fix
+
 ## Latest results
+- **Relevance tuning on dev** (`results/summary/tuning-dev.md`, 14 runs `results/tune-*` from clean commits;
+  method `docs/evaluation/experiments.md`): see the table; decisions computed by the pre-registered rule
+- **NDCG@10 on dev with `TUNED_V1`** (run `ndcg-dev-both-20261127T025204Z`, git a1cb6d6,
+  `results/summary/ndcg-dev-both.md`): http `odoo` 0.3247, `es_plain` 0.5001, **`es_tuned` 0.5307**,
+  `es_tuned_stock` 0.4661; **`es_tuned` − `es_plain` +0.0306 [+0.0057, +0.0554], Holm p 0.0165** (v0 was not
+  significant); both Elasticsearch engines above `odoo` (Holm p 0.0003); direct and http agree 300/300. Dev
+  numbers, optimistic for the tuned engine (chosen on them): the reported comparison is Task 8.2. `es_plain`
+  moved 0.5000 → 0.5001 since 21 November without a query change (one near-tie at ranks 9–10 flipped:
+  segment statistics) — rebuild the index right before the M8 campaign
 - **NDCG@10 on the dev queries, all engines, both modes** (run `ndcg-dev-both-20261121T113222Z`, git 49e3979,
   `results/summary/ndcg-dev-both.md`; reproduced by run `ndcg-dev-both-20261121T112458Z`: identical rows,
   identical `scores.json`, rankings identical but for `took_ms`): http mode `odoo` 0.3247, `es_plain` 0.5000,
@@ -553,7 +584,13 @@ Updated: 2026-11-27 by agent session 10 — Task 3.4 merged (PR #37); Task 3.5 (
 - A local shop owner for interview #1 (Task 1.6) — start looking early
 
 ## Next step (exact)
-- **Task 3.5 in progress** on `feat/relevance-tuning`. Task 3.4's manual-test steps, for reference: (1) `uv run shop eval ndcg --engine all --mode both` (about 7 min; the stack up,
+- **Supervisor: review of Task 3.5** (PR from `feat/relevance-tuning`): (1) read `docs/evaluation/experiments.md`
+  (method, rule, interpretation) and `results/summary/tuning-dev.md` (one row per experiment); (2) approve the
+  configuration `TUNED_V1` (ADR-020 → Accepted) or ask for changes; (3) decide the stock rule: keep (a) "tiered"
+  (the rule's result, protocol default) or choose (b) ×1.2 (better dev NDCG, about 5 % sold-out products in the
+  top 10); (4) optional: try a reference in the shop (`/shop?search=` with a product's internal reference) and a
+  typo query; then "merge". Remaining budget: 1 experiment (keep it for a follow-up only if asked)
+- Task 3.4's manual-test steps, for reference: (1) `uv run shop eval ndcg --engine all --mode both` (about 7 min; the stack up,
   Kibana not needed); (2) open `results/summary/ndcg-dev-both.md`; (3) run it again and compare the table rows
   (`git diff results/summary/ndcg-dev-both.md` shows only the run line); optional: `--mode direct` alone
   (under a minute), `--set test` (refused)
