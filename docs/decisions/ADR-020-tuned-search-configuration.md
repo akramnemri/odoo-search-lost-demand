@@ -1,8 +1,7 @@
 # ADR-020 — The tuned search configuration (`TUNED_V1`) and the stock rule
 
-- Status: Proposed (2026-11-27, agent, Task 3.5) — the stock rule is decided (supervisor, 2026-11-27: "Keep
-  rule (a)"); the configuration `TUNED_V1` awaits the supervisor's approval after reviewing the experiment log
-  (roadmap Task 3.5: "the supervisor reviews the experiment log and approves the configuration")
+- Status: **Accepted** (2026-11-27, supervisor: "Approve, merge after CI", after the experiment log; stock rule:
+  "Keep rule (a)")
 - Date: 2026-11-27
 - Source: `docs/ai/05_ROADMAP.md` Task 3.5; `docs/ai/04_DATA_SEARCH_EVALUATION.md` §6; protocol §6
 

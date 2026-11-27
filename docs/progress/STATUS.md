@@ -6,9 +6,9 @@ Updated: 2026-11-27 by agent session 10 — Task 3.5 (relevance tuning) done: TU
 - Milestone: M3 — Search engine (FR1–FR3, fallback, synonyms). M2 released 2026-11-19 (PR #32 4f62925, release PR
   #33 merge commit 8c7558a, tag `m2-catalog`); M1 released 2026-11-14 (PR #22, f3926a1, tag `m1-stack`)
 - M3 order: 3.1 → 3.2 → 3.3 → 3.4 → **3.5** → 3.6 → 3.7. Task 1.6 (interview) still open, in parallel
-- Task: **3.5 — relevance tuning v1 (FR2, FR3)** — state: **experiments run, `TUNED_V1` chosen by the
-  pre-registered rule and wired; waiting for the supervisor's review of the experiment log, approval of the
-  configuration (ADR-020, Proposed); stock rule decided: (a) kept (supervisor, 2026-11-27)** (plan accepted 2026-11-27: "go as the
+- Task: **3.5 — relevance tuning v1 (FR2, FR3)** — state: **configuration approved and stock rule (a) kept by
+  the supervisor (2026-11-27, ADR-020 Accepted); waiting for CI, then squash-merge (supervisor's "merge after
+  CI")** (plan accepted 2026-11-27: "go as the
   recommendations", after a second in-depth review)
 - Branch / PR: `feat/relevance-tuning` (from `develop` b68a5cc) — PR to `develop` (number in the task report)
 - Local checkout: on `feat/relevance-tuning`; ESCI in `data/raw/esci/` (3 files, verified); the supervisor's
@@ -467,6 +467,8 @@ Updated: 2026-11-27 by agent session 10 — Task 3.5 (relevance tuning) done: TU
   `baseline-search-20261119T154209Z`, git bc36eb3): every table row identical
 
 ## Decisions since last milestone
+- Task 3.5 configuration approved (supervisor, 2026-11-27, "Approve, merge after CI"): `TUNED_V1`, ADR-020
+  Accepted
 - Task 3.5 stock rule (supervisor, 2026-11-27, "Keep rule (a)"): `es_tuned_stock` keeps rule (a) "tiered"
   (every in-stock product before every sold-out one); rule (b) ×1.2 not chosen (ADR-020)
 - Task 3.5 plan accepted 2026-11-27 ("go as the recommendations", after a second, deeper review): query
