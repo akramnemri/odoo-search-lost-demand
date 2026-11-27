@@ -16,6 +16,7 @@ Design (docs/ai/01_ARCHITECTURE.md §8, docs/ai/04_DATA_SEARCH_EVALUATION.md §5
 
 from __future__ import annotations
 
+import copy
 import json
 import re
 import time
@@ -33,10 +34,12 @@ SYNONYMS_SETS_PAGE = 1000  # GET _synonyms answers 10 sets by default
 
 @dataclass(frozen=True)
 class IndexNames:
-    """The alias the shop reads and the prefix of its versioned indices."""
+    """The alias the shop reads, the prefix of its versioned indices, and the synonyms set they search with
+    (tests use their own set, so they never change the shop's synonyms)."""
 
     alias: str
     prefix: str
+    synonyms_set: str = SYNONYMS_SET
 
     def versioned(self, version: int) -> str:
         return f"{self.prefix}{version}"
@@ -224,13 +227,23 @@ def swap_actions(
     return actions
 
 
-def ensure_synonyms_set(client: Any, seed: list[dict[str, str]]) -> bool:
-    """Create the synonyms set from the seed when it is missing; True when created. Never overwrites."""
+def ensure_synonyms_set(client: Any, seed: list[dict[str, str]], set_name: str = SYNONYMS_SET) -> bool:
+    """Create the synonyms set from the seed when it is missing; True when created. Never overwrites: the
+    rules themselves come from Odoo (`lost_demand.synonym`, Task 3.6), pushed by the sync job."""
     body = _body(client.synonyms.get_synonyms_sets(size=SYNONYMS_SETS_PAGE))
-    if any(entry.get("synonyms_set") == SYNONYMS_SET for entry in body.get("results", [])):
+    if any(entry.get("synonyms_set") == set_name for entry in body.get("results", [])):
         return False
-    client.synonyms.put_synonym(id=SYNONYMS_SET, synonyms_set=seed)
+    client.synonyms.put_synonym(id=set_name, synonyms_set=seed)
     return True
+
+
+def settings_for(settings: Mapping[str, Any], set_name: str) -> dict[str, Any]:
+    """The index settings with the synonym filters pointing to `set_name` (the file names the shop's)."""
+    copied = copy.deepcopy(dict(settings))
+    for definition in copied.get("analysis", {}).get("filter", {}).values():
+        if definition.get("type") in ("synonym", "synonym_graph"):
+            definition["synonyms_set"] = set_name
+    return copied
 
 
 @dataclass(frozen=True)
@@ -298,11 +311,12 @@ def rebuild(
     half-built index is kept for inspection and the next rebuild takes the next version number.
     """
     started = clock()
-    created = ensure_synonyms_set(client, definition.synonyms_seed)
+    created = ensure_synonyms_set(client, definition.synonyms_seed, names.synonyms_set)
     indices = existing_indices(client, names)
     previous = tuple(alias_holders(indices, names))
     new_index = next_index(indices, names)
-    client.indices.create(index=new_index, settings=definition.settings, mappings=definition.mappings)
+    settings = settings_for(definition.settings, names.synonyms_set)
+    client.indices.create(index=new_index, settings=settings, mappings=definition.mappings)
 
     sent = 0
     for batch in batches:

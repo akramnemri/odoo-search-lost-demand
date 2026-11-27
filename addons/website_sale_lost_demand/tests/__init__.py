@@ -7,4 +7,5 @@ from . import (
     test_settings_page,
     test_shop_search,
     test_shop_search_es,
+    test_synonyms,
 )

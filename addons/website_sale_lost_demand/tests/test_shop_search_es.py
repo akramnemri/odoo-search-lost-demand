@@ -14,7 +14,7 @@ from ..services.config import load_config
 from ..services.es_client import EsClient
 from ..services.query_builder import ES_PLAIN, ES_TUNED, ES_TUNED_STOCK, SearchFilters
 from ..services.shop_search import search_template_ids
-from .test_product_index_es import TEST_NAMES
+from .test_product_index_es import TEST_NAMES, drop_test_resources
 
 
 @tagged("post_install", "-at_install", "es")
@@ -42,6 +42,14 @@ class TestShopSearchOnTheRealCluster(TransactionCase):
             {"name": "Zqxes bedspread hidden", "type": "consu", "is_published": False}
         )
         cls.website = cls.env["website"].get_current_website()
+        # Task 3.6: made-up words, so no other product of the test database matches them.
+        cls.sneaker = Product.create(
+            {"name": "Zqxes running zqxsneaker", "type": "consu", "is_published": True}
+        )
+        cls.pc = Product.create({"name": "Zqxes zqxpc gaming tower", "type": "consu", "is_published": True})
+        cls.laptop = Product.create(
+            {"name": "Zqxes zqxlaptop thin 14 inch", "type": "consu", "is_published": True}
+        )
 
     def setUp(self):
         super().setUp()
@@ -53,9 +61,7 @@ class TestShopSearchOnTheRealCluster(TransactionCase):
 
     @classmethod
     def _drop_test_indices(cls):
-        for index in cls.client.indices.get_alias(index=TEST_NAMES.prefix + "*").body:
-            if TEST_NAMES.version_of(index) is not None:
-                cls.client.indices.delete(index=index)
+        drop_test_resources(cls.client)
 
     def search(self, engine, text, size=100):
         filters = SearchFilters(website_id=self.website.id)
@@ -92,3 +98,34 @@ class TestShopSearchOnTheRealCluster(TransactionCase):
         body = query_builder.build_search(ES_TUNED, "xjv-5531", filters, 10, tuned=query_builder.TUNED_V0)
         hits = self.client.search(index=TEST_NAMES.alias, body=body).body["hits"]["hits"]
         self.assertNotIn(str(self.in_stock.id), [hit["_id"] for hit in hits])
+
+    # --- synonyms (Task 3.6) ---
+
+    def search_among(self, text, products, engine=ES_TUNED):
+        filters = SearchFilters(website_id=self.website.id)
+        hits = search_template_ids(self.service, TEST_NAMES.alias, engine, text, filters, 100)
+        return [template_id for template_id in hits.ids if template_id in products.ids]
+
+    def add_synonym(self, terms):
+        Synonym = self.env["lost_demand.synonym"]
+        Synonym.create({"terms": terms})
+        state = Synonym._sync_to_search(names=TEST_NAMES)
+        self.assertTrue(state.startswith("in sync"), state)
+
+    def test_a_new_synonym_works_without_reindexing(self):
+        self.assertEqual(self.search_among("zqxtrainers", self.sneaker), [])
+
+        # The product says "zqxsneaker": the plural in the rule reaches it through the forms Odoo adds.
+        self.add_synonym("zqxsneakers, zqxtrainers")
+
+        self.assertEqual(self.search_among("zqxtrainers", self.sneaker), [self.sneaker.id])
+        self.assertEqual(self.search_among("zqxtrainer", self.sneaker), [self.sneaker.id])
+
+    def test_typed_words_rank_before_synonym_matches(self):
+        """The supervisor's example: with a rule "laptop, pc", a search for "laptop" lists laptops before pcs
+        and a search for "pc" lists pcs before laptops (the literal-word bonus of TUNED_V2)."""
+        self.add_synonym("zqxlaptop, zqxpc")
+        both = self.pc | self.laptop
+
+        self.assertEqual(self.search_among("zqxlaptop", both), [self.laptop.id, self.pc.id])
+        self.assertEqual(self.search_among("zqxpc", both), [self.pc.id, self.laptop.id])

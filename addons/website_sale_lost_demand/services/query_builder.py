@@ -9,7 +9,8 @@ The engines (names shared with the evaluation protocol, docs/evaluation/protocol
   `TunedConfig`. `TUNED_V0` (Task 3.3, not tuned): `name`, `brand`, `description` with weights 3 / 2 / 1 and
   typo tolerance (`fuzziness: AUTO`, first letter exact). Task 3.5 measured variants of it on the dev queries
   (`uv run shop eval tune`, tools/shoptools/eval/tuning.toml) and chose `TUNED_V1` (ADR-020): v0 plus a
-  `tie_breaker` of 0.3 and the internal-reference match. `TUNED` is the configuration the shop uses.
+  `tie_breaker` of 0.3 and the internal-reference match. Task 3.6 added the literal-word bonus (`TUNED_V2`,
+  ADR-021) for synonyms. `TUNED` is the configuration the shop uses.
 - `es_tuned_stock` — `es_tuned` with the in-stock rule of FR3. Implementation (a) "tiered", applied to the
   most relevant hits only: Elasticsearch returns the `size` best-scored products, then every in-stock one
   among them comes before every sold-out one, by score within each group (`hit_ids(in_stock_first=True)`).
@@ -49,6 +50,7 @@ PLAIN_FIELDS = ("name.std", "description.std", "brand.std")
 TUNED_FIELDS = ("name^3", "brand^2", "description")
 MATCH_TYPES = ("best_fields", "most_fields", "cross_fields")
 TIERED, BOOSTED = "tiered", "boosted"
+LITERAL_ANALYZER = "shop_index"  # the index-time analyzer of the shop fields: stemming, no synonyms
 STOCK_RULES = (TIERED, BOOSTED)
 
 
@@ -71,6 +73,7 @@ class TunedConfig:
     minimum_should_match: str | None = None  # how many query words must match, e.g. "2<75%"
     name_phrase_boost: float | None = None  # extra score when the words appear together in the name
     ref_exact_boost: float | None = None  # a query equal to a product's internal reference finds it
+    literal_boost: float | None = None  # extra score for the typed words, without synonyms (Task 3.6)
     stock_rule: str = TIERED  # es_tuned_stock only: tiered (a) or boosted (b)
     stock_factor: float = 1.0  # boosted rule: in-stock scores are multiplied by this
 
@@ -89,7 +92,7 @@ class TunedConfig:
             raise ValueError(f"stock_rule must be one of {STOCK_RULES}")
         if self.stock_factor <= 0:
             raise ValueError("stock_factor must be positive")
-        for boost in (self.name_phrase_boost, self.ref_exact_boost):
+        for boost in (self.name_phrase_boost, self.ref_exact_boost, self.literal_boost):
             if boost is not None and boost <= 0:
                 raise ValueError("boosts must be positive")
 
@@ -98,8 +101,11 @@ TUNED_V0 = TunedConfig()
 # Chosen in Task 3.5 on the dev queries by the pre-registered rule (docs/evaluation/experiments.md, ADR-020):
 # v0 plus a tie-breaker (30 % of the other fields' scores) and the exact internal-reference match.
 TUNED_V1 = TunedConfig(tie_breaker=0.3, ref_exact_boost=10.0)
+# Task 3.6 (ADR-021): v1 plus the literal-word bonus, so a synonym never outranks the words the shopper typed.
+# Neutral without synonyms: the extra score is then the same multiple of every product's score.
+TUNED_V2 = TunedConfig(tie_breaker=0.3, ref_exact_boost=10.0, literal_boost=3.0)
 # The configuration the shop uses.
-TUNED = TUNED_V1
+TUNED = TUNED_V2
 
 
 @dataclass(frozen=True)
@@ -136,7 +142,7 @@ def _filters(filters: SearchFilters) -> list[dict[str, Any]]:
     return clauses
 
 
-def _tuned_match(text: str, tuned: TunedConfig) -> dict[str, Any]:
+def _words(text: str, tuned: TunedConfig) -> dict[str, Any]:
     multi_match: dict[str, Any] = {"query": text, "fields": list(tuned.fields), "type": tuned.match_type}
     if tuned.fuzziness is not None:
         multi_match["fuzziness"] = tuned.fuzziness
@@ -145,7 +151,21 @@ def _tuned_match(text: str, tuned: TunedConfig) -> dict[str, Any]:
         multi_match["tie_breaker"] = tuned.tie_breaker
     if tuned.minimum_should_match is not None:
         multi_match["minimum_should_match"] = tuned.minimum_should_match
-    match = {"multi_match": multi_match}
+    return multi_match
+
+
+def _literal_bonus(text: str, tuned: TunedConfig) -> dict[str, Any]:
+    """The same words scored again without synonyms (Task 3.6): a product that matches what the shopper typed
+    gets this extra score, one found only through a synonym does not, so "laptop" lists laptops before the
+    "pc" products a rule "laptop, pc" brings. Without a synonym in the query both scores are equal for every
+    product, so the order does not change. `shop_index` is the index-time analyzer: no synonyms."""
+    return {
+        "multi_match": {**_words(text, tuned), "analyzer": LITERAL_ANALYZER, "boost": tuned.literal_boost}
+    }
+
+
+def _tuned_match(text: str, tuned: TunedConfig) -> dict[str, Any]:
+    match = {"multi_match": _words(text, tuned)}
     if tuned.ref_exact_boost is None:
         return match
     # Either the words match, or the whole query is a product's internal reference (Odoo's own search finds a
@@ -159,10 +179,13 @@ def _query(engine: str, text: str, filters: SearchFilters, tuned: TunedConfig) -
         plain = {"multi_match": {"query": text, "fields": list(PLAIN_FIELDS)}}
         return {"bool": {"must": [plain], "filter": _filters(filters)}}
     query: dict[str, Any] = {"bool": {"must": [_tuned_match(text, tuned)], "filter": _filters(filters)}}
+    should: list[dict[str, Any]] = []
     if tuned.name_phrase_boost is not None:
-        query["bool"]["should"] = [
-            {"match_phrase": {"name": {"query": text, "boost": tuned.name_phrase_boost}}}
-        ]
+        should.append({"match_phrase": {"name": {"query": text, "boost": tuned.name_phrase_boost}}})
+    if tuned.literal_boost is not None:
+        should.append(_literal_bonus(text, tuned))
+    if should:
+        query["bool"]["should"] = should
     if engine == ES_TUNED_STOCK and tuned.stock_rule == BOOSTED:
         return {
             "function_score": {

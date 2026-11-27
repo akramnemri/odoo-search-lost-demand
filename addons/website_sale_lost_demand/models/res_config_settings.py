@@ -16,6 +16,8 @@ from ..services.es_client import ClusterStatus, EsService, shared_service
 from ..services.index_sync import FAILING_AFTER_ATTEMPTS
 from ..services.product_index import PRODUCTS, IndexStatus, load_definition
 
+SYNONYMS_STATE_PARAM = "website_sale_lost_demand.synonyms_state"  # written by lost_demand.synonym
+
 
 def get_es_service() -> EsService:
     """The process-wide service; tests patch this function with a fake (tests/fake_es.py)."""
@@ -67,6 +69,14 @@ class ResConfigSettings(models.TransientModel):
     )
     lost_demand_queue_oldest = fields.Datetime(
         string="Oldest change", compute="_compute_lost_demand_queue_status"
+    )
+
+    # Task 3.6: search synonyms (lost_demand.synonym) and the last outcome of their sync to Elasticsearch.
+    lost_demand_synonyms_count = fields.Integer(
+        string="Synonym rules", compute="_compute_lost_demand_synonyms_status"
+    )
+    lost_demand_synonyms_message = fields.Char(
+        string="Synonyms", compute="_compute_lost_demand_synonyms_status"
     )
 
     @api.model
@@ -154,6 +164,26 @@ class ResConfigSettings(models.TransientModel):
             settings.lost_demand_queue_waiting = waiting
             settings.lost_demand_queue_failing = failing
             settings.lost_demand_queue_oldest = oldest or False
+
+    @api.model
+    def _compute_lost_demand_synonyms_status(self):
+        count = self.env["lost_demand.synonym"].sudo().search_count([])
+        state = self.env["ir.config_parameter"].sudo().get_param(SYNONYMS_STATE_PARAM) or ""
+        if state.startswith("in sync"):
+            message = self.env._("%(count)s active rules, sent to search.", count=count)
+        elif state.startswith("error"):
+            message = self.env._(
+                "Not sent to search yet (%(error)s). The rules are kept in Odoo and sent when Elasticsearch "
+                "answers, within a minute.",
+                error=state.removeprefix("error: "),
+            )
+        else:
+            message = self.env._(
+                "%(count)s active rules; not sent yet (the sync job runs every minute).", count=count
+            )
+        for settings in self:
+            settings.lost_demand_synonyms_count = count
+            settings.lost_demand_synonyms_message = message
 
     def action_lost_demand_rebuild_index(self):
         """Settings button (administrators only): full rebuild, then a notification and a page reload."""

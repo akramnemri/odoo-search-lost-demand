@@ -88,7 +88,7 @@ class FakeEngines:
         if self.fallbacks.get(query, 0) > 0:
             self.fallbacks[query] -= 1
             return ndcg.Ranking(products=["P3"], engine_used="odoo_fallback")
-        return ndcg.Ranking(products=self.rankings[engine][query], engine_used=engine)
+        return ndcg.Ranking(products=self.rankings[engine].get(query, []), engine_used=engine)
 
 
 RANKINGS = {
@@ -419,3 +419,42 @@ def test_progress_never_fails_on_a_narrow_console_encoding(monkeypatch: pytest.M
     ndcg._print("Δ dev +0.0090\n")
 
     assert written == ["? dev +0.0090\n"]
+
+
+# --- dev-typo and comparison with an earlier run (Task 3.6) ---
+
+
+def test_dev_typo_set_runs_on_typed_queries(repo: Path, engines: FakeEngines) -> None:
+    code, _ = _run(repo, engines, set_name="dev-typo", engines=("es_plain",))
+
+    assert code == 0
+    asked = {query for _, query in engines.calls}
+    assert asked and not asked & {"blue lamp", "garden chair"}  # every query carries one typo
+    assert (repo / "results" / "summary" / "ndcg-dev-typo-http.md").is_file()
+
+
+def test_compare_to_an_earlier_run(repo: Path, engines: FakeEngines) -> None:
+    assert _run(repo, engines, engines=("es_plain",))[0] == 0
+    (first,) = _run_folders(repo)
+    before = first.rename(first.with_name("ndcg-dev-http-before"))  # fake runs share a second: distinct name
+    engines.rankings["es_plain"]["blue lamp"] = ["P1", "P2"]  # now ideal for query 1
+
+    code, output = _run(repo, engines, engines=("es_plain",), compare_to=before.name)
+
+    assert code == 0
+    after = [folder for folder in _run_folders(repo) if folder != before][0]
+    meta = json.loads((after / "run.json").read_text(encoding="utf-8"))
+    assert meta["compared_to"] == before.name
+    assert meta["command"].endswith(f"--compare-to {before.name}")
+    table = (repo / "results" / "summary" / "ndcg-dev-http.md").read_text(encoding="utf-8")
+    assert f"Compared with run `{before.name}`" in table
+    assert "| http | `es_plain` | 2 | 1 |" in table  # one top 10 changed
+    assert "vs " + before.name in output
+
+
+def test_compare_to_refuses_another_query_set(repo: Path, engines: FakeEngines, capsys) -> None:
+    assert _run(repo, engines, engines=("es_plain",))[0] == 0
+    (before,) = _run_folders(repo)
+
+    assert _run(repo, engines, set_name="dev-typo", engines=("es_plain",), compare_to=before.name)[0] == 1
+    assert "another query set" in capsys.readouterr().err

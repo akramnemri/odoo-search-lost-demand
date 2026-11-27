@@ -92,9 +92,27 @@ def test_tuned_engine_v0() -> None:
     }
 
 
-def test_tuned_engine_v1_is_the_shops() -> None:
-    assert build_search(ES_TUNED, "royal blue bedspread", FILTERS, 50) == {
+def test_tuned_engine_v1() -> None:
+    from services.query_builder import TUNED_V1
+
+    assert build_search(ES_TUNED, "royal blue bedspread", FILTERS, 50, tuned=TUNED_V1) == {
         "query": {"bool": {"must": [V1_MATCH], "filter": SHOP_FILTERS}},
+        "sort": ["_score", {"template_id": "asc"}],
+        "size": 50,
+        "_source": False,
+        "track_total_hits": False,
+    }
+
+
+# TUNED_V2 (Task 3.6, ADR-021): v1 + the typed words scored again without synonyms, boost 3.
+LITERAL_BONUS = {
+    "multi_match": {**V1_MATCH["bool"]["should"][0]["multi_match"], "analyzer": "shop_index", "boost": 3.0}
+}
+
+
+def test_tuned_engine_v2_is_the_shops() -> None:
+    assert build_search(ES_TUNED, "royal blue bedspread", FILTERS, 50) == {
+        "query": {"bool": {"must": [V1_MATCH], "filter": SHOP_FILTERS, "should": [LITERAL_BONUS]}},
         "sort": ["_score", {"template_id": "asc"}],
         "size": 50,
         "_source": False,
@@ -105,7 +123,7 @@ def test_tuned_engine_v1_is_the_shops() -> None:
 def test_stock_engine_cuts_by_score_and_reads_the_stock_flag() -> None:
     """Option A (2026-11-20): Elasticsearch ranks by score only; the stock rule applies after the cut."""
     assert build_search(ES_TUNED_STOCK, "royal blue bedspread", FILTERS, 50) == {
-        "query": {"bool": {"must": [V1_MATCH], "filter": SHOP_FILTERS}},
+        "query": {"bool": {"must": [V1_MATCH], "filter": SHOP_FILTERS, "should": [LITERAL_BONUS]}},
         "sort": ["_score", {"template_id": "asc"}],
         "size": 50,
         "_source": False,
@@ -215,10 +233,19 @@ def _tuned_body(**changes: object) -> dict:
 def test_v1_is_v0_with_the_two_kept_changes() -> None:
     from dataclasses import replace
 
-    from services.query_builder import TUNED, TUNED_V0, TUNED_V1
+    from services.query_builder import TUNED, TUNED_V0, TUNED_V1, TUNED_V2
 
-    assert TUNED == TUNED_V1 == replace(TUNED_V0, tie_breaker=0.3, ref_exact_boost=10.0)
-    assert TUNED_V1.stock_rule == "tiered"  # rule (a) stays (experiments.md, stage 3)
+    assert replace(TUNED_V0, tie_breaker=0.3, ref_exact_boost=10.0) == TUNED_V1
+    assert TUNED == TUNED_V2 == replace(TUNED_V1, literal_boost=3.0)
+    assert TUNED_V2.stock_rule == "tiered"  # rule (a) stays (experiments.md, stage 3)
+
+
+def test_literal_bonus_joins_the_phrase_bonus() -> None:
+    query = _tuned_body(name_phrase_boost=2.0, literal_boost=3.0)["query"]["bool"]
+
+    assert [next(iter(clause)) for clause in query["should"]] == ["match_phrase", "multi_match"]
+    assert query["should"][1]["multi_match"]["analyzer"] == "shop_index"
+    assert "analyzer" not in query["must"][0]["multi_match"]  # the main clause keeps the synonyms
 
 
 def test_exact_words_leave_fuzziness_out() -> None:
@@ -283,6 +310,7 @@ def test_boosted_stock_rule_multiplies_in_stock_scores_and_keeps_elasticsearch_o
         ({"stock_rule": "random"}, "stock_rule"),
         ({"stock_factor": 0}, "stock_factor"),
         ({"name_phrase_boost": -1.0}, "boosts"),
+        ({"literal_boost": 0.0}, "boosts"),
     ],
 )
 def test_invalid_settings_are_refused(changes: dict, message: str) -> None:
