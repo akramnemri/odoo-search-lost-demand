@@ -1,16 +1,16 @@
 # STATUS
 
-Updated: 2026-11-21 by agent session 9 — Task 3.4 (NDCG harness) implemented, dev baseline run twice, PR open
+Updated: 2026-11-27 by agent session 10 — Task 3.4 merged (PR #37); Task 3.5 (relevance tuning) started
 
 ## Current position
 - Milestone: M3 — Search engine (FR1–FR3, fallback, synonyms). M2 released 2026-11-19 (PR #32 4f62925, release PR
   #33 merge commit 8c7558a, tag `m2-catalog`); M1 released 2026-11-14 (PR #22, f3926a1, tag `m1-stack`)
-- M3 order: 3.1 → 3.2 → 3.3 → **3.4** → 3.5 → 3.6 → 3.7. Task 1.6 (interview) still open, in parallel
-- Task: **3.4 — minimal NDCG harness** — state: **manual test passed 2026-11-21 (run by the agent on the
-  supervisor's request); waiting for CI and the supervisor's "merge"** (plan accepted 2026-11-20: "go as the recommendations", after a second in-depth
-  review)
-- Branch / PR: `feat/ndcg-harness` (from `develop` b807c00) — PR #37
-- Local checkout: on `feat/ndcg-harness`; ESCI in `data/raw/esci/` (3 files, verified)
+- M3 order: 3.1 → 3.2 → 3.3 → 3.4 → **3.5** → 3.6 → 3.7. Task 1.6 (interview) still open, in parallel
+- Task: **3.5 — relevance tuning v1 (FR2, FR3)** — state: **in progress** (plan accepted 2026-11-27: "go as the
+  recommendations", after a second in-depth review)
+- Branch / PR: `feat/relevance-tuning` (from `develop` b68a5cc) — PR not opened yet
+- Local checkout: on `feat/relevance-tuning`; ESCI in `data/raw/esci/` (3 files, verified); the supervisor's
+  interim demo script `docs/report/notes/M3-demo.md` stays local and untracked (never committed unless asked)
 - Repository: https://github.com/akramnemri/odoo-search-lost-demand (public, default branch `develop`)
 
 ## Milestone 0 exit check (2026-10-28)
@@ -384,7 +384,8 @@ Updated: 2026-11-21 by agent session 9 — Task 3.4 (NDCG harness) implemented, 
   results (`odoo_fallback`), ~0.9 s for the first 3, then circuit open (one warning logged) ~0.3 s; started
   again: Elasticsearch results 54 s later
 
-- 3.4 — PR #37, waiting for CI and "merge". **Manual test passed 2026-11-21, run by the agent** on the
+- 3.4 — merged 2026-11-21 (PR #37, squash b68a5cc, by the agent on the supervisor's "Merge now" after all six
+  checks were green). **Manual test passed 2026-11-21, run by the agent** on the
   supervisor's request: (1) `uv run shop eval ndcg --engine all --mode both` at 4f5ea13 (440 s): the generated
   table differs from the committed one only in its run line; (2) the table read: run line with a clean commit,
   method notes, "dev only" warning, both modes, comparisons, consistency 300/300; (3) a second run (432 s):
@@ -435,6 +436,14 @@ Updated: 2026-11-21 by agent session 9 — Task 3.4 (NDCG harness) implemented, 
   `baseline-search-20261119T154209Z`, git bc36eb3): every table row identical
 
 ## Decisions since last milestone
+- Task 3.5 plan accepted 2026-11-27 ("go as the recommendations", after a second, deeper review): query
+  settings as data (`TunedConfig`, `TUNED_V0` kept, the winner `TUNED_V1`); `uv run shop eval tune <variant>`
+  compares a variant with its parent in direct mode on dev and on a run-time **dev-typo** set (protocol typo
+  model, stream `dev-typos`); experiments pre-registered in three stages (single changes on v0, one combination,
+  stock rule (b) vs (a)), at most 15 runs; keep/drop computed by the pre-registered rule (+0.005 on dev and no
+  loss on either half of dev, or a functional goal met within −0.005); stock rule (a) stays unless (b) gains
+  ≥ 0.02 with ≥ 95 % in-stock in the top 10 (supervisor decides); exact internal-reference match if it costs
+  nothing
 - Task 3.4 plan accepted 2026-11-20 ("go as the recommendations", after a second, deeper review): paired
   statistics (difference interval, randomization test, Holm) included now; `--engine all` adds
   `es_tuned_stock`; an Elasticsearch fallback in `http` mode fails the run (one retry); `--mode both` with the
@@ -544,12 +553,11 @@ Updated: 2026-11-21 by agent session 9 — Task 3.4 (NDCG harness) implemented, 
 - A local shop owner for interview #1 (Task 1.6) — start looking early
 
 ## Next step (exact)
-- **Supervisor: "merge" of PR #37 after CI** (manual test passed, run by the agent). The manual-test steps,
-  for the supervisor's own run: (1) `uv run shop eval ndcg --engine all --mode both` (about 7 min; the stack up,
+- **Task 3.5 in progress** on `feat/relevance-tuning`. Task 3.4's manual-test steps, for reference: (1) `uv run shop eval ndcg --engine all --mode both` (about 7 min; the stack up,
   Kibana not needed); (2) open `results/summary/ndcg-dev-both.md`; (3) run it again and compare the table rows
   (`git diff results/summary/ndcg-dev-both.md` shows only the run line); optional: `--mode direct` alone
-  (under a minute), `--set test` (refused). Next task: 3.5 (relevance tuning v1)
-- Task 3.5 (next) must address what remains of the 3.3 finding: sold-out exact matches sit after up to ~1,000 weak in-stock matches
+  (under a minute), `--set test` (refused)
+- Task 3.5 must address what remains of the 3.3 finding: sold-out exact matches sit after up to ~1,000 weak in-stock matches
   (`minimum_should_match`, rule (b) "boosted"), and weak matches surface under the price sort. The original manual-test steps, kept for the supervisor's own run (the stack
   runs module 19.0.0.5.0 with the fix):
   1. Browser, `http://127.0.0.1:8069/shop?search=royal blue bedspreads` (Odoo alone finds nothing: baseline),
