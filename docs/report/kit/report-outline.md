@@ -15,7 +15,7 @@ material already is.
 | 7 | Search: product index, sync within a minute (FR1), Elasticsearch search with fallback (FR2–FR3) | `docs/report/kit/odoo-overrides.md`; `figures.md` D1–D3; `results/summary/freshness-products.md`; `odoo-overrides.md` Task 3.3 (search override, fallback), `figures.md` D4, `engineering-log.md` 3.3; Tasks 3.4–3.6 |
 | 8 | Events and dashboards (FR6–FR7) | M4 (to come) |
 | 9 | Lost-demand detection and restocking (FR8–FR10) | M6 (to come); protocol v1.1 hidden sets |
-| 10 | Evaluation protocol and results (NDCG, detection recall, speed, freshness, volume, usefulness) | `docs/evaluation/protocol.md` (tagged before any result); `docs/report/kit/results-index.md`; harness `tools/shoptools/eval/ndcg.py` + `metrics.py` (hand-checked tests), dev table `results/summary/ndcg-dev-both.md` |
+| 10 | Evaluation protocol and results (NDCG, detection recall, speed, freshness, volume, usefulness) | `docs/evaluation/protocol.md` (tagged before any result); `docs/report/kit/results-index.md`; harness `tools/shoptools/eval/ndcg.py` + `metrics.py` (hand-checked tests), dev table `results/summary/ndcg-dev-both.md`; tuning: `docs/evaluation/experiments.md` (pre-registered method, interpretation), `results/summary/tuning-dev.md`, ADR-020 |
 | 11 | Engineering: quality gate, tests, CI, reproducibility; problems met and lessons | `docs/ai/03_GIT_TESTING_PIPELINE.md`; `docs/report/kit/engineering-log.md`; milestone notes |
 | 12 | Limits, threats to validity, future work | synthetic prices/stock; ESCI judged-only catalog; laptop-scale measurements; negative results as found |
 | 13 | Conclusion | — |

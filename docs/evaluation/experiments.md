@@ -87,6 +87,34 @@ On the chosen stage-2 configuration with engine `es_tuned_stock`: rule (b) with 
 1.2 (`s01`) and by 2.0 (`s02`), each against rule (a). Multiplying keeps the rule independent of the score scale,
 which varies by query.
 
-## Results and interpretation
+## Results and interpretation (2026-11-27)
 
-Written after the runs, without retyping numbers: see `results/summary/tuning-dev.md`.
+All numbers: `results/summary/tuning-dev.md`, generated from the 14 run folders (11 + 1 + 2 of the budget of
+15; every run from a clean commit: stage 1 at `6d6c3c4`, stage 2 at `acc8e29`, stage 3 at `0e59ad4`). The stage 2
+and 3 variants were added to `tuning.toml` after the stage before them, exactly as defined above.
+
+**Stage 1.** Two changes passed the rule: the **tie-breaker** (a gain on dev that holds on both halves and whose
+interval excludes zero) and the **internal-reference match** (its goal met: every sampled product found first by
+its reference, with identical dev rankings). Turning typo tolerance off, or `cross_fields` (which requires it off),
+confirmed the hypothesis of `e01`: a large loss on the typo set — typo tolerance is what FR2 is about. Letting the
+first letter be wrong lost on dev; two exact first letters lost on the typo set. **"Most words must match"**
+(`e07`) did what Task 3.3 needed — it cut the weak tail of matches by a large factor — but lost on the typo set,
+because a typo can make a required word miss; the rule protects typos, so it was dropped and the weak tail stays
+an open point. `most_fields` lost on dev; the phrase bonus and a lighter description changed little. The unstemmed
+name (`name.std`) changed nothing at all: with `best_fields` the higher-weighted stemmed name always wins, so a
+lower-weighted copy of the same field never decides the score — a lesson about `best_fields`, not about stemming.
+
+**Stage 2.** The combination of the two kept changes (`c01-combined`) passed the rule against v0, with the same
+gain as the tie-breaker alone (the reference match does not change the rankings of word queries). It becomes
+`TUNED_V1` (ADR-020).
+
+**Stage 3.** On `TUNED_V1`, rule (b) with in-stock scores ×1.2 gained clearly over rule (a), but its top 10 held
+slightly fewer in-stock products than the pre-registered 95 % (the table shows two decimals because the margin is
+that small); ×2.0 kept almost every top-10 product in stock but gained too little. By the rule, **rule (a) stays**.
+Rule (b) ×1.2 is the supervisor's alternative: about half the relevance cost of in-stock first, at the price of a
+few sold-out products in the top 10.
+
+**What this does and does not show.** The tuned query is better than v0 on the dev queries, with an interval that
+excludes zero — a modest gain. The kept changes were chosen on these queries, so the dev gain is optimistic; the
+reported comparison of `odoo`, `es_plain` and `es_tuned` is the test-set run after the freeze (Task 8.2). Negative
+results are kept in the table on purpose.

@@ -200,8 +200,12 @@ best-scored hits, then in-stock ones first within them, by score in each group (
 cut: supervisor's option A, 2026-11-20 — sorting by stock before the cut let weak in-stock matches push a
 sold-out exact match out of the results; the module reads `in_stock` with `docvalue_fields`), the shop's
 default. All sort ties by `template_id` (reproducible order), return IDs only (`_source: false`,
-`track_total_hits: false`), at most 1,000 hits. Task 3.5 changes `es_tuned`
-one experiment at a time and records each change here.
+`track_total_hits: false`), at most 1,000 hits.
+As tuned (Task 3.5, ADR-020): `es_tuned` uses `TUNED_V1` = v0 + `tie_breaker` 0.3 + an exact, case-insensitive
+match on the internal reference `ref` (a `bool` with the `multi_match` or the `term`, `minimum_should_match` 1);
+`es_tuned_stock` keeps rule (a). Experiments, rule and interpretation: `docs/evaluation/experiments.md`; numbers:
+`results/summary/tuning-dev.md`; tool: `uv run shop eval tune <variant> | --list | --table` (direct mode, dev and
+a run-time dev-typo set, stream `dev-typos`).
 
 **Tuning space** (dev set only, one change per experiment, each recorded in `docs/evaluation/experiments.md`
 with its NDCG@10 and run ID): analyzers and stemmer, field boosts, `best_fields` vs `cross_fields` vs `most_fields`,
